@@ -1,0 +1,21 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="iSketchVis"
+        ResizeMode="CanResizeWithGrip" mc:Ignorable="d" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" d:DesignWidth="1052" SizeToContent="WidthAndHeight" d:DesignHeight="697">
+
+    <Grid>
+        <Border BorderBrush="LightSteelBlue" BorderThickness="3" HorizontalAlignment="Left" VerticalAlignment="Top">
+            <Canvas Name="BackCanvas" Margin="0,0,0,0" Height="800" Width="1280" HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="1280" MinHeight="800" MaxWidth="1280" MaxHeight="800">
+                <InkCanvas Name="InkCanvas" Height="800" Width="1280" HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="1280" MinHeight="800" MaxWidth="1280" MaxHeight="800" Canvas.Left="0" Canvas.Top="0"></InkCanvas>
+            </Canvas>
+        </Border>
+        <Button Content="Reset" Height="25" Margin="400,12,380,0" VerticalAlignment="Top" Name="ClearButton" IsEnabled="True" HorizontalAlignment="Center" Width="63" />
+        <Button Content="Eraser" Height="25" Margin="0,0,12,12" VerticalAlignment="Bottom" Name="EraserButton" IsEnabled="True" Background="#FFF8ACAC" HorizontalAlignment="Right" Width="67" />
+        <Button Content="Restore" Height="25" Margin="0,12,200,0" VerticalAlignment="Top" Name="RestoreButton" HorizontalAlignment="Right" Width="83" IsEnabled="True" Visibility="Visible" />
+        <Button Content="Load" Height="25" HorizontalAlignment="Right" Margin="0,12,111,0" VerticalAlignment="Top" Width="83" Name="LoadButton" IsEnabled="True" Visibility="Visible" />
+        <Button Content="Save" Height="25" HorizontalAlignment="Right" Margin="0,12,22,0" VerticalAlignment="Top" Width="83" Name="SaveButton" IsEnabled="True" Visibility="Visible" />
+        <Button Content="Choose File" Height="25" Margin="323,12,449,0" VerticalAlignment="Top" Name="ChooseFileButton" HorizontalAlignment="Center" Width="71" />
+
+    </Grid>
+
+</Window>

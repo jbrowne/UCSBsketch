@@ -1,0 +1,185 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{32fab410-7e7a-4243-9187-63e40d5d1f83}</ProjectGuid>
+    <ProjectHome>.</ProjectHome>
+    <StartupFile>C:\Projects\AutoCompleteViz\SketchCade\SketchSystem.py</StartupFile>
+    <SearchPath>
+    </SearchPath>
+    <WorkingDirectory>.</WorkingDirectory>
+    <IsWindowsApplication>True</IsWindowsApplication>
+    <AssemblyName>SketchCade</AssemblyName>
+    <Name>SketchCade</Name>
+    <RootNamespace>SketchCade</RootNamespace>
+    <InterpreterPath />
+    <CommandLineArguments />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugSymbols>true</DebugSymbols>
+    <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\indata.csv" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\indata2.csv" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\indata_old.csv" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\maxim_chart.txt" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\maxim_strokes.txt" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Microsoft.Dynamic.dll" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Microsoft.ink.dll" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Microsoft.Scripting.dll" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\MSRecognizers" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\MSRecognizers" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\MSRecognizers" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\MSRecognizers\MSAxesObserver.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\MSRecognizers\MSTextObserver.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\MSRecognizers\__init__.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers\ArrowObserver.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers\CircleObserver.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers\DebugObserver.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers\DiGraphObserver.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers\LineObserver.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers\ObserverBase.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers\TemplateObserver.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers\TextObserver.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Observers\__init__.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Restorefile.txt" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\saved_strokes.txt" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework\Annotation.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework\Board.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework\Point.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework\SketchCade.xaml" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework\SketchGUI.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework\Stroke.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework\TkSketchGUI.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework\WpfSketchGUI.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchFramework\__init__.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SKETCHSYSTEM.bat" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\SketchSystem.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\UNdata_Export_20100719_174919703.csv" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils\arrowheads.templ" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils\GeomUtils.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils\JBCsv.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils\Logger.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils\Template.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils\TemplateInput.xaml" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils\TkTemplateInput.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils\WpfTemplateInput.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\Utils\__init__.py" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\WindowsLib" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\WPFFrameworkElementExtension.dll" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\WPFFrameworkElementExtension.pdb" />
+    <None Include="C:\Projects\AutoCompleteViz\SketchCade\__init__.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\Annotation.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\arrowheads.templ" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\arrowheads_v1.templ" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\ArrowObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\Board.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\board_templates.templ" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\CircleObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\DebugObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\DiGraphObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\GeomUtils.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\indata.csv" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\JBCsv.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\LineObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\Logger.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\Microsoft.Dynamic.dll" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\Microsoft.Scripting.dll" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\MSAxesObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\MSTextObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\ObserverBase.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\Point.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\RunErrors.txt" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\saved_strokes.txt" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\SketchCade.xaml" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\SketchGUI.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\SketchSystem.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\Stroke.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\Template.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\TemplateInput.xaml" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\TemplateObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\TextObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\TkSketchGUI.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\TkTemplateInput.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\WPFFrameworkElementExtension.dll" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\WPFFrameworkElementExtension.pdb" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\WpfSketchGUI.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\WpfTemplateInput.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\Annotation.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\ArrowObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\Board.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\board_templates.dat" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\CircleObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\DebugObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\DiGraphObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\GeomUtils.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\LineObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\Logger.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\Microsoft.Dynamic.dll" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\Microsoft.Scripting.dll" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\ObserverBase.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\Point.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\SketchCade.xaml" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\SketchGUI.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\SketchSystem.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\Stroke.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\TemplateInput.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\TemplateInput.xaml" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\TemplateObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\TextObserver.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\TkSketchGUI.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\TkTemplateInput.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\WPFFrameworkElementExtension.dll" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\WPFFrameworkElementExtension.pdb" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\WpfSketchGUI.py" />
+    <None Include="C:\Users\t-jebrow\Desktop\wpf\wpf\SketchCade\SketchCade\WpfTemplateInput.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\Annotation.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\ArrowObserver.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\Board.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\CircleObserver.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\DebugObserver.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\DiGraphObserver.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\GeomUtils.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\LineObserver.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\Logger.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\Microsoft.Dynamic.dll" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\Microsoft.Scripting.dll" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\ObserverBase.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\Point.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\WpfSketchGUI.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\SketchCade.xaml" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\SketchGUI.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\SketchSystem.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\Stroke.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\TemplateInput.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\TemplateObserver.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\TextObserver.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\TkSketchGUI.py" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\WPFFrameworkElementExtension.dll" />
+    <None Include="S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\WPFFrameworkElementExtension.pdb" />
+    <None Include="SketchCade.py" />
+    <None Include="SketchCade.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WPFFrameworkElementExtension\WPFFrameworkElementExtension.csproj">
+      <Name>WPFFrameworkElementExtension</Name>
+      <Project>{e5821ee9-cc6e-4569-b5c5-5939fe833973}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
+</Project>

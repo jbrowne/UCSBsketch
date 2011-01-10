@@ -1,0 +1,14 @@
+S:\Projects\Draw\branches\wpf\SketchCade\WPFFrameworkElementExtension\obj\Debug\ResolveAssemblyReference.cache
+S:\Projects\Draw\branches\wpf\SketchCade\WPFFrameworkElementExtension\bin\Debug\WPFFrameworkElementExtension.dll
+S:\Projects\Draw\branches\wpf\SketchCade\WPFFrameworkElementExtension\bin\Debug\WPFFrameworkElementExtension.pdb
+S:\Projects\Draw\branches\wpf\SketchCade\WPFFrameworkElementExtension\bin\Debug\Microsoft.Dynamic.dll
+S:\Projects\Draw\branches\wpf\SketchCade\WPFFrameworkElementExtension\bin\Debug\Microsoft.Scripting.dll
+S:\Projects\Draw\branches\wpf\SketchCade\WPFFrameworkElementExtension\obj\Debug\WPFFrameworkElementExtension.dll
+S:\Projects\Draw\branches\wpf\SketchCade\WPFFrameworkElementExtension\obj\Debug\WPFFrameworkElementExtension.pdb
+S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\WPFFrameworkElementExtension.dll
+S:\Projects\Draw\branches\wpf\SketchCade\SketchCade\WPFFrameworkElementExtension.pdb
+C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\WPFFrameworkElementExtension.dll
+C:\Users\t-jebrow\Desktop\SketchCade\SketchCade\WPFFrameworkElementExtension.pdb
+C:\Users\t-jebrow\Desktop\SketchCade\WPFFrameworkElementExtension\obj\Debug\ResolveAssemblyReference.cache
+C:\Users\t-jebrow\Desktop\SketchCade\WPFFrameworkElementExtension\obj\Debug\WPFFrameworkElementExtension.dll
+C:\Users\t-jebrow\Desktop\SketchCade\WPFFrameworkElementExtension\obj\Debug\WPFFrameworkElementExtension.pdb
