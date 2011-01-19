@@ -100,7 +100,6 @@ import sys
 from Utils import Logger
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework import Board
 
 logger = Logger.getLogger('GeomUtils', Logger.WARN )
 

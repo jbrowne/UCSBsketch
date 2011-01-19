@@ -18,7 +18,7 @@ class Stroke(AnnotatableObject):
     def __str__(self):
         return str(self.id)
     
-    def __init__(self, points=None, smoothing=False):
+    def __init__(self, points=None):#, smoothing=False): DEPRECATED
         # call parent constructor
         AnnotatableObject.__init__(self) 
         # give each stroke a unique id
@@ -42,6 +42,7 @@ class Stroke(AnnotatableObject):
             if all(type(i)==tuple for i in points):
                 points = [ Point(x,y) for (x,y) in points ]
             # turning smoothing off is very handy for testing
+            """
             if smoothing: 
                 # get rid of redundant points
                 rfree = [ points[0] ]
@@ -51,6 +52,7 @@ class Stroke(AnnotatableObject):
                 # smooth over the rest
                 from Utis.GeomUtils import smooth
                 points = smooth( rfree  )
+            """
             for p in points:
                 self.addPoint(p)
     

@@ -23,6 +23,7 @@ import time
 from Tkinter import *
 from tkMessageBox import *
 
+from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
@@ -34,8 +35,40 @@ HEIGHT = 800
 MID_W = WIDTH/2
 MID_H = HEIGHT/2
 
+
+class TkSketchGUI(_SketchGUI):
+
+    Singleton = None
+    def __init__(self):
+       "Set up members for this GUI"
+       global HEIGHT, WIDTH
+       self.sketchFrame = None
+
+       TkSketchGUI.Singleton = self
+       self.run()
+    def run(self):
+       root = Tk()
+       root.title("Sketchy/Scratch")
+       self.sketchFrame = TkSketchFrame(master = root)
+       try:
+           while 1:
+               root.update_idletasks()
+               root.update()
+       except TclError:
+           pass
+
+    def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
+        "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"
+        self. sketchFrame.drawCircle(x,y,radius=radius, color=color, fill=fill, width=width)
+    def drawLine(self, x1, y1, x2, y2, width=2, color="#000000"):
+        "Draw a line on the canvas from (x1,y1) to (x2,y2). Color should be 24 bit RGB string #RRGGBB"
+        self.sketchFrame.drawLine(x1, y1, x2, y2, width=width, color=color)
+    def drawText (self, x, y, InText="", size=10, color="#000000"):
+        "Draw some text (InText) on the canvas at (x,y). Color as defined by 24 bit RGB string #RRGGBB"
+        self.sketchFrame.drawText (x, y, InText=InText, size=size, color=color)
+
 #TODO: Wrapper for TSketchGUI because This inherits from frame and we can't just switch it to inherit from SketchGUI
-class TkSketchGUI(Frame):
+class TkSketchFrame(Frame):
     """The base GUI class. 
     Class must implement drawText, drawLine and drawCircle. X-Y origin is bottom-left corner.
     Aside from these restrictions, interface options (reset board, etc) are up to the GUI programmer."""
@@ -56,12 +89,6 @@ class TkSketchGUI(Frame):
         self.BoardCanvas.bind("<B1-Motion>", self.CanvasMouseDown)          
         self.BoardCanvas.bind("<ButtonRelease-1>", self.CanvasMouseUp)      
 
-
-
-
-        if TkSketchGUI.Singleton == None:
-            TkSketchGUI.Singleton = self
-        
         self.Board = None
         self.CurrentPointList = []
         self.StrokeList = []
@@ -146,7 +173,7 @@ class TkSketchGUI(Frame):
 
     def AddCurrentStroke(self):
         if len(self.CurrentPointList) > 0:
-            stroke = Stroke( self.CurrentPointList, smoothing=True )
+            stroke = Stroke( self.CurrentPointList )#, smoothing=True )
             
             self.Board.AddStroke(stroke)
             self.StrokeList.append(stroke)
@@ -185,7 +212,8 @@ class TkSketchGUI(Frame):
          "Draw a line on the canvas from (x1,y1) to (x2,y2). Color should be 24 bit RGB string #RRGGBB"
          y1 = HEIGHT - y1
          y2 = HEIGHT - y2
-         self.BoardCanvas.create_line(x1, y1, x2 ,y2, fill=color, width=width)
+         self.BoardCanvas.create_line(x1, y1, x2 ,y2, fill=color, width = width)
+
     def drawText (self, x, y, InText="", size=10, color="#000000"):
         "Draw some text (InText) on the canvas at (x,y). Color as defined by 24 bit RGB string #RRGGBB"
         y = HEIGHT - y
@@ -203,33 +231,35 @@ def TkSketchGUISingleton():
 
 
 def drawCircle (x, y, radius=1, color="#000000", fill="", width=1.0):
-    s = TkSketchGUISingleton()
+    s = TkSketchGUISingleton().sketchFrame
     s.drawCircle(x,y,radius=radius,  color=color, fill=fill, width=width)
 
 def drawText (x, y, InText="", size=10, color="#000000"):
-    s = TkSketchGUISingleton()
+    s = TkSketchGUISingleton().sketchFrame
     s.drawText(x,y,InText=InText, size = size, color=color)
 
 def drawLine(x1, y1, x2, y2, width=2, color="#000000"):
-    s = TkSketchGUISingleton()
+    s = TkSketchGUISingleton().sketchFrame
     s.drawLine(x1,y1,x2,y2, width=width, color=color)
     
 def drawBox(topleft, bottomright, color="#000000", width=2):
-    s = TkSketchGUISingleton()
+    s = TkSketchGUISingleton().sketchFrame
     s.drawLine(topleft.X, topleft.Y, bottomright.X, topleft.Y, color=color, width=width)
     s.drawLine(bottomright.X, topleft.Y, bottomright.X, bottomright.Y, color=color, width=width)
     s.drawLine(bottomright.X, bottomright.Y, topleft.X, bottomright.Y, color=color, width=width)
     s.drawLine(topleft.X, bottomright.Y, topleft.X, topleft.Y, color=color, width=width)
     
 def drawStroke(stroke, width = 2, color="#000000"):
-    s = TkSketchGUISingleton()
+    s = TkSketchGUISingleton().sketchFrame
     prev_p = None
     for next_p in stroke.Points:
         if prev_p is not None:
-            s.drawLine(prev_p.X, prev_p.Y, next_p.X, next_p.Y, width=width, color=color)
+            s.drawLine(prev_p.X, prev_p.Y, next_p.X, next_p.Y, width = width, color=color)
         prev_p = next_p
 
 def run():
+    TkSketchGUI.Singleton = TkSketchGUI()
+    """
     root = Tk()
     root.title("Sketchy/Scratch")
     app = TkSketchGUI(master = root)
@@ -240,6 +270,7 @@ def run():
     except TclError:
         pass
     #root.mainloop()
+    """
 
 if __name__ == "__main__":
     import TkSketchGUI as GUI

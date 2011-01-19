@@ -5,7 +5,7 @@ import time
 import math
 import pdb
 from Utils import GeomUtils
-import Stroke
+from SketchFramework import Stroke
 from SketchFramework import Point
 
 from Tkinter import *
@@ -65,7 +65,7 @@ def loadTemplates(filename = TEMPLATE_FILE):
           
            
 def storeTemplate(normStroke, tag=None, filename = TEMPLATE_FILE, overwrite = False):
-    print "Saving template %s to: %s" % (tag, filename)
+    print "Saving template \"%s\" to %s" % (tag, filename)
     if overwrite:
        fp = open (filename, "w")
     else:
@@ -88,6 +88,7 @@ class SketchGUI(Frame):
         self.pack()
         #Set up the GUI stuff
 
+
         self.drawMenuOptions = {}
         
         self.BoardCanvas= Canvas(self, width=WIDTH, height = HEIGHT, bg="white", bd=2)
@@ -109,6 +110,12 @@ class SketchGUI(Frame):
 
         #self.ResetBoard()
         self.MakeMenu()
+        entryLabel = Label(self, text="Template name:")
+        entryLabel.pack(side=LEFT)
+        self.TemplateText = Entry(self, width=20)
+        self.TemplateText.pack(side=LEFT)
+        
+        #self.TemplateText.bind("<Enter>",self.KeyDown)
         #LoadStrokes()
         #self.Redraw()
 
@@ -125,16 +132,9 @@ class SketchGUI(Frame):
         top_menu.add_command(label="Reset Board", command = (lambda :self.Redraw()), underline=1 )
         top_menu.add_command(label="Load Templates", command = self.LoadTemplates, underline=1 )
         top_menu.add_command(label="Save Template", command = self.SaveTemplate, underline=1 )
-        top_menu.add_command(label="Recognize Stroke", command = (lambda :self.Redraw()), underline=1 )
-        top_menu.add_command(label="Input Stroke", command = (lambda : self.Redraw()), underline=1 )
+        #top_menu.add_command(label="Recognize Stroke", command = (lambda :self.Redraw()), underline=1 )
+        #top_menu.add_command(label="Input Stroke", command = (lambda : self.Redraw()), underline=1 )
 
-
-    def InvertDraw(self, class_):
-        "Essentially checkbox behavior for BoardObject.DrawAll variable"
-        if hasattr(class_, "DrawAll"):
-            class_.DrawAll = not class_.DrawAll
-            self.Redraw()
- 
     def CanvasMouseDown(self, event):
         "Draw a line connecting the points of a stroke as it is being drawn"
         
@@ -156,10 +156,11 @@ class SketchGUI(Frame):
         self.p_y = HEIGHT - y
             
         
+
     def SaveTemplate(self, numSamples = TEMPLATE_SAMPLE):
-        if len(self.StrokeList) > 0:
+        if len(self.StrokeList) > 0 and self.TemplateText.get().strip() != "":
             last_stroke = self.StrokeList[-1]
-            template_name = str(len(self.StrokeList))
+            template_name = self.TemplateText.get().strip()
             sNorm = GeomUtils.strokeNormalizeSpacing(last_stroke, numSamples)
             centroid = GeomUtils.centroid(sNorm.Points)
             sNorm = sNorm.translate(-1*centroid.X, -1 * centroid.Y)
