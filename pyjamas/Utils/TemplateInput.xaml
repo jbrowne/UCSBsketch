@@ -1,0 +1,19 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Template Input"
+        ResizeMode="CanResizeWithGrip" mc:Ignorable="d" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" d:DesignWidth="841" SizeToContent="WidthAndHeight" d:DesignHeight="725" WindowStartupLocation="Manual">
+    <Grid Height="666">
+        <Button Margin="10,0,713,639" Content="Store Template" Name="StoreButton"></Button>
+
+        <Border BorderBrush="LightSteelBlue" BorderThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <InkCanvas Name="InkCanvas" Height="600" Width="800" Background="White" HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="800" MinHeight="600" MaxWidth="800" MaxHeight="600"></InkCanvas>
+        </Border>
+        <Button Content="Clear" Margin="0,0,12,639" Background="#FFCACACA" Name="ClearButton" HorizontalAlignment="Right" Width="96" />
+        <Button Content="Load Template" Margin="135,0,587,639" Name="LoadButton" />
+
+            <TextBox Height="27" Margin="0,0,325,0" VerticalAlignment="Top" Text="" Name="TemplateNameBox" HorizontalAlignment="Right" Width="115" />
+            <Label Content="Template Name" Height="28" HorizontalAlignment="Left" Margin="276,-2,0,0" VerticalAlignment="Top" Width="97" />
+
+    </Grid>
+
+</Window>
