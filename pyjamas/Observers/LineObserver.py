@@ -59,7 +59,7 @@ class LineMarker( BoardObserver ):
     def onStrokeAdded( self, stroke ):
         "Watches for Strokes with Circularity > threshold to Annotate"
         # need at least 6 points to be a line
-        if stroke.length()<6:
+        if stroke.get_length()<6:
             return
 
         linearity = GeomUtils.strokeLinearity( stroke )

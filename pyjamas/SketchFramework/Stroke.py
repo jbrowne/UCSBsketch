@@ -68,13 +68,16 @@ class Stroke(AnnotatableObject):
         GUI.drawStroke(self, color=drawColor, erasable = True)
                             
     def length (self, force = False):
+        logger.error("Stroke.length deprecated: Use GeomUtils.strokeLength instead")
+        return 0.0
+
         if self._length == -1 or force:
             if len(self.Points) > 0:
                 self._length = 0
                 prev = self.Points[0]
                 for next in self.Points:
                     #Sum up the pairwise distance between points
-                    self._length += prev.distance(next)
+                    self._length += GeomUtils.pointDist(prev, next)
                     prev = next
             else:
                 self._length = 0

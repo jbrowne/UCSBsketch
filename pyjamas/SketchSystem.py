@@ -30,11 +30,11 @@ from Observers import DebugObserver
 def initialize():
     " This function calls the board and board observer initialization code. Interface code should import this function"
 
-    BoardSingleton().Reset()
+    Board.BoardSingleton().Reset()
 
     
     CircleObserver.CircleMarker()
-    #CircleObserver.CircleVisualizer()
+    CircleObserver.CircleVisualizer()
     #ArrowObserver.ArrowMarker()
     #ArrowObserver.ArrowVisualizer()
     #LineObserver.LineMarker()
@@ -66,6 +66,7 @@ def standAloneMain():
     "Sets up the SketchGUI interface on the local machine"
     from SketchFramework import PyjSketchGUI as GUI
     #GUI.LoadApp()
+    initialize()
     GUI.run()
 
 if __name__ == '__main__':   

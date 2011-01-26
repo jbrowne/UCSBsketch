@@ -1,6 +1,8 @@
 #import sys
 from SketchFramework.Annotation import AnnotatableObject
+from Utils import Logger
 
+logger = Logger.getLogger("Point", Logger.WARN)
 class Point(AnnotatableObject):   
     "Point defined by X, Y, T.  X,Y Cartesian Coords, T as Time"
     def __init__(self, xLoc, yLoc, drawTime=0):
@@ -12,12 +14,10 @@ class Point(AnnotatableObject):
         self.Y = float(yLoc)
         self.T = float(drawTime)
 
-    """
-    DEPRECATED - Use GeomUtils.pointDist
     def distance(self, point2):
          "Returns the distance from this point to the point in argument 1"
-         return pointDist(self, point2)
-    """
+         logger.error("Point.distance deprecated, use GeomUtils.pointDist")
+         return 0.0
 
     def copy(self):
         return Point(self.X, self.Y, self.T)

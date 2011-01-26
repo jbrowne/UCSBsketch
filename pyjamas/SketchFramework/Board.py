@@ -4,6 +4,7 @@ from SketchFramework.Stroke import Stroke
 
 from Utils import Logger
 from Utils import GeomUtils
+from Utils.Hacks import type
 
 logger = Logger.getLogger('Board', Logger.DEBUG )
 
@@ -60,18 +61,19 @@ class _Board(object):
 
     def AddStroke( self, newStroke ):
         "Input: Stroke newStroke.  Adds a Stroke to the board and calls any Stroke Observers as needed"
-        logger.debug( "Adding Stroke: %d", newStroke.id )
+        logger.debug( "Adding Stroke: %d"% (newStroke.id) )
         
         self.Strokes.append( newStroke )
         
+        logger.debug("Observers: %s" % (self.StrokeObservers))
         for so in self.StrokeObservers:
             if newStroke not in self._removed_strokes: #Nobody has removed this stroke yet
+                logger.debug("Alerting %s observer" % (type(so)))
                 so.onStrokeAdded( newStroke )
-        return True
 
     def RemoveStroke( self, oldStroke ):
         "Input: Stroke oldStroke.  Removes a Stroke from the board and calls any Stroke Observers as needed"
-        logger.debug( "Removing stroke" )
+        logger.debug( "Removing stroke: %d" % (oldStroke.id))
         
 
         self._removed_strokes[oldStroke] = True
@@ -97,6 +99,7 @@ class _Board(object):
             
     def RegisterForStroke( self, strokeObserver ):
         "Input: BoardObserver stroke.  Registers with the board an Observer to be called when strokes are added"
+        logger.debug("Registering observer %s for STROKES" % (type(strokeObserver)))
         self.StrokeObservers.append( strokeObserver )
 
     def RegisterForAnnotation( self, annoType, annoObserver, funcToCall = None ):
@@ -108,9 +111,9 @@ class _Board(object):
 
         if annoObserver not in self.AnnoObservers[annoType]:
             self.AnnoObservers[annoType].append( annoObserver )
-            logger.debug( "Registering %s for %s", str(type(annoObserver)), str(annoType) )
+            logger.debug( "Registering %s for %s"% ( type(annoObserver), annoType ) )
         else:
-            logger.warning( "%s already registered for %s", str(type(annoObserver)), str(annoType) )
+            logger.warning( "%s already registered for %s"% str(type(annoObserver)), str(annoType) )
             
         # TODO: can we depricate this?  Is this still actively used?
         if (funcToCall != None):
@@ -119,10 +122,11 @@ class _Board(object):
             
             if annoType not in annoObserver.AnnoFuncs:
                  annoObserver.AnnoFuncs[annoType] = funcToCall
-                 print "Registering",annoObserver.__class__.__name__,".",funcToCall, "for", annoType.__name__
+                 print "Registering",type(annoObserver),".",funcToCall, "for", annoType.__name__
 
     def UnregisterObserver( self, annoType, annoObserver ):
         "Input: Type annoType, BoardObserver annonObserve.  remove the annObserver from the list of observers for annoType"
+        logger.debug("Unregistering annotation %s observer %s" % (annoType, type(annoObserver)))
         if annoType in self.AnnoObservers:
             if annoObserver in self.AnnoObservers[annoType]:
 	            self.AnnoObservers[annoType].remove(annoObserver)
@@ -137,6 +141,7 @@ class _Board(object):
         
     def UnregisterStrokeObserver( self, observer ):
         "Input: BoardObserver observer.  Remove the observer from the list of stroke observers"
+        logger.debug("Unregistering stroke observer %s" % (type(observer)))
         if observer in self.StrokeObservers:
 	        self.StrokeObservers.remove(observer)
 
@@ -148,7 +153,8 @@ class _Board(object):
 
     def AnnotateStrokes(self, strokes, anno):
         "Input: list of Strokes strokes, Annotation anno.  Add annotation to the set of strokes"
-	    # time is used to play back stroke orderings during debug
+        logger.debug("Annotating strokes as %s" % (type(anno)))
+        # time is used to play back stroke orderings during debug
         if not hasattr(anno, "Time"):
 	    anno.Time = datetime.datetime.utcnow()
         # the annotation keeps a list of strokes it annotates
@@ -159,10 +165,11 @@ class _Board(object):
             annoList.append(anno)
 
         # if anyone listening for this class of anno, notify them
-        annoObsvrs = self.AnnoObservers.get(anno.__class__)
+        annoObsvrs = self.AnnoObservers.get(type(anno))
         if (annoObsvrs != None):
             for i in annoObsvrs:
                 if anno not in self._removed_annotations: #Will fail if someone has called "RemoveAnnotation"
+                    logger.debug("Alerting %s to new annotation %s" % (type(i), type(anno)))
                     i.onAnnotationAdded(strokes, anno)
 
     def UpdateAnnotation(self, anno, new_strokes=None, notify=True, remove_empty = True ):
@@ -172,7 +179,7 @@ class _Board(object):
         # if notify is False, then don't send the update notification.  This allows
         # people to perform multiple updates, and then call notify one time at the end
         # preventing everyone from being notified on every small change made
-        logger.debug( "Updating Annotation: %s", str(anno) )
+        logger.debug( "Updating Annotation: %s"% str(anno) )
 
         # if we added or subtracted strokes, update accordingly
         old_strokes = anno.Strokes
@@ -182,20 +189,21 @@ class _Board(object):
                 stroke_gone_list = list( set(old_strokes).difference(new_strokes))
                 stroke_added_list = list( set(new_strokes).difference(old_strokes))
                 for old_stroke in stroke_gone_list:
-                    if anno in old_stroke.Annotations[anno.__class__]:
-                        old_stroke.Annotations[anno.__class__].remove( anno )
+                    if anno in old_stroke.Annotations[type(anno)]:
+                        old_stroke.Annotations[type(anno)].remove( anno )
                 for new_stroke in stroke_added_list:
-                    if anno.__class__ in new_stroke.Annotations:
-                        new_stroke.Annotations[anno.__class__].append(anno)
+                    if type(anno) in new_stroke.Annotations:
+                        new_stroke.Annotations[type(anno)].append(anno)
                     else:
-                        new_stroke.Annotations[anno.__class__] = [anno]
+                        new_stroke.Annotations[type(anno)] = [anno]
                 anno.Strokes = new_strokes
 
             # if anyone is listening for this class of annotation, let them know we updated
-            if not shouldRemove and notify and anno.__class__ in self.AnnoObservers:
-                for obs in self.AnnoObservers[anno.__class__]:
+            if not shouldRemove and notify and type(anno) in self.AnnoObservers:
+                for obs in self.AnnoObservers[type(anno)]:
                     # tell obs about the updated annotation
                     if anno not in self._removed_annotations: #Fails if someone called removeAnnotation
+                        logger.debug("Alerting %s to updated annotation %s" % (type(i), type(anno)))
                         obs.onAnnotationUpdated(anno)
             elif shouldRemove:
                 #The strokes are empty, so remove the annotation
@@ -204,13 +212,13 @@ class _Board(object):
 
     def RemoveAnnotation(self, anno):
         "Input: Annotation anno.  Removes anno from the board and alert the correct listeners"
-        logger.debug( "Removing Annotation: %s", str(anno) )
+        logger.debug( "Removing Annotation: %s"% str(anno) )
 
         self._removed_annotations[anno] = True
         
         # if anyone is listening for this class of annotation, let them know
-        if anno.__class__ in self.AnnoObservers:
-            for obs in self.AnnoObservers[anno.__class__]:
+        if type(anno) in self.AnnoObservers:
+            for obs in self.AnnoObservers[type(anno)]:
                 obs.onAnnotationRemoved(anno)
         # remove the annotation from the strokes. 
         # do this second, since observers may need to check the old strokes' properties
@@ -218,18 +226,18 @@ class _Board(object):
             # logger.debug("RemoveAnnotation: stroke.Annotations = %s, id=%d", stroke.Annotations, stroke.id )
             # logger.debug("RemoveAnnotation: anno.__class__ = %s", anno.__class__ )
             try:
-                stroke.Annotations[anno.__class__].remove(anno)
+                stroke.Annotations[type(anno)].remove(anno)
                 #if len(stroke.Annotations[anno.__class__]) == 0:
                 #    del(stroke.Annotations[anno.__class__]) #Delete the entry if it's empty
             except KeyError:
-                logger.error( "RemoveAnnotation: Annotation %s not found in stroke.Annotations", anno.__class__ )
+                logger.error( "RemoveAnnotation: Annotation %s not found in stroke.Annotations"% type(anno) )
             except ValueError:
-                logger.error( "RemoveAnnotation: Trying to remove nonexistant annotation %s", anno  )
+                logger.error( "RemoveAnnotation: Trying to remove nonexistant annotation %s"% anno  )
             
     def AddBoardObserver ( self, obs ):
         "Input: Observer obs.  Obs is added to the list of Board Observers"
         # FIXME? should we check that the object is one in the list once?
-        logger.debug( "Adding Observer: %s", str(obs.__class__.__name__) )
+        logger.debug( "Adding Observer: %s" % str(type(obs)) )
         self.BoardObservers.append( obs )
 
     def RemoveBoardObserver( self, obs):

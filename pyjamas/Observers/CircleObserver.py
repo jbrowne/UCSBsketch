@@ -30,6 +30,7 @@ from SketchFramework import SketchGUI
 
 from Utils import Logger
 from Utils import GeomUtils
+from Utils.Hacks import type
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver, BoardSingleton
@@ -60,19 +61,22 @@ class CircleMarker( BoardObserver ):
     def onStrokeAdded( self, stroke ):
         "Watches for Strokes with Circularity > threshold to Annotate"
         # need at least 6 points to be a circle
-	if stroke.length()<6:
+        logger.debug("Stroke received %s" % (dir(stroke)))
+	if GeomUtils.strokeLength(stroke) < 6:
+            logger.debug("Too few points, not a circle")
             return
 	s_norm = GeomUtils.strokeNormalizeSpacing( stroke, 20 ) 
 	s_chop = GeomUtils.strokeChopEnds( s_norm, 0.20 ) 
         circ_norm = GeomUtils.strokeCircularity( s_norm ) 
         circ_chop = GeomUtils.strokeCircularity( s_chop ) 
 
-        logger.debug( "stroke: %s", [str(p) for p in s_norm.Points] )
-        logger.debug( "potential circles (%f,%f) <> %f", circ_norm, circ_chop, self.threshold )
+        #logger.debug( "stroke: %s"% ([str(p) for p in s_norm.Points] ) )
+        #logger.debug( "potential circles (%f,%f) <> %f"% (circ_norm, circ_chop, self.threshold ) )
 
         if( circ_norm>self.threshold or circ_chop>self.threshold):
             cen = stroke.Center
             avgDist = GeomUtils.averageDistance( cen, stroke.Points )
+            logger.debug("Circle found")
             anno = CircleAnnotation( circ_norm, cen, avgDist )
             BoardSingleton().AnnotateStrokes( [stroke],  anno)
 
@@ -84,6 +88,7 @@ class CircleMarker( BoardObserver ):
 
 #-------------------------------------
 
+vizlogger = Logger.getLogger("CircleVisualizer", Logger.DEBUG)
 class CircleVisualizer( BoardObserver ):
     "Watches for Circle annotations, draws them"
     def __init__(self):
@@ -105,6 +110,7 @@ class CircleVisualizer( BoardObserver ):
 
     def drawMyself( self ):
 	for a in self.annotation_list:
+            vizlogger.debug("Drawing Circle")
             SketchGUI.drawCircle( a.center.X,a.center.Y, radius=a.radius, color="#bbbbff", width=2.0)
 
 #-------------------------------------
