@@ -11,6 +11,12 @@ from pyjamas.ui.MouseListener import MouseHandler
 from pyjamas import DOM 
 from pyjamas import Window
 
+import math
+
+from __pyjamas__ import jsinclude
+jsinclude("javascript/processing.js")
+from __javascript__ import Processing
+
 
 logger = Logger.getLogger('PyjSketchGUI', Logger.DEBUG)
 
@@ -36,41 +42,67 @@ class _PyjSketchGUI(_SketchGUI):
       "Returns the BoardCanvas element that needs to be added to the DOM to actually interact with a user."
       return self.BoardCanvas
 
-
 class _BoardCanvas(Canvas):
    def __init__(self):
+      self.p = self._proc
       self._dragging = False
       Canvas.__init__(self, Width=WIDTH, Height=HEIGHT)
+      canvasElement = self.getElement()
       #Register for canvas mouse events
-      DOM.sinkEvents(self.getElement(), Event.MOUSEEVENTS)
-      DOM.setEventListener(self.getElement(), self)
+      self._proc = Processing(DOM.getFirstChild(canvasElement))
+      self._proc.setup = self.setup_proc
+      self._proc.draw = self.redraw
+      self._proc.init()
 
+      DOM.sinkEvents(canvasElement, Event.MOUSEEVENTS)
+      DOM.setEventListener(canvasElement, self)
 
       self._currentPointList = []
 
+      self._x = None
+      self._y = None
    def onBrowserEvent(self, event):
       kind = DOM.eventGetType(event)
       x = DOM.eventGetClientX(event) - DOM.getAbsoluteLeft(self.getElement())
       y = DOM.eventGetClientY(event) - DOM.getAbsoluteTop(self.getElement())
+      y = HEIGHT - y
       if kind == "mousedown":
-         self._dragging = True
          self.onMouseDown(x,y)
+         self._dragging = True
       elif kind == "mousemove" and self._dragging:
          self.onMouseDrag(x,y)
       elif (kind == "mouseup" or kind == "mouseout") and self._dragging:
          self._dragging = False
          self.onMouseUp(x,y)
 
-   def onMousedown(self, x, y):
-      print "Mousedown"
+   def setup_proc(self):
+      self._proc.size(WIDTH,HEIGHT)
+      self._proc.background(255)
+   def redraw(self):
+      pass
+   def clear_board(self):
+      self._proc.background(255)
+
+
+   def onMouseDown(self, x, y):
+      self._x = x
+      self._y = y
+      self.drawCircle(x,y,radius=1)
+
       self._currentPointList.append(Point(x,y))
 
    def onMouseDrag(self, x, y):
-      #print "Mouse dragging"
+      self.drawLine(self._x, self._y, x, y)
+      self._x = x
+      self._y = y
+      self.drawCircle(x,y,radius=1)
       self._currentPointList.append(Point(x,y))
 
    def onMouseUp(self, x, y):
-      print "Mouseup"
+      self.drawLine(self._x, self._y, x, y)
+      self._x = None
+      self._y = None
+
       self._callback_AddStroke(self._currentPointList)
       self._currentPointList = []
 
@@ -79,8 +111,16 @@ class _BoardCanvas(Canvas):
    def setCallback_DeleteStroke(self, function):
       self._callback_DeleteStroke = function
 
-   def drawLine(self, x1, y1, x2, y2):
-      
+   def drawLine(self, x1, y1, x2, y2, width=2, color="#000000"):
+      _y1 = HEIGHT - y1
+      _y2 = HEIGHT - y2
+      self._proc.line(x1,_y1,x2,_y2)
+   
+   def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
+      _y = HEIGHT - y
+      self._proc.ellipse(x,_y,radius, radius)
+   def drawText (self, x, y, InText="", size=10, color="#000000"):
+      pass
 
 
 def run():
