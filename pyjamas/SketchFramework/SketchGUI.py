@@ -17,9 +17,14 @@ Description:
 HEIGHT = 800
 WIDTH = 1280
 from Point import Point
+from Utils.Hacks import type
+
+from Utils import Logger
 #from SketchFramework.Stroke import Stroke
 #from SketchFramework.Board import BoardSingleton
 #from SketchSystem import initialize, standAloneMain
+
+logger = Logger.getLogger("SketchGUI", Logger.DEBUG)
 class _SketchGUI(object):
     HEIGHT = 800
     WIDTH = 1280
@@ -35,16 +40,19 @@ class _SketchGUI(object):
 
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
         "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"
+        logger.debug("drawCircle")
         raise NotImplemented
         
         
          
     def drawLine(self, x1, y1, x2, y2, width=2, color="#000000"):
         "Draw a line on the canvas from (x1,y1) to (x2,y2). Color should be 24 bit RGB string #RRGGBB"
+        logger.debug("drawLine")
         raise NotImplemented
          
     def drawText (self, x, y, InText="", size=10, color="#000000"):
         "Draw some text (InText) on the canvas at (x,y). Color as defined by 24 bit RGB string #RRGGBB"
+        logger.debug("drawText")
         raise NotImplemented
         
 # ------------------------------------------------
@@ -65,17 +73,14 @@ class _SketchGUI(object):
             if prev_p is not None:
                 self.drawLine(prev_p.X, prev_p.Y, next_p.X, next_p.Y, width=width, color=color)
             prev_p = next_p
+    def Subtest(self):
+       print "I am NOT a PyjSketchGUI"
     
 def SketchGUISingleton():
     "Returns the GUI instance we're currently working with."
     #from SketchFramework import WpfSketchGUI as GuiInstance
-    from SketchFramework import TkSketchGUI as GuiInstance
-    
-    
-    if _SketchGUI.Singleton == None:
-       _SketchGUI.Singleton = GuiInstance.TkSketchGUISingleton()
-       
-    return _SketchGUI.Singleton
+    from SketchFramework import PyjSketchGUI as GuiInstance
+    return GuiInstance.SketchGUISingleton()
     
     
 

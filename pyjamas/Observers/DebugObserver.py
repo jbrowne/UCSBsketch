@@ -16,11 +16,12 @@ FIXME: need some way to actually trigger the proper events to
 import time
 from Utils import Logger
 from Utils import GeomUtils
+from Utils.Hacks import type
 from SketchFramework.Point import Point
 from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
-logger = Logger.getLogger('DiGraphObserver', Logger.WARN )
+logger = Logger.getLogger('DebugObserver', Logger.DEBUG )
 
 #-------------------------------------
 class DebugObserver( BoardObserver ):
@@ -32,9 +33,11 @@ class DebugObserver( BoardObserver ):
 	self.seenBefore = {} # set of particular annotation that we have already drawn
 
     def trackAnnotation(self,annoType):
-        logger.debug("debugObserver adding %s", annoType.__name__ );
+        "Takes in an annotation class type that should be debugged"
+        typeHash = _typeHash(annoType)
         # add this annotation type to the list to track
-        self.watchSet.add(annoType)
+        self.watchSet.add(typeHash)
+        logger.debug("debugObserver adding %s:\n All: %s"% (typeHash, self.watchSet) );
 
     def drawMyself( self ):
         # FIXME: does this tie us to the tk front-end?  If so, what should
@@ -47,9 +50,14 @@ class DebugObserver( BoardObserver ):
 
         # start with a list of all the annotations
         allAnnoSet = set([])
+        logger.debug("Watch set %s" % (self.watchSet))
         for stroke in BoardSingleton().Strokes:
+            logger.debug("Stroke annotations %s" % (stroke.findAnnotations(None)))
+
             for anno in stroke.findAnnotations(None):
-                if anno.isType( list(self.watchSet) ):
+                logger.debug ("%s in %s?" % (type(anno), list(self.watchSet)))
+                if type(anno) in list(self.watchSet):
+                    logger.debug("Adding %s to annoset" % (anno))
                     allAnnoSet.add( anno )
 
         # now make a map from the sets of strokes to the annotations on them
@@ -93,7 +101,7 @@ class DebugObserver( BoardObserver ):
                 self.seenBefore[anno] = True
 
             # now draw the actual boxes
-            labeltext = anno.classname() + " " + hex(id(anno))
+            labeltext = anno.classname()
             tlx = tl.X
             tly = tl.Y
             brx = br.X
@@ -114,6 +122,8 @@ def _nestingBox(bottomright_list, topleft_list, scale = 0):
 
     return bottomright, topleft
 
+def _typeHash(classObj):
+   return classObj.__name__
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

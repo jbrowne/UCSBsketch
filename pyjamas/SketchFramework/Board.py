@@ -106,36 +106,39 @@ class _Board(object):
         "Input: Type annoType, BoardObserver annoObserver, function funcToCall.  Call the observer when the matching annoation is found"
 	    #  Function funcToCall Registers with the board an Observer based on an 
 	    #  Annotation type.  Optional: An *additional* function to call on the observer upon annotation occurence
-        if ( annoType not in self.AnnoObservers ):
-            self.AnnoObservers[annoType] = []
+        annoHash = annoType.__name__
+        if ( annoHash not in self.AnnoObservers ):
+            self.AnnoObservers[annoHash] = []
 
-        if annoObserver not in self.AnnoObservers[annoType]:
-            self.AnnoObservers[annoType].append( annoObserver )
-            logger.debug( "Registering %s for %s"% ( type(annoObserver), annoType ) )
+        if annoObserver not in self.AnnoObservers[annoHash]:
+            self.AnnoObservers[annoHash].append( annoObserver )
+            logger.debug( "Registering %s for %s"% ( type(annoObserver), annoHash ) )
         else:
-            logger.warning( "%s already registered for %s"% str(type(annoObserver)), str(annoType) )
+            logger.warning( "%s already registered for %s"% str(type(annoObserver)), str(annoHash) )
             
         # TODO: can we depricate this?  Is this still actively used?
         if (funcToCall != None):
             if not hasattr(annoObserver, "AnnoFuncs"): #Cause Python does things arguably backwards and calls the child ctors before the parents..
                 annoObserver.AnnoFuncs = {}
             
-            if annoType not in annoObserver.AnnoFuncs:
-                 annoObserver.AnnoFuncs[annoType] = funcToCall
-                 print "Registering",type(annoObserver),".",funcToCall, "for", annoType.__name__
+            if annoHash not in annoObserver.AnnoFuncs:
+                 annoObserver.AnnoFuncs[annoHash] = funcToCall
+                 logger.debug( "Registering %s.%s for %s" % (type(annoObserver),funcToCall,  annoHash))
 
     def UnregisterObserver( self, annoType, annoObserver ):
         "Input: Type annoType, BoardObserver annonObserve.  remove the annObserver from the list of observers for annoType"
         logger.debug("Unregistering annotation %s observer %s" % (annoType, type(annoObserver)))
-        if annoType in self.AnnoObservers:
-            if annoObserver in self.AnnoObservers[annoType]:
-	            self.AnnoObservers[annoType].remove(annoObserver)
+        annoHash = annoType.__name__
+        if annoHash in self.AnnoObservers:
+            if annoObserver in self.AnnoObservers[annoHash]:
+	            self.AnnoObservers[annoHash].remove(annoObserver)
 
     def IsRegisteredForAnnotation( self, annoType, annoObserver ):
         "Input: Type annoType, BoardObserver annonObserve.  return true if annoObserver is already listening for annoType"
-        if ( annoType not in self.AnnoObservers ):
+        annoHash = annoType.__name__
+        if ( annoHash not in self.AnnoObservers ):
             return False
-        if annoObserver in self.AnnoObservers[annoType]:
+        if annoObserver in self.AnnoObservers[annoHash]:
             return True
         else: return False
         
@@ -154,6 +157,8 @@ class _Board(object):
     def AnnotateStrokes(self, strokes, anno):
         "Input: list of Strokes strokes, Annotation anno.  Add annotation to the set of strokes"
         logger.debug("Annotating strokes as %s" % (type(anno)))
+        annoHash = type(anno)
+        logger.debug("Annotype: %s, Observers: %s" % (annoHash, self.AnnoObservers.keys()))
         # time is used to play back stroke orderings during debug
         if not hasattr(anno, "Time"):
 	    anno.Time = datetime.datetime.utcnow()
@@ -161,15 +166,15 @@ class _Board(object):
         anno.Strokes = list(strokes)
         # for each stroke, add this annotation to the list of annotations of that type for that stroke
         for s in strokes:
-            annoList = s.Annotations.setdefault(type(anno), [])
+            annoList = s.Annotations.setdefault(annoHash, [])
             annoList.append(anno)
 
         # if anyone listening for this class of anno, notify them
-        annoObsvrs = self.AnnoObservers.get(type(anno))
+        annoObsvrs = self.AnnoObservers.get(annoHash)
         if (annoObsvrs != None):
             for i in annoObsvrs:
                 if anno not in self._removed_annotations: #Will fail if someone has called "RemoveAnnotation"
-                    logger.debug("Alerting %s to new annotation %s" % (type(i), type(anno)))
+                    logger.debug("Alerting %s to new annotation %s" % (type(i), annoHash))
                     i.onAnnotationAdded(strokes, anno)
 
     def UpdateAnnotation(self, anno, new_strokes=None, notify=True, remove_empty = True ):
@@ -182,6 +187,7 @@ class _Board(object):
         logger.debug( "Updating Annotation: %s"% str(anno) )
 
         # if we added or subtracted strokes, update accordingly
+        annoHash = type(anno)
         old_strokes = anno.Strokes
         shouldRemove = (len(new_strokes) == 0 and remove_empty) #We still have strokes, or no strokes and we're not removing empty annos
         if new_strokes!=None:
@@ -189,21 +195,21 @@ class _Board(object):
                 stroke_gone_list = list( set(old_strokes).difference(new_strokes))
                 stroke_added_list = list( set(new_strokes).difference(old_strokes))
                 for old_stroke in stroke_gone_list:
-                    if anno in old_stroke.Annotations[type(anno)]:
-                        old_stroke.Annotations[type(anno)].remove( anno )
+                    if anno in old_stroke.Annotations[annoHash]:
+                        old_stroke.Annotations[annoHash].remove( anno )
                 for new_stroke in stroke_added_list:
-                    if type(anno) in new_stroke.Annotations:
-                        new_stroke.Annotations[type(anno)].append(anno)
+                    if annoHash in new_stroke.Annotations:
+                        new_stroke.Annotations[annoHash].append(anno)
                     else:
-                        new_stroke.Annotations[type(anno)] = [anno]
+                        new_stroke.Annotations[annoHash] = [anno]
                 anno.Strokes = new_strokes
 
             # if anyone is listening for this class of annotation, let them know we updated
-            if not shouldRemove and notify and type(anno) in self.AnnoObservers:
-                for obs in self.AnnoObservers[type(anno)]:
+            if not shouldRemove and notify and annoHash in self.AnnoObservers:
+                for obs in self.AnnoObservers[annoHash]:
                     # tell obs about the updated annotation
                     if anno not in self._removed_annotations: #Fails if someone called removeAnnotation
-                        logger.debug("Alerting %s to updated annotation %s" % (type(i), type(anno)))
+                        logger.debug("Alerting %s to updated annotation %s" % (type(i), annoHash))
                         obs.onAnnotationUpdated(anno)
             elif shouldRemove:
                 #The strokes are empty, so remove the annotation
@@ -213,12 +219,13 @@ class _Board(object):
     def RemoveAnnotation(self, anno):
         "Input: Annotation anno.  Removes anno from the board and alert the correct listeners"
         logger.debug( "Removing Annotation: %s"% str(anno) )
+        annoHash = type(anno)
 
         self._removed_annotations[anno] = True
         
         # if anyone is listening for this class of annotation, let them know
-        if type(anno) in self.AnnoObservers:
-            for obs in self.AnnoObservers[type(anno)]:
+        if annoHash in self.AnnoObservers:
+            for obs in self.AnnoObservers[annoHash]:
                 obs.onAnnotationRemoved(anno)
         # remove the annotation from the strokes. 
         # do this second, since observers may need to check the old strokes' properties
@@ -226,11 +233,11 @@ class _Board(object):
             # logger.debug("RemoveAnnotation: stroke.Annotations = %s, id=%d", stroke.Annotations, stroke.id )
             # logger.debug("RemoveAnnotation: anno.__class__ = %s", anno.__class__ )
             try:
-                stroke.Annotations[type(anno)].remove(anno)
+                stroke.Annotations[annoHash].remove(anno)
                 #if len(stroke.Annotations[anno.__class__]) == 0:
                 #    del(stroke.Annotations[anno.__class__]) #Delete the entry if it's empty
             except KeyError:
-                logger.error( "RemoveAnnotation: Annotation %s not found in stroke.Annotations"% type(anno) )
+                logger.error( "RemoveAnnotation: Annotation %s not found in stroke.Annotations"% annoHash )
             except ValueError:
                 logger.error( "RemoveAnnotation: Trying to remove nonexistant annotation %s"% anno  )
             

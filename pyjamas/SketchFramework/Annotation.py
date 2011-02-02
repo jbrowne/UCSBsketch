@@ -1,4 +1,8 @@
 import datetime
+from Utils.Hacks import type
+from Utils import Logger
+
+logger = Logger.getLogger("Annotation/AnnoObject", Logger.DEBUG)
 
 #--------------------------------------------
 class Annotation(object):
@@ -10,10 +14,11 @@ class Annotation(object):
 
     def isType( self, arg):
         "Input: either a classobj, or a list of classobjs.  Return true if this class is one of the classobjs listed"
-        if type(arg) is list:
+        if type(arg) == "list":
             clist = arg
         else:
             clist = [arg]
+
         if self.__class__ in clist:
             return True
         else:
@@ -44,6 +49,7 @@ class AnnotatableObject(object):
         annoList = []
         if annoType == None:
             foundAnno = []
+            logger.debug("Stroke annotations: %s" % (self.Annotations))
             for annos in self.Annotations.values():
                 foundAnno.extend(annos)
         else:

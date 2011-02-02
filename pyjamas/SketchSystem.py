@@ -48,7 +48,7 @@ def initialize():
     #TemplateObserver.TemplateVisualizer()
     
     
-    #d = DebugObserver.DebugObserver()
+    d = DebugObserver.DebugObserver()
     #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
     #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
     #d.trackAnnotation(LineObserver.LineAnnotation)

@@ -37,6 +37,7 @@ from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 logger = Logger.getLogger('CircleObserver', Logger.WARN )
+vizlogger = Logger.getLogger("CircleVisualizer", Logger.WARN)
 
 #-------------------------------------
 
@@ -61,9 +62,8 @@ class CircleMarker( BoardObserver ):
     def onStrokeAdded( self, stroke ):
         "Watches for Strokes with Circularity > threshold to Annotate"
         # need at least 6 points to be a circle
-        logger.debug("Stroke received %s" % (dir(stroke)))
 	if GeomUtils.strokeLength(stroke) < 6:
-            logger.debug("Too few points, not a circle")
+            logger.debug("Too small, not a circle (size %s)" %  GeomUtils.strokeLength(stroke) )
             return
 	s_norm = GeomUtils.strokeNormalizeSpacing( stroke, 20 ) 
 	s_chop = GeomUtils.strokeChopEnds( s_norm, 0.20 ) 
@@ -88,7 +88,6 @@ class CircleMarker( BoardObserver ):
 
 #-------------------------------------
 
-vizlogger = Logger.getLogger("CircleVisualizer", Logger.DEBUG)
 class CircleVisualizer( BoardObserver ):
     "Watches for Circle annotations, draws them"
     def __init__(self):
@@ -98,20 +97,21 @@ class CircleVisualizer( BoardObserver ):
 
     def onAnnotationAdded( self, strokes, annotation ):
         "Watches for annotations of Circles and prints out the Underlying Data" 
-        logger.debug( "A circle was annotated with Circularity, Center and Radius = %f, (%f,%f), %f", \
-	 	annotation.circularity, annotation.center.X, annotation.center.Y, annotation.radius )
+        vizlogger.debug( "A circle was annotated with Circularity, Center and Radius = %f, (%f,%f), %f" % \
+           (annotation.circularity, annotation.center.X, annotation.center.Y, annotation.radius ))
         self.annotation_list.append(annotation)
 
     def onAnnotationRemoved(self, annotation):
         "Watches for annotations to be removed" 
-        logger.debug( "A circle annotation was removed with Circularity, Center and Radius = %f, (%f,%f), %f", \
-	 	annotation.circularity, annotation.center.X, annotation.center.Y, annotation.radius )
+        vizlogger.debug( "A circle annotation was removed with Circularity, Center and Radius = %f, (%f,%f), %f" % \
+           (annotation.circularity, annotation.center.X, annotation.center.Y, annotation.radius ))
         self.annotation_list.remove(annotation)
 
     def drawMyself( self ):
+        vizlogger.debug("Drawing self: %s" % (self.annotation_list))
 	for a in self.annotation_list:
             vizlogger.debug("Drawing Circle")
-            SketchGUI.drawCircle( a.center.X,a.center.Y, radius=a.radius, color="#bbbbff", width=2.0)
+            SketchGUI.drawCircle( a.center.X, a.center.Y, radius=a.radius, color="#bbbbff", width=2.0)
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

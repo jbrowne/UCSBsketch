@@ -37,7 +37,7 @@ class Stroke(AnnotatableObject):
         self._length = -1
         self._resample = {}
 
-        if points and len(points)>0:
+        if points is not None and len(points)>0:
             # if passed a sequence of tuples, covert them all to points
             if all(isinstance(i, tuple) for i in points):
                 points = [ Point(x,y) for (x,y) in points ]
