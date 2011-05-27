@@ -219,12 +219,16 @@ def removeBackground(cv_img):
    
    bg_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
    cv.CvtColor(cv_img, bg_img, cv.CV_RGB2GRAY)
-   inv_img = smooth(bg_img, ksize=13)
+   inv_img = smooth(bg_img, ksize=23)
+   bg_img = smooth(bg_img, ksize=5)
    #bg_img = cv.CloneImage(cv_img)
   
    inv_img = invert(inv_img)
    cv.AddWeighted(bg_img, 0.5, inv_img, 0.5, 0.0,bg_img )
    cv.Threshold(bg_img, bg_img, 123, 255, cv.CV_THRESH_BINARY)
+   show(bg_img)
+   exit(0)
+
 
    return bg_img
 
@@ -267,12 +271,10 @@ def squareSize(square):
 def processStrokes(cv_img):
    temp_img = removeBackground(cv_img)
 
-   return temp_img 
    strokelist = bitmapToUnorderedStrokes(temp_img,step = 1)
-
    for s in strokelist:
       for p in s.getPoints():
-         cv.Circle(temp_img, p, 2, 0x0)
+         cv.Circle(temp_img, p, 2, 0x0, thickness=-1)
    return temp_img
 
 
@@ -281,15 +283,17 @@ def squaresToStroke(squares):
    retStroke = Stroke()
    sizeSqrs = {}
    totalSize = 0
+   #Sort squares into descending order of size
    for sqr in squares:
       (p1x, p1y), (p2x, p2y) = sqr
       size = (p2x - p1x)
       totalSize += size * size #Add all of this squares pixes to total size
       sizelist = sizeSqrs.setdefault(size, [])
       sizelist.append(sqr)
-
    sizes = sizeSqrs.keys()
    sizes.sort(key=(lambda x: -x)) #sort descending
+
+   #Add progressively smaller squares until blob is approximately present
    absTarget = totalSize - errorThreshold * totalSize #how many pixels do we need to fill to be "good enough"
    currentPixels = 0
    for size in sizes:
@@ -306,6 +310,36 @@ def squaresToStroke(squares):
 
    return retStroke
 
+def pointDist(p1, p2):
+   p1x, p1y = p1
+   p2x, p2y = p2
+
+   return (p2x-p1x) ** 2 + (p2y-p1y) ** 2
+def OrderStrokePoints(stroke):
+   retStroke = Stroke()
+   points = stroke.getPoints()
+
+   if len(points) == 0:
+      return retStroke
+
+   pointTree = {}
+   for i in range(0, len(points)):
+      minDist = None
+      minPoint = None
+      for j in range(0, len(points)):
+         if i == j: #Don't measure against myself
+            continue
+         curDist = pointDist(points[i], points[j])
+         if minDist is None or minDist < curDist:
+            minDist = curDist
+            minPoint = points[j]
+      iNode = pointTree.setdefault(points[i], {})
+      jNode = pointTree.setdefault(points[j], {})
+      iNode['next'] = points[j]
+
+
+
+
 
 def bitmapToUnorderedStrokes(img,step = 1):
    retStrokes = []
@@ -318,6 +352,7 @@ def bitmapToUnorderedStrokes(img,step = 1):
             blobSquares = fillSquares(p, img, 255)
             retStrokes.append(squaresToStroke(blobSquares))
 
+   print "Found %s strokes" % (len(retStrokes))
    return retStrokes
 
    
