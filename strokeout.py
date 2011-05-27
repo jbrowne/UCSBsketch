@@ -42,7 +42,7 @@ def getFillVal(number):
    global COLORFACTOR
    return (number * COLORFACTOR) % 256
 
-def fillSquares(startPoint, img):
+def fillSquares(startPoint, img, squareFill=255):
    returnSquares = []
    squareSeeds = [startPoint]
 
@@ -54,7 +54,6 @@ def fillSquares(startPoint, img):
          #print "  Found"
          returnSquares.append(newSquare)
          squareNum = len(returnSquares)
-         squareFill = getFillVal(squareNum)
 
          p1x, p1y = newSquare[0]
          p2x, p2y = newSquare[1]
@@ -90,8 +89,11 @@ def getHeight(img):
 def getWidth(img):
    return img.cols
 
-def isValidPoint(point, img):
+def isFilledVal(value):
    global FILLEDVAL
+   return value == FILLEDVAL
+
+def isValidPoint(point, img):
    """Checks with an img to see if the point should be filled or not"""
    height = getHeight(img)
    width = getWidth(img[0])
@@ -100,7 +102,7 @@ def isValidPoint(point, img):
       #Bounds check
       retval  = False
    else:
-      retval = getImgVal(x,y,img) == FILLEDVAL
+      retval = isFilledVal(getImgVal(x,y,img))
    """
 
    if retval:
@@ -265,107 +267,58 @@ def squareSize(square):
 def processStrokes(cv_img):
    temp_img = removeBackground(cv_img)
 
+   return temp_img 
    strokelist = bitmapToUnorderedStrokes(temp_img,step = 1)
-   strokeSquares = []
-   for s in strokelist:
-      seedPt = s.getPoints()[0]
-      #pdb.set_trace()
-      squares = fillSquares(seedPt, temp_img)
-      strokeSquares.append(squares)
 
-   retimg = cv.CloneMat(temp_img)
-   cv.Set(retimg, 255)
-   for stk in strokeSquares:
-      prev = None
-      for square in stk:
-         size = squareSize(square)
-         if size > 1:
-            x,y = squareCenter(square)
-            #retimg[y,x] = 0
-            cv.Circle(retimg, (x,y), size/2, 0x0)
-            if prev is not None:
-               cv.Line(retimg, prev, (x,y), 0x0, thickness=1)
-            #prev = (x,y)
-   
-   """
-   cv.Set(temp_img, 255)
-   for idx,s in enumerate(strokelist):
-      for pt in s.points:
-         print pt
-         cv.Circle(temp_img, pt, 2, 0x0)
-      for seg in s.segments:
-         p,q = seg
-         cv.Line(temp_img, p,q, 0x0, thickness=1)
-   """
-   return retimg
+   for s in strokelist:
+      for p in s.getPoints():
+         cv.Circle(temp_img, p, 2, 0x0)
+   return temp_img
+
+
+def squaresToStroke(squares):
+   errorThreshold = 0.1
+   retStroke = Stroke()
+   sizeSqrs = {}
+   totalSize = 0
+   for sqr in squares:
+      (p1x, p1y), (p2x, p2y) = sqr
+      size = (p2x - p1x)
+      totalSize += size * size #Add all of this squares pixes to total size
+      sizelist = sizeSqrs.setdefault(size, [])
+      sizelist.append(sqr)
+
+   sizes = sizeSqrs.keys()
+   sizes.sort(key=(lambda x: -x)) #sort descending
+   absTarget = totalSize - errorThreshold * totalSize #how many pixels do we need to fill to be "good enough"
+   currentPixels = 0
+   for size in sizes:
+      if size == 1:
+         print "Stroke using single-pixel points!"
+      for sqr in sizeSqrs[size]:
+         (p1x, p1y), (p2x, p2y) = sqr 
+         center = ( (p1x + p2x)/2, (p1y + p2y) /2)
+         retStroke.addPoint(center)
+
+         currentPixels += size * size
+         if currentPixels > absTarget:
+            return retStroke
+
+   return retStroke
+
 
 def bitmapToUnorderedStrokes(img,step = 1):
-   strokes = {} 
-   s = TStroke()
-   for i in range(0,img.cols, step):
-      print "Col: %s / %s\tTracking %s strokes" % (i, img.cols, len(strokes.keys()))
-      for j in range(0,img.rows, step):
-
+   retStrokes = []
+   for i in range (0, img.cols, step):
+      print "\rProcessing column %s" % (i),
+      for j in range(0, img.rows, step):
          p = (i,j)
-         if (img[j,i] == 0):
-            #Neighbor indices
-            nw = (i-step,j-step)
-            n =  (i, j-step)
-            ne = (i+step,j-step)
-            e = (i+step, j)
-            sw = (i-step,j+step)
-            s =  (i, j+step)
-            se = (i+step,j+step)
-            w = (i-step, j)
-            neighbors = [nw, n, ne, e, se, s, sw, w]
+         pixval = img[j,i]
+         if isFilledVal(pixval):
+            blobSquares = fillSquares(p, img, 255)
+            retStrokes.append(squaresToStroke(blobSquares))
 
-            isMerged = False
-            n_points = []
-            #Find connected strokes
-            connectedStrokes = {} 
-            for s in strokes.keys():
-               for n_p in neighbors:
-                  if n_p in s.points:
-                     #print "Found neighbor, merging with %s" % (str(s_i))
-                     n_points.append(n_p)
-                     isMerged = True
-                     connectedStrokes[s] = True 
-
-            if isMerged:
-               #Merge the connected strokes
-               mergedStroke = Stroke()
-               for n_p in n_points:
-                  mergedStroke.addLine((n_p,p))
-               for s in connectedStrokes.keys():
-                  mergedStroke.merge(s)
-                  del(strokes[s])
-               strokes[mergedStroke] = True
-            #Otherwise, just add me as a stroke
-            else:
-               """
-               #Prune single points
-               shouldAdd = False
-               for ni,nj in neighbors:
-                  try:
-                     if img[nj,ni] == 0:
-                        shouldAdd = True
-                  except:
-                     continue
-               if shouldAdd:
-               """
-               newS = Stroke()
-               newS.addPoint(p)
-               strokes[newS] = True
-
-         #endif point is black
-      #endfor j
-   #endfor i
-
-   return strokes
-
-
-
-
+   return retStrokes
 
    
 def main(args):
