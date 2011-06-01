@@ -7,42 +7,15 @@ import pdb
 
 FILLEDVAL = 0.0 
 COLORFACTOR = 10
-class TStroke(object):
-   def __init__(self):
-      self.rootPt = None
-      self.treemap = None #Hash each point to its tree node
-   def addPoint(self, pt, parent):
-      if self.rootPt is None:
-         self.rootPt = pt
-      node = {'parent' : parent, 'kids': []} 
-      self.treemap[pt] = node
-      self.treemap[parent]['kids'].append(pt)
-   def getPoints(self):
-      retPoints = []
-      proc = [self.rootPt]
-      while len(proc) > 0:
-         pt = proc.pop()
-         retPoints.append(pt)
-         proc.extend(self.treemap[pt]['kids'])
-   
-   def containsPoint(self, point):
-      return point in self.treemap
 
-   def merge(self, rhsStroke, linkPt):
-      """merge another stroke into this stroke"""
-      node = self.treemap[linkPt]
-      node['kids'].append(rhsStroke.rootPt)
-      for pt, node in rhsStroke.treemap.items():
-         if pt in self.treemap:
-            raise (Exception("Oh noes"))
-         else:
-            self.treemap[pt] = node
 
-def getFillVal(number):
-   global COLORFACTOR
-   return (number * COLORFACTOR) % 256
+#***************************************************
+#Square filling + helper functions
+#***************************************************
 
 def fillSquares(startPoint, img, squareFill=255):
+   """Get a list of squares filling a blob starting at startPoint.
+   Overwrites the blob with squareFill value"""
    returnSquares = []
    squareSeeds = [startPoint]
 
@@ -79,10 +52,8 @@ def fillSquares(startPoint, img, squareFill=255):
 
 def getImgVal(x,y,img):
    return img[y,x]
-   #return img[y][x]
 def setImgVal(x,y,val,img):
    img[y,x] = val
-   #img[y][x] = val
 
 def getHeight(img):
    return img.rows
@@ -90,6 +61,7 @@ def getWidth(img):
    return img.cols
 
 def isFilledVal(value):
+   """Determine what counts as a filled pixel"""
    global FILLEDVAL
    return value == FILLEDVAL
 
@@ -103,40 +75,31 @@ def isValidPoint(point, img):
       retval  = False
    else:
       retval = isFilledVal(getImgVal(x,y,img))
-   """
-
-   if retval:
-      print "   Point %s is valid" % (str(point))
-   else:
-      print "   Point %s is NOT valid" % (str(point))
-   """
-
    return retval
 
 def isValidSquare(square, img):
-   #print "**Testing square %s" % (str(square))
+   """Check to see if square is unbroken"""
    p1, p2 = square
    p1x, p1y = square[0] 
    p2x, p2y = square[1] 
 
-   #assert p2x - p1x == p2y - p1y, "ERROR: NOT A SQUARE %s" % (str(square))
    if not isValidPoint(p1, img) or not isValidPoint(p2, img):
-      #print "***INVALID square %s" % (str(square))
+      #***INVALID square
       return False
 
 
    for x in range(p1x, p2x+1):
       for y in range(p1y, p2y+1):
          if not isValidPoint((x,y), img):
-            #print "***INVALID square %s" % (str(square))
+            #INVALID square
             return False
 
-   #print "***Square %s is VALID" % (str(square))
+   #VALID
    return True
 
 def growSquare(point, img, directions = ['nw','ne','sw','se']):
-   """Given an input point, find the biggest square that can fit around it"""
-
+   """Given an input point, find the biggest square that can fit around it.
+   Returns a square tuple ( (tlx, tly), (brx, bry) )"""
    #Sanity check
    if not isValidPoint(point, img):
      return None
@@ -169,38 +132,29 @@ def growSquare(point, img, directions = ['nw','ne','sw','se']):
      
    return maxSquare
 
-
-
+#***************************************************
+#  Stroke Class
+#***************************************************
 
 
 
 class Stroke(object):
+   """A stroke consisting of a list of points"""
    def __init__(self):
       self.points = {}
-      self.segments = []
    def addPoint(self,point):
+      """Add a point to the end of the stroke"""
       #print "Adding point. Are you sure you don't want addline?"
       self.points[point] = True
    def getPoints(self):
+      """Return a list of points"""
       return self.points.keys()
    def merge(self, rhsStroke):
+      """Merge two strokes together"""
       self.points.update(rhsStroke.points)
-      self.segments = set(self.segments).union(set(rhsStroke.segments))
-
-   def addLine(self, seg):
-      p,q = seg
-      self.points[q] = True
-      self.segments.append(seg)
-
-
-
-def show(cv_img):
-   print cv_img.type
-   Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
-
 
 def smooth(img, ksize = 9):
-   print type(img)
+   """Do a median smoothing with kernel size ksize"""
    retimg = cv.CloneMat(img)
    #retimg = cv.CreateMat(img.cols, img.rows, cv.CV_8UC3)
    #                            cols, rows, anchorx,y, shape
@@ -210,13 +164,14 @@ def smooth(img, ksize = 9):
    return retimg
 
 def invert (cv_img):
+   """Return a negative copy of the grayscale image"""
    retimg = cv.CloneMat(cv_img)
    cv.Set(retimg, 255)
    cv.AddWeighted(cv_img, -1.0, retimg, 1.0, 0.0,retimg )
    return retimg
 
 def removeBackground(cv_img):
-   
+   """Take in a color image and convert it to a binary image of just ink"""
    bg_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
    cv.CvtColor(cv_img, bg_img, cv.CV_RGB2GRAY)
    inv_img = smooth(bg_img, ksize=23)
@@ -226,13 +181,13 @@ def removeBackground(cv_img):
    inv_img = invert(inv_img)
    cv.AddWeighted(bg_img, 0.5, inv_img, 0.5, 0.0,bg_img )
    cv.Threshold(bg_img, bg_img, 123, 255, cv.CV_THRESH_BINARY)
-   show(bg_img)
-   exit(0)
 
 
    return bg_img
 
 
+"""
+Deprecated
 def trimStrokes(strokelist):
    retlist = []
    for stk in strokelist:
@@ -257,18 +212,22 @@ def trimStrokes(strokelist):
       retlist.append(stkCopy)
    #endfor strokelist
    return retlist
+"""
 
 def squareCenter(square):
+   """Get the integer center point of this square"""
    ((p1x, p1y), (p2x, p2y)) = square
 
    #             CentX          CentY
    return ( (p1x + p2x)/2, (p1y+p2y)/2 )
    
 def squareSize(square):
+   """Return the length of a side of this square"""
    ((p1x, p1y), (p2x, p2y)) = square
    return (p2x - p1x)
 
 def processStrokes(cv_img):
+   """Take in a raw, color image and return a list of strokes extracted from it."""
    temp_img = removeBackground(cv_img)
 
    strokelist = bitmapToUnorderedStrokes(temp_img,step = 1)
@@ -279,6 +238,10 @@ def processStrokes(cv_img):
 
 
 def squaresToStroke(squares):
+   """Take in a list of squares and convert it to a stroke with an undefined 
+   ordering of points. 
+   Each square is a tuple of topleft, bottom right (x,y) point tuples: ( (tlx, tly), (brx, bry) )
+   """
    errorThreshold = 0.1
    retStroke = Stroke()
    sizeSqrs = {}
@@ -310,12 +273,10 @@ def squaresToStroke(squares):
 
    return retStroke
 
-def pointDist(p1, p2):
-   p1x, p1y = p1
-   p2x, p2y = p2
 
-   return (p2x-p1x) ** 2 + (p2y-p1y) ** 2
 def OrderStrokePoints(stroke):
+   """Take an stroke with an arbitrary order on its points and 
+   order them such that they could be drawn in a single gesture"""
    retStroke = Stroke()
    points = stroke.getPoints()
 
@@ -337,11 +298,9 @@ def OrderStrokePoints(stroke):
       jNode = pointTree.setdefault(points[j], {})
       iNode['next'] = points[j]
 
-
-
-
-
 def bitmapToUnorderedStrokes(img,step = 1):
+   """Take in a binary image and group blobs of black into strokes.
+   Point ordering of these strokes is undefined"""
    retStrokes = []
    for i in range (0, img.cols, step):
       print "\rProcessing column %s" % (i),
@@ -355,6 +314,15 @@ def bitmapToUnorderedStrokes(img,step = 1):
    print "Found %s strokes" % (len(retStrokes))
    return retStrokes
 
+def pointDist(p1, p2):
+   p1x, p1y = p1
+   p2x, p2y = p2
+
+   return (p2x-p1x) ** 2 + (p2y-p1y) ** 2
+
+def show(cv_img):
+   print cv_img.type
+   Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
    
 def main(args):
    if len (args) < 2:
