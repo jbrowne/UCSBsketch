@@ -141,17 +141,17 @@ def growSquare(point, img, directions = ['nw','ne','sw','se']):
 class Stroke(object):
    """A stroke consisting of a list of points"""
    def __init__(self):
-      self.points = {}
+      self.points = []
    def addPoint(self,point):
       """Add a point to the end of the stroke"""
       #print "Adding point. Are you sure you don't want addline?"
-      self.points[point] = True
+      self.points.append(point)
    def getPoints(self):
       """Return a list of points"""
-      return self.points.keys()
+      return self.points
    def merge(self, rhsStroke):
       """Merge two strokes together"""
-      self.points.update(rhsStroke.points)
+      self.points.extend(rhsStroke.points)
 
 def smooth(img, ksize = 9):
    """Do a median smoothing with kernel size ksize"""
@@ -186,33 +186,6 @@ def removeBackground(cv_img):
    return bg_img
 
 
-"""
-Deprecated
-def trimStrokes(strokelist):
-   retlist = []
-   for stk in strokelist:
-      srcDict = {}
-      for pt in stk.points:
-         i,j = pt
-
-         setSrc = True #Should we make this a root node
-         for updown in [-1, 0, 1]:
-            for leftright in [-1, 0, 1]:
-               if (updown, leftright) is not (0,0):
-                  n_p = (i + leftright, j + updown)
-                  if n_p in srcDict and srcDict[n_p] is None: #A neighbor is a root candidate
-                     #srcDict[pt] = n_p
-                     setSrc = False
-         if setSrc:
-            srcDict[pt] = None
-      #endfor stk.points
-      stkCopy = Stroke()
-      for pt in srcDict.keys():
-         stkCopy.addPoint(pt)
-      retlist.append(stkCopy)
-   #endfor strokelist
-   return retlist
-"""
 
 def squareCenter(square):
    """Get the integer center point of this square"""
@@ -232,18 +205,67 @@ def processStrokes(cv_img):
 
    strokelist = bitmapToUnorderedStrokes(temp_img,step = 1)
    for s in strokelist:
+      prev = None
       for p in s.getPoints():
-         cv.Circle(temp_img, p, 2, 0x0, thickness=-1)
+         if prev is not None:
+            print "Drawing points/lines"
+            cv.Circle(temp_img, p, 2, 0x0, thickness=-1)
+            cv.Line(temp_img, prev, p, 0x0, thickness=2)
+         prev = p
    return temp_img
 
 
-def squaresToStroke(squares):
-   """Take in a list of squares and convert it to a stroke with an undefined 
-   ordering of points. 
+def squaresToStrokes(squares):
+   """Take in a bunch of squares and output one or more strokes approximating them"""
+   pointlist = squaresToPoints(squares)
+   strokes =  pointsToStrokes(pointlist)
+   return strokes
+
+def pointsToStrokes(points):
+   """Take in an unordered list of points and convert it into one or more strokes"""
+   retStroke = Stroke()
+   distances = {}
+
+   for i, p1 in enumerate(points):
+      for j, p2 in enumerate(points):
+         pointdist = pointDist(p1, p2)
+         pointsOfDist = distances.setdefault(pointdist, [])
+         pointsOfDist.append((p1, p2))
+
+   dists = distances.keys()
+   dists.sort()
+
+   curPoints = {}
+   for d in dists:
+      for edge in distances[d]:
+         p1, p2 = edge
+         if not p1 in curPoints or not p2 in curPoints: #It's not a cycle
+            curPoints.setdefault(p1, []).append(p2) #Append p2 as a neighbor of p1
+            curPoints.setdefault(p2, []).append(p1) #P1 as a neighbor of p2
+
+   #curPoints is now the MST
+   pointlist = []
+   if len(curPoints) > 0:
+      pointStack = []
+      while len(pointStack)> 0:
+         top = pointStack.pop()
+         pointlist.append(top) #Random root
+         pointStack.extend(curPoints[top])
+
+   for p in pointlist:
+      retStroke.addPoint(p)
+
+   return [retStroke]
+
+def squaresToPoints(squares):
+   """Take in a list of squares, find a set of the biggest squares that approximates
+   the blob to a threshold accuracy, and convert the squares to a list of those squares'
+   center points.
    Each square is a tuple of topleft, bottom right (x,y) point tuples: ( (tlx, tly), (brx, bry) )
    """
    errorThreshold = 0.1
-   retStroke = Stroke()
+   retStrokes = []
+   pointList = []
    sizeSqrs = {}
    totalSize = 0
    #Sort squares into descending order of size
@@ -259,19 +281,23 @@ def squaresToStroke(squares):
    #Add progressively smaller squares until blob is approximately present
    absTarget = totalSize - errorThreshold * totalSize #how many pixels do we need to fill to be "good enough"
    currentPixels = 0
+   isDone = False
    for size in sizes:
-      if size == 1:
-         print "Stroke using single-pixel points!"
       for sqr in sizeSqrs[size]:
          (p1x, p1y), (p2x, p2y) = sqr 
          center = ( (p1x + p2x)/2, (p1y + p2y) /2)
-         retStroke.addPoint(center)
+         #retStroke.addPoint(center)
+         pointList.append(center)
 
          currentPixels += size * size
          if currentPixels > absTarget:
-            return retStroke
+            isDone = True
+            break
+            #return pointList 
+      if isDone:
+         break
 
-   return retStroke
+   return pointList
 
 
 def OrderStrokePoints(stroke):
@@ -309,9 +335,9 @@ def bitmapToUnorderedStrokes(img,step = 1):
          pixval = img[j,i]
          if isFilledVal(pixval):
             blobSquares = fillSquares(p, img, 255)
-            retStrokes.append(squaresToStroke(blobSquares))
+            retStrokes.extend(squaresToStrokes(blobSquares))
 
-   print "Found %s strokes" % (len(retStrokes))
+   print "\rFound %s strokes                 " % (len(retStrokes))
    return retStrokes
 
 def pointDist(p1, p2):
@@ -321,7 +347,6 @@ def pointDist(p1, p2):
    return (p2x-p1x) ** 2 + (p2y-p1y) ** 2
 
 def show(cv_img):
-   print cv_img.type
    Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
    
 def main(args):
