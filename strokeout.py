@@ -204,11 +204,11 @@ def processStrokes(cv_img):
    temp_img = removeBackground(cv_img)
 
    strokelist = bitmapToUnorderedStrokes(temp_img,step = 1)
+   
    for s in strokelist:
       prev = None
       for p in s.getPoints():
          if prev is not None:
-            print "Drawing points/lines"
             cv.Circle(temp_img, p, 2, 0x0, thickness=-1)
             cv.Line(temp_img, prev, p, 0x0, thickness=2)
          prev = p
@@ -228,9 +228,10 @@ def pointsToStrokes(points):
 
    for i, p1 in enumerate(points):
       for j, p2 in enumerate(points):
-         pointdist = pointDist(p1, p2)
-         pointsOfDist = distances.setdefault(pointdist, [])
-         pointsOfDist.append((p1, p2))
+         if i != j:
+            pointdist = pointDist(p1, p2)
+            pointsOfDist = distances.setdefault(pointdist, [])
+            pointsOfDist.append((p1, p2))
 
    dists = distances.keys()
    dists.sort()
@@ -246,11 +247,15 @@ def pointsToStrokes(points):
    #curPoints is now the MST
    pointlist = []
    if len(curPoints) > 0:
-      pointStack = []
+      pointStack = [ curPoints.keys()[0] ]
       while len(pointStack)> 0:
          top = pointStack.pop()
+         print "Adding point %s" % (str(top))
+         print "  Checking kids: %s" % (curPoints[top])
          pointlist.append(top) #Random root
-         pointStack.extend(curPoints[top])
+         for kid in curPoints[top]:
+            if kid not in pointlist:
+               pointStack.append(kid) #Add the children
 
    for p in pointlist:
       retStroke.addPoint(p)
