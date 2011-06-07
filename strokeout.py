@@ -201,7 +201,12 @@ def squareSize(square):
 
 def processStrokes(cv_img):
    """Take in a raw, color image and return a list of strokes extracted from it."""
+   global DEBUGIMG
    temp_img = removeBackground(cv_img)
+
+
+   DEBUGIMG = cv.CloneMat(temp_img)
+   cv.Set(DEBUGIMG, 255)
 
    strokelist = bitmapToUnorderedStrokes(temp_img,step = 1)
    
@@ -209,8 +214,10 @@ def processStrokes(cv_img):
       prev = None
       for p in s.getPoints():
          if prev is not None:
-            cv.Circle(temp_img, p, 2, 0x0, thickness=-1)
-            cv.Line(temp_img, prev, p, 0x0, thickness=2)
+            #cv.Circle(temp_img, p, 2, 0x0, thickness=1)
+            cv.Line(temp_img, prev, p, 0x0, thickness=1)
+         else:
+            cv.Circle(temp_img, p, 2, 0x00, thickness=3)
          prev = p
    return temp_img
 
@@ -223,35 +230,79 @@ def squaresToStrokes(squares):
 
 def pointsToStrokes(points):
    """Take in an unordered list of points and convert it into one or more strokes"""
+   global DEBUGIMG 
    retStroke = Stroke()
    distances = {}
 
+   edgecount = 0
    for i, p1 in enumerate(points):
       for j, p2 in enumerate(points):
          if i != j:
             pointdist = pointDist(p1, p2)
             pointsOfDist = distances.setdefault(pointdist, [])
             pointsOfDist.append((p1, p2))
+            edgecount += 1
+   #print "%s points, %s edges in matrix" % (len(points), edgecount)
 
    dists = distances.keys()
    dists.sort()
 
+   
    curPoints = {}
    for d in dists:
       for edge in distances[d]:
          p1, p2 = edge
-         if not p1 in curPoints or not p2 in curPoints: #It's not a cycle
+         if ( 
+             (p1 in curPoints or p2 in curPoints) \
+             and not (p1 in curPoints and p2 in curPoints) \
+            ) \
+            or len(curPoints) == 0 : #First add
             curPoints.setdefault(p1, []).append(p2) #Append p2 as a neighbor of p1
             curPoints.setdefault(p2, []).append(p1) #P1 as a neighbor of p2
+      if len(curPoints) == len(points):
+         print "Got all the points at distance %s" % (d)
+         break
+
+   """
+   print "%s points in MST" % (len(curPoints.keys()))
+   for p1 in curPoints.keys():
+      for p2 in curPoints[p1]:
+         cv.Line(DEBUGIMG, p1, p2, 0x0, thickness=1)
+
+   show(DEBUGIMG)
+   
+
+### BREAAAAKK ###
+   """
 
    #curPoints is now the MST
+
+
+   #Find a good leaf
+   maxLeaf = curPoints.keys()[0]
+   maxDist = 0
+   pointStack = [(maxLeaf, 0)]
+   seen = []
+   while len(pointStack) > 0:
+      top, curlevel = pointStack.pop()
+      if curlevel > maxDist:
+         maxDist = curlevel
+         maxLeaf = top
+      seen.append(top)
+      for kid in curPoints[top]:
+         if kid not in seen:
+            pointStack.append( (kid, curlevel+1) )
+
+
+
    pointlist = []
    if len(curPoints) > 0:
-      pointStack = [ curPoints.keys()[0] ]
+      pointStack = [ maxLeaf ]
       while len(pointStack)> 0:
+         print pointStack
          top = pointStack.pop()
-         print "Adding point %s" % (str(top))
-         print "  Checking kids: %s" % (curPoints[top])
+         #print "Adding point %s" % (str(top))
+         #print "  Checking kids: %s" % (curPoints[top])
          pointlist.append(top) #Random root
          for kid in curPoints[top]:
             if kid not in pointlist:
@@ -333,8 +384,9 @@ def bitmapToUnorderedStrokes(img,step = 1):
    """Take in a binary image and group blobs of black into strokes.
    Point ordering of these strokes is undefined"""
    retStrokes = []
+   print img.cols
    for i in range (0, img.cols, step):
-      print "\rProcessing column %s" % (i),
+      print "Processing column %s" % (i)
       for j in range(0, img.rows, step):
          p = (i,j)
          pixval = img[j,i]
