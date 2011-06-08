@@ -16,11 +16,14 @@ COLORFACTOR = 10
 def fillSquares(startPoint, img, squareFill=255):
    """Get a list of squares filling a blob starting at startPoint.
    Overwrites the blob with squareFill value"""
+
+   centersTree = {}
+
    returnSquares = []
-   squareSeeds = [startPoint]
+   squareSeeds = [(startPoint, None)]
 
    while len(squareSeeds) > 0:
-      seedPt = squareSeeds.pop()
+      seedPt, parentPt = squareSeeds.pop()
       #print "Checking %s for square" % (str(seedPt))
       newSquare = growSquare(seedPt, img)
       if newSquare is not None:
@@ -31,24 +34,38 @@ def fillSquares(startPoint, img, squareFill=255):
          p1x, p1y = newSquare[0]
          p2x, p2y = newSquare[1]
 
+         cx = (p1x + p2x) / 2
+         cy = (p1y + p2y) / 2
+         center = (cx, cy)
+         size = (p2x + 1) - p1x
+
+         cNode = centersTree.setdefault(center, {'kids':[], 'size': None, 'square': None})
+         cNode['size'] = size
+         cNode['square'] = newSquare
+         if parentPt is not None:
+            pNode = centersTree.setdefault(parentPt, {'kids':[], 'size': None, 'square': None})
+            pNode['kids'].append(center)
+            cNode['kids'].append(parentPt)
+
+
          #Look at diagonal points later
-         squareSeeds.append((p1x-1, p1y-1)) #NW
-         squareSeeds.append((p2x+1, p2y+1)) #SE
-         squareSeeds.append((p1x-1, p2y+1)) #SW
-         squareSeeds.append((p2x+1, p1y-1)) #NE
+         squareSeeds.append(((p1x-1, p1y-1), center)) #NW
+         squareSeeds.append(((p2x+1, p2y+1), center)) #SE
+         squareSeeds.append(((p1x-1, p2y+1), center)) #SW
+         squareSeeds.append(((p2x+1, p1y-1), center)) #NE
          for x in range(p1x, p2x+1):
-            squareSeeds.append((x, p1y-1)) #Add the top/bottom perimeter points
-            squareSeeds.append((x, p2y+1))
+            squareSeeds.append(((x, p1y-1), center)) #Add the top/bottom perimeter points
+            squareSeeds.append(((x, p2y+1), center))
             for y in range(p1y, p2y+1):
                setImgVal(x,y,squareFill,img)  #Don't match any of these points next time
 
          for y in range(p1y, p2y+1): #Add the right/left perimeter points
-            squareSeeds.append((p1x-1, y))
-            squareSeeds.append((p2x+1, y))
+            squareSeeds.append(((p1x-1, y), center))
+            squareSeeds.append(((p2x+1, y), center))
          #endfor y
       #endif
    #endwhile
-   return returnSquares
+   return centersTree
 
 def getImgVal(x,y,img):
    return img[y,x]
@@ -216,16 +233,135 @@ def processStrokes(cv_img):
          if prev is not None:
             #cv.Circle(temp_img, p, 2, 0x0, thickness=1)
             cv.Line(temp_img, prev, p, 0x0, thickness=1)
-         else:
-            cv.Circle(temp_img, p, 2, 0x00, thickness=3)
          prev = p
    return temp_img
 
+def pruneSquareTree(squareTree):
+   threshold = 0.8 #how close a fit to all of the blobs
+   availSizes = {}
+   totalSize = 0
+   for node in squareTree.values():
+      size = node['size']
+      totalSize += size * size
+      sizeCount = availSizes.get(size, 0)
+      availSizes[size] = sizeCount + 1
 
-def squaresToStrokes(squares):
+
+
+   target = threshold * totalSize
+   sizes = availSizes.keys()
+   sizes.sort(key=(lambda x: -x))
+
+   print "Available: %s" % (availSizes)
+   useSizes = {}
+   while target > 0:
+      print "Target: %s" % (target)
+      s = sizes.pop(0)
+      needed = (target + 1) / (s*s) #Ceiling
+      if needed > availSizes[s]:
+         useSizes[s] = availSizes[s]
+         target -= useSizes[s] * (s * s)
+      elif needed > 0:
+         useSizes[s] = int(needed)
+         target -= needed * (s*s) #should be zero!
+   print "Used: %s" % (useSizes)
+
+   #Now we know how many of each size we need
+   retTree = {}
+   root = None
+   for pt, node in squareTree.items():
+      if node['size'] in useSizes:
+         root = pt
+         break
+
+   procStack = [(root, None)]
+   seen = {}
+   while len(procStack) > 0:
+      curPt, parent = procStack.pop()
+      seen[curPt] = True
+      curNode = dict(squareTree[curPt])
+      size = curNode['size'] 
+      linkParent = parent #link kids to parent
+      if size in useSizes and useSizes[size] > 0:
+         #Add to tree
+         retTree[curPt] = curNode
+         curNode['kids'] = [] #Clear its children
+
+         #link to parent
+         if parent is not None:
+            retTree[parent]['kids'].append(curPt)
+            retTree[curPt]['kids'].append(parent)
+
+         useSizes[size] -= 1 #Covered
+
+         linkParent = curPt #Link kids to curPt
+
+      #Keep traversing the original tree
+      for k in squareTree[curPt]['kids']:
+         if k not in seen:
+            procStack.append((k, linkParent))
+
+   print "Pruned square tree to %s points at %s accuracy" % (len(retTree), 100 * threshold)
+   return retTree
+
+def squareTreeToStrokes(squareTree):
+
+   retStrokes = []
+   tempTree = dict(squareTree) #Copy the orig tree
+   while len(tempTree) > 0:
+      #Find a good leaf
+      maxLeaf = tempTree.keys()[0]
+      maxDist = 0
+      pointStack = [(maxLeaf, 0)]
+      seen = {}
+      while len(pointStack) > 0:
+         top, curlevel = pointStack.pop()
+         if curlevel > maxDist:
+            maxDist = curlevel
+            maxLeaf = top
+         seen[top] = True
+         for kid in tempTree[top]['kids']:
+            if kid not in seen and kid in tempTree:
+               pointStack.append( (kid, curlevel+1) )
+
+      #Find the longest path from the leaf
+      root = maxLeaf
+      maxPath = []
+      pathStack = [[root]]
+      seen = {}
+      while len(pathStack) > 0:
+         curPath = pathStack.pop()
+         thisNode = curPath[-1]
+         seen[thisNode] = True
+
+         if len(curPath) > len(maxPath):
+            maxPath = curPath
+
+         for kid in tempTree[thisNode]['kids']:
+            if kid not in seen and kid in tempTree:
+               pathStack.append( curPath + [kid] )
+
+      print "Longest path length: %s" % (len(maxPath))
+      #Make it a stroke
+      newStroke = Stroke()
+      for point in maxPath:
+         newStroke.addPoint(point)
+         del(tempTree[point])
+
+      retStrokes.append(newStroke)
+
+   print "Blob completed in %s strokes" % (len (retStrokes))
+   return retStrokes
+def squaresToStrokes(squareTree):
    """Take in a bunch of squares and output one or more strokes approximating them"""
+   prunedSquareTree = pruneSquareTree(squareTree)
+   strokes = squareTreeToStrokes(prunedSquareTree)
+
+   """
+   squares = [node['square'] for node in squareTree.values()]
    pointlist = squaresToPoints(squares)
    strokes =  pointsToStrokes(pointlist)
+   """
    return strokes
 
 def pointsToStrokes(points):
@@ -386,13 +522,16 @@ def bitmapToUnorderedStrokes(img,step = 1):
    retStrokes = []
    print img.cols
    for i in range (0, img.cols, step):
-      print "Processing column %s" % (i)
+      #print "Processing column %s" % (i)
       for j in range(0, img.rows, step):
          p = (i,j)
          pixval = img[j,i]
          if isFilledVal(pixval):
-            blobSquares = fillSquares(p, img, 255)
-            retStrokes.extend(squaresToStrokes(blobSquares))
+            blobSquareTree = fillSquares(p, img, 255)
+            blobSquares = []
+            for center, squareNode in blobSquareTree.items():
+               blobSquares.append(squareNode['square'])
+            retStrokes.extend(squaresToStrokes(blobSquareTree))
 
    print "\rFound %s strokes                 " % (len(retStrokes))
    return retStrokes
