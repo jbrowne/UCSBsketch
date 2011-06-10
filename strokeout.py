@@ -252,10 +252,8 @@ def pruneSquareTree(squareTree):
    sizes = availSizes.keys()
    sizes.sort(key=(lambda x: -x))
 
-   print "Available: %s" % (availSizes)
    useSizes = {}
    while target > 0:
-      print "Target: %s" % (target)
       s = sizes.pop(0)
       needed = (target + 1) / (s*s) #Ceiling
       if needed > availSizes[s]:
@@ -264,7 +262,6 @@ def pruneSquareTree(squareTree):
       elif needed > 0:
          useSizes[s] = int(needed)
          target -= needed * (s*s) #should be zero!
-   print "Used: %s" % (useSizes)
 
    #Now we know how many of each size we need
    retTree = {}
@@ -301,7 +298,7 @@ def pruneSquareTree(squareTree):
          if k not in seen:
             procStack.append((k, linkParent))
 
-   print "Pruned square tree to %s points at %s accuracy" % (len(retTree), 100 * threshold)
+   print "Pruned square tree from %s to %s points at %s%% accuracy" % (len(squareTree), len(retTree), 100 * threshold)
    return retTree
 
 def squareTreeToStrokes(squareTree):
@@ -344,9 +341,22 @@ def squareTreeToStrokes(squareTree):
       print "Longest path length: %s" % (len(maxPath))
       #Make it a stroke
       newStroke = Stroke()
+      print tempTree
+      for point in tempTree.keys():
+         node = tempTree[point]
+         newkids = []
+         for kid in node['kids']:
+            if kid not in maxPath and kid in tempTree:
+               newkids.append(kid)
+
+         print newkids
+         if len(newkids) > 0:
+            node['kids'] = newkids
+         else:
+            del(tempTree[point])
+
       for point in maxPath:
          newStroke.addPoint(point)
-         del(tempTree[point])
 
       retStrokes.append(newStroke)
 
