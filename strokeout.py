@@ -304,7 +304,8 @@ def pruneSquareTree(squareTree):
 def squareTreeToStrokes(squareTree):
 
    retStrokes = []
-   tempTree = dict(squareTree) #Copy the orig tree
+   tempTree = pruneSquareTree(squareTree)
+   #tempTree = dict(squareTree) #Copy the orig tree
    while len(tempTree) > 0:
       #Find a good leaf
       maxLeaf = tempTree.keys()[0]
@@ -338,10 +339,8 @@ def squareTreeToStrokes(squareTree):
             if kid not in seen and kid in tempTree:
                pathStack.append( curPath + [kid] )
 
-      print "Longest path length: %s" % (len(maxPath))
       #Make it a stroke
       newStroke = Stroke()
-      print tempTree
       for point in tempTree.keys():
          node = tempTree[point]
          newkids = []
@@ -349,7 +348,6 @@ def squareTreeToStrokes(squareTree):
             if kid not in maxPath and kid in tempTree:
                newkids.append(kid)
 
-         print newkids
          if len(newkids) > 0:
             node['kids'] = newkids
          else:
@@ -362,10 +360,22 @@ def squareTreeToStrokes(squareTree):
 
    print "Blob completed in %s strokes" % (len (retStrokes))
    return retStrokes
+
+def debugSquareTreeToStrokes(squareTree):
+   retStrokes = []
+   for p, node in squareTree.items():
+      for kid in node['kids']:
+         newStroke = Stroke()
+         newStroke.addPoint( p )
+         newStroke.addPoint( kid )
+         retStrokes.append(newStroke)
+
+   return retStrokes
+
 def squaresToStrokes(squareTree):
    """Take in a bunch of squares and output one or more strokes approximating them"""
-   prunedSquareTree = pruneSquareTree(squareTree)
-   strokes = squareTreeToStrokes(prunedSquareTree)
+   strokes = squareTreeToStrokes(squareTree)
+   #strokes = debugSquareTreeToStrokes(squareTree)
 
    """
    squares = [node['square'] for node in squareTree.values()]
