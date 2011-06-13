@@ -439,7 +439,7 @@ def bitmapToStrokes(img,step = 1):
             blobSquares = []
             for center, squareNode in blobSquareTree.items():
                size = squareNode['size']
-            retStrokes.extend(debugSquareTreeToStrokes(blobSquareTree))
+            retStrokes.extend(squareTreeToStrokes(blobSquareTree))
 
    print "\rFound %s strokes                 " % (len(retStrokes))
    return retStrokes
