@@ -4,8 +4,10 @@ import Image
 import pickle
 import random
 import pdb
+import random
 
-FILLEDVAL = 0.0 
+FILLEDVAL = 220
+CENTERVAL = 0
 COLORFACTOR = 10
 
 DENOISE_K = 5
@@ -13,29 +15,38 @@ SMOOTH_K = 23
 INV_FACTOR = 0.5
 INK_THRESH = 122
 
-PRUNING_FACTOR = 0.8
+PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
-PRUNING_FACTOR = (1 - PRUNING_FACTOR) * SQUARE_ERROR + PRUNING_FACTOR 
+PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
+
+def fname_iter():
+   imgnum = 0
+   while True:
+      fname = "%06.0d.jpg" % (imgnum)
+      #print fname
+      imgnum += 1
+      yield fname 
+
+FNAMEITER = fname_iter()
 
 #***************************************************
 #Square filling + helper functions
 #***************************************************
 
-def fillSquares(startPoint, img, squareFill=255):
+def fillSquares(startPoint, img, squareFill=FILLEDVAL):
    """Get a list of squares filling a blob starting at startPoint.
    Overwrites the blob with squareFill value"""
 
    centersTree = {}
 
    returnSquares = []
-   squareSeeds = [(startPoint, None)]
+   squareSeeds = [(startPoint, None, 'E')] #Start looking east
 
    while len(squareSeeds) > 0:
-      seedPt, parentPt = squareSeeds.pop()
+      seedPt, parentPt, direction = squareSeeds.pop()
       #print "Checking %s for square" % (str(seedPt))
       newSquare = growSquare(seedPt, img)
       if newSquare is not None:
-         #print "  Found"
          returnSquares.append(newSquare)
          squareNum = len(returnSquares)
 
@@ -57,27 +68,87 @@ def fillSquares(startPoint, img, squareFill=255):
 
 
          #Look at diagonal points later
-         squareSeeds.append(((p1x-1, p1y-1), center)) #NW
-         squareSeeds.append(((p2x+1, p2y+1), center)) #SE
-         squareSeeds.append(((p1x-1, p2y+1), center)) #SW
-         squareSeeds.append(((p2x+1, p1y-1), center)) #NE
+         next_N = []
+         next_S = []
+         next_E = []
+         next_W = []
+         next_N.append(((p1x-1, p1y-1), center, 'NW')) #NW
+         next_S.append(((p1x-1, p2y+1), center, 'SW')) #SW
          for x in range(p1x, p2x+1):
-            squareSeeds.append(((x, p1y-1), center)) #Add the top/bottom perimeter points
-            squareSeeds.append(((x, p2y+1), center))
+            ew = ''
+            if x < (p1x + p2x +1) / 3:
+               ew = 'W'
+            elif x > (2 * (p1x + p2x) +1) / 3:
+               ew = 'E'
+
+            next_N.append(((x, p1y-1), center, 'N'+ew)) #Add the top/bottom perimeter points
+            next_S.append(((x, p2y+1), center, 'S'+ew))
             for y in range(p1y, p2y+1):
-               if isValidPoint((x,y), img):
+               if isValidPoint((x,y), img, filledVal = CENTERVAL):
                   setImgVal(x,y,squareFill,img)  #Don't match any of these points next time
+         next_N.append(((p2x+1, p1y-1), center, 'NE')) #NE
+         next_S.append(((p2x+1, p2y+1), center, 'SE')) #SE
 
          for y in range(p1y, p2y+1): #Add the right/left perimeter points
-            squareSeeds.append(((p1x-1, y), center))
-            squareSeeds.append(((p2x+1, y), center))
-         #endfor y
+            ns = ''
+            if y < (p1y + p2y +1) / 3:
+               ns = 'N'
+            elif y > (2 * (p1y + p2y) +1) / 3:
+               ns = 'S'
+            next_W.append(((p1x-1, y), center, ns+'W'))
+            next_E.append(((p2x+1, y), center, ns+'E'))
+         #endfor y 
+
+         pushList = []
+         if direction == 'NW':
+            pushList.extend(next_N + next_W)
+         elif direction == 'N':
+            random.shuffle(next_N)
+            pushList.extend(next_N + next_W + next_E)
+         elif direction == 'NE':
+            next_N.reverse()
+            pushList.extend(next_N + next_E)
+         elif direction == 'SE':
+            next_S.reverse()
+            next_E.reverse()
+            pushList.extend(next_S + next_E)
+         elif direction == 'S':
+            random.shuffle(next_S)
+            next_E.reverse()
+            next_W.reverse()
+            pushList.extend(next_S + next_E + next_W)
+         elif direction == 'SW':
+            next_W.reverse()
+            pushList.extend(next_S + next_W)
+         elif direction == 'W':
+            random.shuffle(next_W)
+            pushList.extend(next_W + next_N + next_S)
+         elif direction == 'E':
+            next_S.reverse()
+            next_N.reverse()
+            random.shuffle(next_E)
+            pushList.extend(next_E + next_N + next_S)
+         pushList.reverse()
+
+         squareSeeds.extend(pushList)
+
+         saveimg(img)
       #endif
    #endwhile
    return centersTree
 
 def getImgVal(x,y,img):
-   return img[y,x]
+   h = img.rows
+   w = img.cols
+   if y < 0 or y >= h or x < 0 or x >= w:
+      #print "Returning -1 for %s, %s" % (x,y)
+      return -1
+   try:
+      return img[y,x]
+   except:
+      print (x,y)
+      exit(1)
+     
 def setImgVal(x,y,val,img):
    img[y,x] = val
 
@@ -91,8 +162,8 @@ def isFilledVal(value):
    global FILLEDVAL
    return value == FILLEDVAL
 
-def isValidPoint(point, img):
-   """Checks with an img to see if the point should be filled or not"""
+def isValidPoint(point, img, filledVal = FILLEDVAL):
+   """Checks with an img to see if the point is filled or not"""
    height = getHeight(img)
    width = getWidth(img[0])
    x,y = point
@@ -100,12 +171,12 @@ def isValidPoint(point, img):
       #Bounds check
       retval  = False
    else:
-      retval = isFilledVal(getImgVal(x,y,img))
+      retval = ( getImgVal(x,y,img) == filledVal )
    return retval
 
 def isValidSquare(square, img):
    """Check to see if square is unbroken"""
-   global SQUARE_ERROR
+   global SQUARE_ERROR, CENTERVAL
    errorThresh  = SQUARE_ERROR
    p1, p2 = square
    p1x, p1y = square[0] 
@@ -116,7 +187,8 @@ def isValidSquare(square, img):
    badPixels = 0
    for x in range(p1x, p2x+1):
       for y in range(p1y, p2y+1):
-         if not isValidPoint((x,y), img):
+         pixVal = getImgVal(x,y,img)
+         if not pixVal == FILLEDVAL and not pixVal == CENTERVAL:
             badPixels += 1
             if badPixels > maxInvalidPixels:
                #INVALID square
@@ -129,8 +201,12 @@ def growSquare(point, img, directions = ['nw','ne','sw','se']):
    """Given an input point, find the biggest square that can fit around it.
    Returns a square tuple ( (tlx, tly), (brx, bry) )"""
    #Sanity check
-   if not isValidPoint(point, img):
-     return None
+   global CENTERVAL
+
+   pointVal = getImgVal( point[0], point[1], img)
+   if pointVal != CENTERVAL: #Center must be this value
+      return None
+
 
    #Initialize to simplest case
    curSquare = maxSquare = (point, point)
@@ -173,7 +249,6 @@ class Stroke(object):
       self.points = []
    def addPoint(self,point):
       """Add a point to the end of the stroke"""
-      #print "Adding point. Are you sure you don't want addline?"
       self.points.append(point)
    def getPoints(self):
       """Return a list of points"""
@@ -213,15 +288,15 @@ def removeBackground(cv_img):
    bg_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
    cv.CvtColor(cv_img, bg_img, cv.CV_RGB2GRAY)
    inv_img = smooth(bg_img, ksize=smooth_k)
-   #show(inv_img)
+   saveimg(inv_img)
    bg_img = smooth(bg_img, ksize=denoise_k)
-   #show(bg_img)
+   saveimg(bg_img)
   
    inv_img = invert(inv_img)
    cv.AddWeighted(bg_img, inv_factor, inv_img, (1 - inv_factor), 0.0,bg_img )
-   #show(bg_img)
+   saveimg(bg_img)
    cv.Threshold(bg_img, bg_img, ink_thresh, 255, cv.CV_THRESH_BINARY)
-   #show(bg_img)
+   saveimg(bg_img)
 
 
    return bg_img
@@ -246,12 +321,13 @@ def processStrokes(cv_img):
 
    temp_img = removeBackground(cv_img)
 
-   DEBUGIMG = temp_img #cv.CloneMat(temp_img)
+   DEBUGIMG = cv.CloneMat(temp_img)
    #cv.Set(DEBUGIMG, 255)
+   cv.AddWeighted(temp_img, 0.0, temp_img, 1.0, 220 ,DEBUGIMG )
 
 
    strokelist = bitmapToStrokes(temp_img,step = 1)
-   #show(DEBUGIMG)
+   saveimg(DEBUGIMG)
    
    for s in strokelist:
       prev = None
@@ -259,12 +335,13 @@ def processStrokes(cv_img):
          if prev is not None:
             #cv.Circle(temp_img, p, 2, 0x0, thickness=1)
             cv.Line(temp_img, prev, p, 0x0, thickness=1)
+            saveimg (temp_img)
          prev = p
    return temp_img
 
 def pruneSquareTree(squareTree):
-   global PRUNING_FACTOR
-   threshold = PRUNING_FACTOR #how close a fit to all of the blobs
+   global PRUNING_ERROR
+   threshold = (1 - PRUNING_ERROR) #how close a fit to all of the blobs
    availSizes = {}
    totalSize = 0
    for node in squareTree.values():
@@ -325,7 +402,7 @@ def pruneSquareTree(squareTree):
          if k not in seen:
             procStack.append((k, linkParent))
 
-   #print "Pruned square tree from %s to %s points at %s%% accuracy" % (len(squareTree), len(retTree), 100 * threshold)
+   print "Pruned square tree from %s to %s points at %s%% accuracy" % (len(squareTree), len(retTree), 100 * threshold)
    return retTree
 
 def squareTreeToStrokes(squareTree):
@@ -372,28 +449,28 @@ def squareTreeToStrokes(squareTree):
 
       #Make it a stroke
       newStroke = Stroke()
-      nextTree = {}
-      for point in tempTree.keys():
-         if point == (89, 1191):
-            pdb.set_trace()
+      #nextTree = {}
+      keyDict = tempTree.keys()
+      for point in keyDict:
          node = tempTree[point]
          newkids = []
          for kid in node['kids']:
-            if kid not in maxPath and kid in tempTree:
+            if point not in maxPath or kid not in maxPath and kid in tempTree:
+               #Keep all of the connections not part of the current stroke
                newkids.append(kid)
 
-         if len(newkids) > 0:
-            node['kids'] = newkids
-            nextTree[point] = node
-         #else:
-         #   del(tempTree[point])
-      tempTree = nextTree
+         node['kids'] = newkids
+
+         if len(newkids) == 0 :
+            del(tempTree[point])
+      #tempTree = nextTree
 
       for point in maxPath:
          newStroke.addPoint(point)
       totPoints += len(newStroke.points)
       retStrokes.append(newStroke)
 
+   """
    allPoints = []
    for s in retStrokes:
       allPoints.extend(s.points)
@@ -403,7 +480,8 @@ def squareTreeToStrokes(squareTree):
          print "%s in tree but not covered by strokes" % (str(p))
          #cv.Circle(DEBUGIMG, p, 1, 0x0, thickness=3)
 
-   #print "Blob completed in %s strokes" % (len (retStrokes))
+   """
+   print "Blob completed in %s strokes" % (len (retStrokes))
    return retStrokes
 
 def debugSquareTreeToStrokes(squareTree):
@@ -433,12 +511,13 @@ def bitmapToStrokes(img,step = 1):
       #print "Processing column %s" % (i)
       for j in range(0, img.rows, step):
          p = (i,j)
-         pixval = img[j,i]
-         if isFilledVal(pixval):
-            blobSquareTree = fillSquares(p, img, 255)
+         pixval = getImgVal(i, j, img) 
+         if pixval == CENTERVAL:
+            blobSquareTree = fillSquares(p, img)
             blobSquares = []
             for center, squareNode in blobSquareTree.items():
                size = squareNode['size']
+               cv.Circle(DEBUGIMG, center, (size / 2), 0x0, thickness=1)
             retStrokes.extend(squareTreeToStrokes(blobSquareTree))
 
    print "\rFound %s strokes                 " % (len(retStrokes))
@@ -452,26 +531,46 @@ def pointDist(p1, p2):
 
 def show(cv_img):
    Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
+   saveimg(cv_img)
    
+
+def fname_iter():
+   imgnum = 0
+   while True:
+      fname = "%06.0d.jpg"
+      print fname
+      imgnum += 1
+      yield None
+
+def saveimg(cv_img, outdir = "./temp/"):
+   global FNAMEITER
+   outfname = outdir + FNAMEITER.next()
+   print "Saving %s"  % outfname
+
+   cv.SaveImage(outfname, cv_img)
+
 def main(args):
-   global SQUARE_ERROR, PRUNING_FACTOR
+   global SQUARE_ERROR, PRUNING_ERROR
    if len (args) < 2:
-      print( "Usage: %s <image_file> [output_file] [pruning_factor] [square_error]" % (args[0]))
+      print( "Usage: %s <image_file> [output_file] [pruning_error] [square_error]" % (args[0]))
       exit(1)
 
    fname = args[1]
    if len(args) > 4:
       SQUARE_ERROR = float(args[4])
    if len(args) > 3:
-      PRUNING_FACTOR = float(args[3])
+      PRUNING_ERROR = float(args[3])
 
    if len(args) > 2:
       outfname = args[2]
    else:
       outfname = None
 
+   print "Pruning Error: %s\nSquare error: %s" % (PRUNING_ERROR, SQUARE_ERROR)
+
 
    in_img = cv.LoadImageM(fname)
+   print "Processing image %sx%s" % (getWidth(in_img), getHeight(in_img))
    out_img = processStrokes(in_img)
    
    if outfname is not None:
