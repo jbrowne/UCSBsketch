@@ -45,7 +45,38 @@ def fillSquares(startPoint, img, squareFill=FILLEDVAL):
    while len(squareSeeds) > 0:
       seedPt, parentPt, direction = squareSeeds.pop()
       #print "Checking %s for square" % (str(seedPt))
-      newSquare = growSquare(seedPt, img)
+      dirs = []
+      if direction == 'NW':
+         dirs.append('NW')
+         dirs.append('NE')
+         dirs.append('SW')
+      elif direction == 'N':
+         dirs.append('NW')
+         dirs.append('NE')
+      elif direction == 'NE':
+         dirs.append('NW')
+         dirs.append('NE')
+         dirs.append('SE')
+      elif direction == 'SE':
+         dirs.append('SE')
+         dirs.append('NE')
+         dirs.append('SW')
+      elif direction == 'S':
+         dirs.append('SE')
+         dirs.append('SW')
+      elif direction == 'SW':
+         dirs.append('SE')
+         dirs.append('SW')
+         dirs.append('NW')
+      elif direction == 'W':
+         dirs.append('SW')
+         dirs.append('NW')
+      elif direction == 'E':
+         dirs.append('SE')
+         dirs.append('NE')
+      else:
+         dirs = ['NW','NE','SE','SW']
+      newSquare = growSquare(seedPt, img, dirs)
       if newSquare is not None:
          returnSquares.append(newSquare)
          squareNum = len(returnSquares)
@@ -146,8 +177,8 @@ def getImgVal(x,y,img):
    try:
       return img[y,x]
    except:
-      print (x,y)
-      exit(1)
+      print "Trying to get invalid pixel %s" % (str(x,y))
+      #exit(1)
      
 def setImgVal(x,y,val,img):
    img[y,x] = val
@@ -175,7 +206,7 @@ def isValidPoint(point, img, filledVal = FILLEDVAL):
    return retval
 
 def isValidSquare(square, img):
-   """Check to see if square is unbroken"""
+   """Check to see if square is error free enough"""
    global SQUARE_ERROR, CENTERVAL
    errorThresh  = SQUARE_ERROR
    p1, p2 = square
@@ -183,21 +214,33 @@ def isValidSquare(square, img):
    p2x, p2y = square[1] 
    size = 1 + (p2x - p1x)
 
-   maxInvalidPixels = int( errorThresh * (size * size) )
+   maxInvalidPixels = int( errorThresh * (4 * size - 2)) 
    badPixels = 0
+   #Assume that the inner square is valid and only check the perimeter
    for x in range(p1x, p2x+1):
-      for y in range(p1y, p2y+1):
-         pixVal = getImgVal(x,y,img)
-         if not pixVal == FILLEDVAL and not pixVal == CENTERVAL:
-            badPixels += 1
-            if badPixels > maxInvalidPixels:
-               #INVALID square
-               return False
-
+      pTopVal = getImgVal(x, p1y, img)
+      if not pTopVal == FILLEDVAL and not pTopVal == CENTERVAL:
+         badPixels += 1
+      pBotVal = getImgVal(x, p2y, img)
+      if not pBotVal == FILLEDVAL and not pBotVal == CENTERVAL:
+         badPixels += 1
+   if badPixels > maxInvalidPixels:
+      #INVALID square
+      return False
+   for y in range(p1y+1, p2y): #Don't overlap with top/bottom
+      pLeftVal = getImgVal(p1x,y,img)
+      if not pLeftVal == FILLEDVAL and not pLeftVal == CENTERVAL:
+         badPixels += 1
+      pRightVal = getImgVal(p2x,y,img)
+      if not pRightVal == FILLEDVAL and not pRightVal == CENTERVAL:
+         badPixels += 1
+   if badPixels > maxInvalidPixels:
+      #INVALID square
+      return False
    #VALID
    return True
 
-def growSquare(point, img, directions = ['nw','ne','sw','se']):
+def growSquare(point, img, directions = ['NW','NE','SW','SE']):
    """Given an input point, find the biggest square that can fit around it.
    Returns a square tuple ( (tlx, tly), (brx, bry) )"""
    #Sanity check
@@ -225,11 +268,11 @@ def growSquare(point, img, directions = ['nw','ne','sw','se']):
       p2x, p2y = list(curSquare[1])
 
       testSquares = {}
-      growth = (curSize + 1) / 2
-      testSquares['nw'] = ( (p1x-growth, p1y-growth), (p2x, p2y) ) #NorthWest
-      testSquares['ne'] = ( (p1x, p1y-growth), (p2x+growth, p2y) ) #NorthEast
-      testSquares['sw'] = ( (p1x-growth, p1y), (p2x, p2y+growth) ) #SouthWest
-      testSquares['se'] = ( (p1x, p1y), (p2x+growth, p2y+growth) ) #SouthEast
+      growth = 1 #(curSize + 1) / 2
+      testSquares['NW'] = ( (p1x-growth, p1y-growth), (p2x, p2y) ) #NorthWest
+      testSquares['NE'] = ( (p1x, p1y-growth), (p2x+growth, p2y) ) #NorthEast
+      testSquares['SW'] = ( (p1x-growth, p1y), (p2x, p2y+growth) ) #SouthWest
+      testSquares['SE'] = ( (p1x, p1y), (p2x+growth, p2y+growth) ) #SouthEast
 
       for dir, newSquare in testSquares.items():
          if dir in directions and isValidSquare(newSquare, img):
@@ -281,25 +324,24 @@ def invert (cv_img):
 def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
    #Hardcoded for resolution/phone/distance
-   denoise_k = 5
-   smooth_k = 23
+   denoise_k = 7
+   smooth_k = 27
    inv_factor = 0.5
    ink_thresh = 122
-   bg_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
-   cv.CvtColor(cv_img, bg_img, cv.CV_RGB2GRAY)
-   inv_img = smooth(bg_img, ksize=smooth_k)
-   saveimg(inv_img)
-   bg_img = smooth(bg_img, ksize=denoise_k)
-   saveimg(bg_img)
+   gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
+   cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
+   bg_img = smooth(gray_img, ksize=smooth_k)
+   bg_img = invert(bg_img)
+   gray_img = smooth(gray_img, ksize=denoise_k)
   
-   inv_img = invert(inv_img)
-   cv.AddWeighted(bg_img, inv_factor, inv_img, (1 - inv_factor), 0.0,bg_img )
-   saveimg(bg_img)
-   cv.Threshold(bg_img, bg_img, ink_thresh, 255, cv.CV_THRESH_BINARY)
-   saveimg(bg_img)
+   cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
+   #show(gray_img)
+   #show(gray_img)
+   cv.Threshold(gray_img, gray_img, 250, 255, cv.CV_THRESH_BINARY)
+   show(gray_img)
 
 
-   return bg_img
+   return gray_img
 
 
 
@@ -355,7 +397,10 @@ def pruneSquareTree(squareTree):
    target = threshold * totalSize
    sizes = availSizes.keys()
    sizes.sort(key=(lambda x: -x))
-
+   for s in sizes:
+      num = ( availSizes[s] + 10 )/ 10
+      print "%s\t%s" % (s, 'X'*num)
+      
    useSizes = {}
    while target > 0:
       s = sizes.pop(0)
@@ -366,6 +411,13 @@ def pruneSquareTree(squareTree):
       elif needed > 0:
          useSizes[s] = int(needed)
          target -= needed * (s*s) #should be zero!
+   print "Using:"
+   
+   sizes = useSizes.keys()
+   sizes.sort(key=(lambda x: -x))
+   for s in sizes:
+      num = ( useSizes[s] + 10 )/ 10
+      print "%s\t%s" % (s, 'X'*num)
 
    #Now we know how many of each size we need
    retTree = {}
