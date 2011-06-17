@@ -8,6 +8,7 @@ import random
 
 FILLEDVAL = 220
 CENTERVAL = 0
+BGVAL = 255
 COLORFACTOR = 10
 
 DENOISE_K = 5
@@ -28,6 +29,76 @@ def fname_iter():
       yield fname 
 
 FNAMEITER = fname_iter()
+#***************************************************
+# Bitmap thinning functions
+#***************************************************
+
+def filledAndCrossingVals(point, img):
+   """
+   http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
+   """
+   global CENTERVAL, BGVAL
+   retDict = {'filled':-1, 'crossing':-1, 'senwne': False, 'nwsesw': False}
+   px, py = point
+
+   if getImgVal(px, py, img) == CENTERVAL:
+      crossing = 0
+      filled = 0
+
+      n = getImgVal(px, py+1, img)
+      w = getImgVal(px-1, py, img)
+      s = getImgVal(px, py-1, img)
+      e = getImgVal(px+1, py, img)
+      nw = getImgVal(px-1, py+1, img)
+      ne = getImgVal(px+1, py+1, img)
+      sw = getImgVal(px-1, py+1, img)
+      se = getImgVal(px+1, py-1, img)
+      #counterclockwise crossing
+      proclist = [e, ne, n, nw, w, sw, s, se, e]
+
+      #First point val
+      prevVal = None
+      #print "Neighbors:\n  ",
+      for ptVal in proclist:
+         if ptVal == -1 or ptVal == FILLEDVAL: # Treat edges as background
+            ptVal = BGVAL
+         elif ptVal == CENTERVAL:
+            filled += 1
+         if prevVal == CENTERVAL and ptVal != CENTERVAL:
+            crossing += 1
+         #print "%s, " % (ptVal),
+         prevVal = ptVal
+      #print "\n%s filled, %s crossing" % (filled, crossing)
+      retDict['filled'] = filled
+      retDict['crossing'] = crossing
+      
+      """
+      if sw == CENTERVAL: #Not a potential SE boundary, check 
+         if e != CENTERVAL or s != CENTERVAL or (
+      """
+   #endif
+   return retDict
+
+
+
+def thinBlobs(img, dir = 0):
+   global DEBUGIMG, FILLEDVAL, BGVAL
+   outImg = cv.CloneMat(img)
+   changed = False
+   print "Thinning blobs"
+   for i in range (0, img.cols):
+      #print "  Processing col %s" % (i)
+      saveimg(outImg)
+      for j in range(0, img.rows):
+         p = (i,j)
+         valDict = filledAndCrossingVals(p, img)
+         filled = valDict['filled']
+         cnum_p = valDict['crossing']
+         if filled >= 2 and filled <= 6 and cnum_p == 1: 
+            setImgVal(i, j, FILLEDVAL, outImg)
+            changed = True
+
+   return ( changed, outImg )
 
 #***************************************************
 #Square filling + helper functions
@@ -163,7 +234,7 @@ def fillSquares(startPoint, img, squareFill=FILLEDVAL):
 
          squareSeeds.extend(pushList)
 
-         saveimg(img)
+         #saveimg(img)
       #endif
    #endwhile
    return centersTree
@@ -316,13 +387,15 @@ def smooth(img, ksize = 9, type='median'):
 
 def invert (cv_img):
    """Return a negative copy of the grayscale image"""
+   global BGVAL
    retimg = cv.CloneMat(cv_img)
-   cv.Set(retimg, 255)
+   cv.Set(retimg, BGVAL)
    cv.AddWeighted(cv_img, -1.0, retimg, 1.0, 0.0,retimg )
    return retimg
 
 def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
+   global BGVAL
    #Hardcoded for resolution/phone/distance
    denoise_k = 7
    smooth_k = 27
@@ -337,7 +410,7 @@ def removeBackground(cv_img):
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
    #show(gray_img)
    #show(gray_img)
-   cv.Threshold(gray_img, gray_img, 250, 255, cv.CV_THRESH_BINARY)
+   cv.Threshold(gray_img, gray_img, 250, BGVAL, cv.CV_THRESH_BINARY)
    show(gray_img)
 
 
@@ -359,17 +432,23 @@ def squareSize(square):
 
 def processStrokes(cv_img):
    """Take in a raw, color image and return a list of strokes extracted from it."""
-   global DEBUGIMG
+   global DEBUGIMG, BGVAL
 
    temp_img = removeBackground(cv_img)
 
    DEBUGIMG = cv.CloneMat(temp_img)
-   #cv.Set(DEBUGIMG, 255)
-   cv.AddWeighted(temp_img, 0.0, temp_img, 1.0, 220 ,DEBUGIMG )
+   cv.Set(DEBUGIMG, BGVAL)
+   #cv.AddWeighted(temp_img, 0.0, temp_img, 1.0, 220 ,DEBUGIMG )
 
 
+   changed = True
+   while changed:
+      #saveimg(temp_img)
+      changed, temp_img = thinBlobs(temp_img)
+   show(temp_img)
+   exit(1)
+   #show(DEBUGIMG)
    strokelist = bitmapToStrokes(temp_img,step = 1)
-   saveimg(DEBUGIMG)
    
    for s in strokelist:
       prev = None
@@ -551,6 +630,25 @@ def debugSquareTreeToStrokes(squareTree):
    print "*** USING DEBUG TREE TO STROKES ***"
 
    return retStrokes
+
+
+def bitmapToPoints(img, step = 1):
+   global DEBUGIMG
+   allSquares = set([])
+   print img.cols
+   for i in range (0, img.cols, step):
+      for j in range(0, img.rows, step):
+         print "Processing point  %s" % (str((i,j)))
+         p = (i,j)
+         maxSquare = growSquare(p, img)
+         allSquares.add(maxSquare)
+
+   for sqr in allSquares:
+      (p1x, p1y) , (p2x, p2y) = sqr
+      center = ( (p1x + p2x) / 2, (p1y + p2y) /2 )
+      setImgVal(center[0], center[1], 0, DEBUGIMG)
+
+
 
 
 def bitmapToStrokes(img,step = 1):
