@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.6
+#!/usr/bin/env python
 import cv
 import Image
 import pickle
@@ -38,67 +38,111 @@ def filledAndCrossingVals(point, img):
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
    """
    global CENTERVAL, BGVAL
-   retDict = {'filled':-1, 'crossing':-1, 'senwne': False, 'nwsesw': False}
+   retDict = {'filled':0, 'crossing':-1, 'esnwne': False, 'wnsesw': False}
    px, py = point
 
-   if getImgVal(px, py, img) == CENTERVAL:
+   pixval = getImgVal(px, py, img)
+   if pixval == CENTERVAL:
       crossing = 0
-      filled = 0
+      filled = 1
 
-      n = getImgVal(px, py+1, img)
-      w = getImgVal(px-1, py, img)
-      s = getImgVal(px, py-1, img)
-      e = getImgVal(px+1, py, img)
-      nw = getImgVal(px-1, py+1, img)
-      ne = getImgVal(px+1, py+1, img)
-      sw = getImgVal(px-1, py+1, img)
-      se = getImgVal(px+1, py-1, img)
+      nw = getImgVal(px-1, py+1, img) == CENTERVAL
+      n = getImgVal(px, py+1, img) == CENTERVAL
+      ne = getImgVal(px+1, py+1, img) == CENTERVAL
+
+      w = getImgVal(px-1, py, img) == CENTERVAL
+      #pixval = getImgVal(px, py, img) == CENTERVAL
+      e = getImgVal(px+1, py, img) == CENTERVAL
+
+      sw = getImgVal(px-1, py-1, img) == CENTERVAL
+      s = getImgVal(px, py-1, img) == CENTERVAL
+      se = getImgVal(px+1, py-1, img) == CENTERVAL
       #counterclockwise crossing
-      proclist = [e, ne, n, nw, w, sw, s, se, e]
+      proclist = [ne, n, nw, w, sw, s, se, e]
 
       #First point val
-      prevVal = None
+      prevFilled = e
       #print "Neighbors:\n  ",
-      for ptVal in proclist:
-         if ptVal == -1 or ptVal == FILLEDVAL: # Treat edges as background
-            ptVal = BGVAL
-         elif ptVal == CENTERVAL:
+      for ptFilled in proclist:
+         if ptFilled:
             filled += 1
-         if prevVal == CENTERVAL and ptVal != CENTERVAL:
+         if prevFilled and not ptFilled:
             crossing += 1
          #print "%s, " % (ptVal),
-         prevVal = ptVal
+         prevFilled = ptFilled
       #print "\n%s filled, %s crossing" % (filled, crossing)
       retDict['filled'] = filled
       retDict['crossing'] = crossing
       
-      """
-      if sw == CENTERVAL: #Not a potential SE boundary, check 
-         if e != CENTERVAL or s != CENTERVAL or (
-      """
+      esnwne = (not ne and not e and not se and s) or \
+      (not sw and not s and not se and e) or \
+      (not w and not n and sw and ne) or \
+      (not e and not n and se and nw)
+
+      wnsesw = (not nw and not w and not sw and n) or \
+      (not nw and not n and not ne and w) or \
+      (not s and not e and ne and sw) or \
+      (not s and not w and se and nw)
+
+      retDict['esnwne'] = esnwne
+      retDict['wnsesw'] = wnsesw
    #endif
    return retDict
 
+def printPoint(pt, img):
+   global CENTERVAL
+   px, py = pt
 
+   nw = getImgVal(px-1, py+1, img) == CENTERVAL
+   n = getImgVal(px, py+1, img) == CENTERVAL
+   ne = getImgVal(px+1, py+1, img) == CENTERVAL
 
-def thinBlobs(img, dir = 0):
+   w = getImgVal(px-1, py, img) == CENTERVAL
+   pixval = getImgVal(px, py, img) == CENTERVAL
+   e = getImgVal(px+1, py, img) == CENTERVAL
+
+   sw = getImgVal(px-1, py-1, img) == CENTERVAL
+   s = getImgVal(px, py-1, img) == CENTERVAL
+   se = getImgVal(px+1, py-1, img) == CENTERVAL
+
+   chars = (' ', '#')
+   print "--------------------------"
+   for row in [ [nw, n, ne], [w, pixval, e], [sw, s, se] ]:
+      print "\t|",
+      for val in row:
+         print "%s" % (chars[int(val)]),
+      print "|"
+   print "--------------------------"
+
+def thinBlobsPoints(points, img, evenIter = True, dir = 0):
    global DEBUGIMG, FILLEDVAL, BGVAL
    outImg = cv.CloneMat(img)
+   retPoints = []
    changed = False
    print "Thinning blobs"
-   for i in range (0, img.cols):
-      #print "  Processing col %s" % (i)
-      saveimg(outImg)
-      for j in range(0, img.rows):
-         p = (i,j)
-         valDict = filledAndCrossingVals(p, img)
-         filled = valDict['filled']
-         cnum_p = valDict['crossing']
-         if filled >= 2 and filled <= 6 and cnum_p == 1: 
-            setImgVal(i, j, FILLEDVAL, outImg)
-            changed = True
+   for p in points:
+      (i,j) = p
+      valDict = filledAndCrossingVals(p, img)
+      filled = valDict['filled']
+      cnum_p = valDict['crossing']
+      if evenIter:
+         badEdge = valDict['esnwne']
+      else:
+         badEdge = valDict['wnsesw']
 
-   return ( changed, outImg )
+      if filled >= 3 and filled <= 6 and cnum_p == 1 and not badEdge: 
+         changed = True
+         #printPoint(p, img)
+         #printPoint(p, img)
+         #setImgVal(i, j, 220, outImg)
+         setImgVal(i, j, FILLEDVAL, outImg)
+      elif filled > 1:
+
+         retPoints.append(p)
+   saveimg(outImg)
+
+   return ( changed, retPoints, outImg )
+
 
 #***************************************************
 #Square filling + helper functions
@@ -411,7 +455,7 @@ def removeBackground(cv_img):
    #show(gray_img)
    #show(gray_img)
    cv.Threshold(gray_img, gray_img, 250, BGVAL, cv.CV_THRESH_BINARY)
-   show(gray_img)
+   #show(gray_img)
 
 
    return gray_img
@@ -441,13 +485,25 @@ def processStrokes(cv_img):
    #cv.AddWeighted(temp_img, 0.0, temp_img, 1.0, 220 ,DEBUGIMG )
 
 
-   changed = True
-   while changed:
+   points = []
+   for i in range (0, temp_img.cols):
+      points.extend([ (i,j) for j in range(0, temp_img.rows)] )
+
+   changed1 = True
+   changed2 = True
+   evenIter = True 
+   while changed1 or changed2:
       #saveimg(temp_img)
-      changed, temp_img = thinBlobs(temp_img)
+      changed, points, temp_img = thinBlobsPoints(points, temp_img, evenIter = evenIter)
+      if evenIter:
+         changed1 = changed
+      else:
+         changed2 = changed
+
+      evenIter = not evenIter 
    show(temp_img)
    exit(1)
-   #show(DEBUGIMG)
+
    strokelist = bitmapToStrokes(temp_img,step = 1)
    
    for s in strokelist:
