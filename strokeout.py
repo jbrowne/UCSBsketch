@@ -33,6 +33,75 @@ FNAMEITER = fname_iter()
 # Bitmap thinning functions
 #***************************************************
 
+def pointsToStrokes(points):
+   linkDict = {}
+   retStrokes = []
+   for (x,y) in points:
+      n = (x , y + 1)
+      s = (x , y - 1)
+      e = (x + 1 , y)
+      w = (x + 1 , y)
+      ne = (x + 1 , y + 1)
+      se = (x + 1 , y - 1)
+      nw = (x + 1 , y + 1)
+      sw = (x + 1 , y - 1)
+      fourNbors = [ n, e, s, w ]
+      eightNbors = fourNbors + [ne, se, nw, sw]
+
+      #Link the neighbor points together
+      ptDict = linkDict.setdefault( (x,y) , {'kids' : [] } )
+      for nPt in eightNbors:
+            nborDict = linkDict.setdefault(nPt, {'kids' : [] } )
+            nborDict['kids'].append( (x,y) )
+            ptDict['kids'].append(nPt)
+      linkDict[ (x,y) ] = ptDict
+   #endfor
+
+   print "Link Tree generated"
+   #linkDict is now a bunch of trees, each with one representative pt in reps
+   while len(linkDict) > 0:
+      #Get a good start point
+      r, linkNode = linkDict.items()[0]
+      procStack = [(r, 0)]
+      maxLeaf = r
+      maxDist = 0
+      seen = {}
+      while len(procStack) > 0:
+         pt, dist = procStack.pop()
+
+         seen[pt] = True
+         if dist > maxDist:
+            maxLeaf = pt
+            maxDist = dist
+         for k in linkDict[pt]['kids']:
+            if k != pt and k not in seen:
+               procStack.append( (k, dist + 1) )
+      #endwhile
+      print "Found a good leaf, depth %s" % (maxDist)
+
+      #Build up a stroke
+      strk = Stroke()
+      procStack = [maxLeaf]
+      seen = {}
+      while len(procStack) > 0:
+        pt = procStack.pop()
+        seen[pt] = True
+        if pt in linkDict: #Otherwise, already processed
+           strk.addPoint(pt)
+           kids = linkDict[pt]['kids']
+           del(linkDict[pt])
+           for k in kids:
+               if k in linkDict and k not in seen:
+                  procStack.append( k )
+      #endwhile
+      print "Created a stroke"
+
+      retStrokes.append(strk)
+   #endfor
+
+   return retStrokes
+
+   
 def filledAndCrossingVals(point, img):
    """
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
@@ -293,7 +362,6 @@ def getImgVal(x,y,img):
       return img[y,x]
    except:
       print "Trying to get invalid pixel %s" % (str(x,y))
-      #exit(1)
      
 def setImgVal(x,y,val,img):
    img[y,x] = val
@@ -405,15 +473,47 @@ class Stroke(object):
    """A stroke consisting of a list of points"""
    def __init__(self):
       self.points = []
+      self.center = (-1, -1)
+      self.topleft = (-1, -1)
+      self.bottomright = (-1, -1)
    def addPoint(self,point):
       """Add a point to the end of the stroke"""
+      x,y = point
+      left = min( x, self.topleft[0])
+      right = max( x, self.bottomright[0])
+
+      top = max( y, self.topleft[1])
+      bottom = min( y, self.bottomright[1])
+
+      self.topleft = (left, top)
+      self.bottomright = (right, bottom)
+
+      self.center = ( (left + right ) / 2, 
+                      (top + bottom ) / 2 )
+
       self.points.append(point)
+      
    def getPoints(self):
       """Return a list of points"""
       return self.points
    def merge(self, rhsStroke):
       """Merge two strokes together"""
       self.points.extend(rhsStroke.points)
+
+#***************************************************
+#  Image Processing
+#***************************************************
+
+
+def resizeImage(img):
+   targetWidth = 1280
+   realWidth = img.cols
+
+   scale = targetWidth / float(realWidth) #rough scaling
+   print "Scaling %s" % (scale)
+   retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
+   cv.Resize(img, retImg)
+   return retImg
 
 def smooth(img, ksize = 9, type='median'):
    """Do a median smoothing with kernel size ksize"""
@@ -441,8 +541,8 @@ def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
    global BGVAL
    #Hardcoded for resolution/phone/distance
-   denoise_k = 7
-   smooth_k = 27
+   denoise_k = 3
+   smooth_k = 13
    inv_factor = 0.5
    ink_thresh = 122
    gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
@@ -452,10 +552,9 @@ def removeBackground(cv_img):
    gray_img = smooth(gray_img, ksize=denoise_k)
   
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
-   #show(gray_img)
-   #show(gray_img)
    cv.Threshold(gray_img, gray_img, 250, BGVAL, cv.CV_THRESH_BINARY)
-   #show(gray_img)
+
+   show(gray_img)
 
 
    return gray_img
@@ -478,7 +577,9 @@ def processStrokes(cv_img):
    """Take in a raw, color image and return a list of strokes extracted from it."""
    global DEBUGIMG, BGVAL
 
-   temp_img = removeBackground(cv_img)
+   #show(cv_img)
+   small_img = resizeImage(cv_img)
+   temp_img = removeBackground(small_img)
 
    DEBUGIMG = cv.CloneMat(temp_img)
    cv.Set(DEBUGIMG, BGVAL)
@@ -501,19 +602,26 @@ def processStrokes(cv_img):
          changed2 = changed
 
       evenIter = not evenIter 
-   show(temp_img)
-   exit(1)
 
-   strokelist = bitmapToStrokes(temp_img,step = 1)
    
+   strokelist = pointsToStrokes(points)
+   #strokelist = bitmapToStrokes(temp_img,step = 1)
+   
+   cv.Set(temp_img, BGVAL)
+   numPts = 0
+   strokelist.sort(key = (lambda s: s.center[1] * 10 + s.center[0]) ) 
    for s in strokelist:
       prev = None
       for p in s.getPoints():
          if prev is not None:
-            #cv.Circle(temp_img, p, 2, 0x0, thickness=1)
             cv.Line(temp_img, prev, p, 0x0, thickness=1)
-            saveimg (temp_img)
+            #saveimg (temp_img)
+         else:
+            cv.Circle(temp_img, p, 2, 0x0, thickness=1)
          prev = p
+         numPts += 1
+         if numPts %100 == 0:
+            saveimg(temp_img)
    return temp_img
 
 def pruneSquareTree(squareTree):
@@ -736,7 +844,10 @@ def pointDist(p1, p2):
    return (p2x-p1x) ** 2 + (p2y-p1y) ** 2
 
 def show(cv_img):
-   Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
+   if cv_img.type == cv.CV_8UC1:
+      Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
+   elif cv_img.type == cv.CV_8UC3:
+      Image.fromstring("RGB", cv.GetSize(cv_img), cv_img.tostring()).show()
    saveimg(cv_img)
    
 
@@ -758,21 +869,15 @@ def saveimg(cv_img, outdir = "./temp/"):
 def main(args):
    global SQUARE_ERROR, PRUNING_ERROR
    if len (args) < 2:
-      print( "Usage: %s <image_file> [output_file] [pruning_error] [square_error]" % (args[0]))
+      print( "Usage: %s <image_file> [output_file]" % (args[0]))
       exit(1)
 
    fname = args[1]
-   if len(args) > 4:
-      SQUARE_ERROR = float(args[4])
-   if len(args) > 3:
-      PRUNING_ERROR = float(args[3])
 
    if len(args) > 2:
       outfname = args[2]
    else:
       outfname = None
-
-   print "Pruning Error: %s\nSquare error: %s" % (PRUNING_ERROR, SQUARE_ERROR)
 
 
    in_img = cv.LoadImageM(fname)
@@ -782,7 +887,7 @@ def main(args):
    if outfname is not None:
       cv.SaveImage(outfname, out_img)
 
-   show(out_img)
+   #show(out_img)
 
 
 
