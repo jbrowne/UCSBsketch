@@ -3,10 +3,11 @@ import cv
 import Image
 import pickle
 import random
-import pdb
 import random
+import math
+import pdb
 
-FILLEDVAL = 220
+FILLEDVAL = 255
 CENTERVAL = 0
 BGVAL = 255
 COLORFACTOR = 10
@@ -504,15 +505,78 @@ class Stroke(object):
 #  Image Processing
 #***************************************************
 
+def getHoughLines(img, method = 1):
+   """Largely taken from http://www.seas.upenn.edu/~bensapp/opencvdocs/ref/opencvref_cv.htm"""
+   global DEBUGIMG
+   linethresh = 300
+   rhoGran = 1
+   thetaGran = math.pi / 180
+   retlines = 100
+   minLen = 50
+   maxGap = 10
+   
+
+   gray_img = cv.CreateMat(img.rows, img.cols, cv.CV_8UC1)
+   cv.CvtColor(img, gray_img, cv.CV_RGB2GRAY)
+   img = gray_img
+
+   edges_img = cv.CreateMat(img.rows, img.cols, cv.CV_8UC1)
+   cv.Canny(img, edges_img, 50, 200, 3)
+
+   if method == 1:
+      seq = cv.HoughLines2(edges_img, cv.CreateMemStorage(), cv.CV_HOUGH_STANDARD, rhoGran, thetaGran, linethresh)
+      
+      numLines = 0
+      for line in seq:
+         if numLines > retlines:
+            break
+         rho, theta = line
+
+         a = math.cos(theta)
+         b = math.sin(theta)
+         x0 = a * rho
+         y0 = b * rho
+
+         p1x = x0 + 2000 * (-b)
+         p1y = y0 + 2000 * (a)
+         p1 = (p1x, p1y)
+
+         p2x = x0 - 2000 * (-b)
+         p2y = y0 - 2000 * (a)
+         p2 = (p2x, p2y)
+
+
+         cv.Line(DEBUGIMG, p1,p2, 200, thickness=5)
+
+         numLines += 1
+
+   elif method == 2:
+      seq = cv.HoughLines2(test_img, cv.CreateMemStorage(), cv.CV_HOUGH_PROBABILISTIC, rhoGran, thetaGran, linethresh, minLen, maxGap)
+      
+      numLines = 0
+      for line in seq:
+         if numLines > retlines:
+            break
+         p1, p2 = line
+
+
+         cv.Line(DEBUGIMG, p1,p2, 200, thickness=1)
+
+         numLines += 1
+
+
 
 def resizeImage(img):
    targetWidth = 1280
    realWidth = img.cols
 
    scale = targetWidth / float(realWidth) #rough scaling
-   print "Scaling %s" % (scale)
-   retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
-   cv.Resize(img, retImg)
+   if scale < 1:
+      print "Scaling %s" % (scale)
+      retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
+      cv.Resize(img, retImg)
+   else:
+      retImg = img
    return retImg
 
 def smooth(img, ksize = 9, type='median'):
@@ -554,7 +618,7 @@ def removeBackground(cv_img):
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
    cv.Threshold(gray_img, gray_img, 250, BGVAL, cv.CV_THRESH_BINARY)
 
-   show(gray_img)
+   saveimg(gray_img)
 
 
    return gray_img
@@ -579,11 +643,12 @@ def processStrokes(cv_img):
 
    #show(cv_img)
    small_img = resizeImage(cv_img)
+   #DEBUGIMG = cv.CloneMat(small_img)
+
+   getHoughLines(small_img)
+
    temp_img = removeBackground(small_img)
 
-   DEBUGIMG = cv.CloneMat(temp_img)
-   cv.Set(DEBUGIMG, BGVAL)
-   #cv.AddWeighted(temp_img, 0.0, temp_img, 1.0, 220 ,DEBUGIMG )
 
 
    points = []
