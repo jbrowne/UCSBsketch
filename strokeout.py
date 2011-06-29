@@ -21,6 +21,9 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
+
+VIDEO_WRITER = None
+
 def fname_iter():
    imgnum = 0
    while True:
@@ -51,14 +54,14 @@ def pointsToStrokes(points):
 
       #Link the neighbor points together
       ptDict = linkDict.setdefault( (x,y) , {'kids' : [] } )
-      for nPt in eightNbors:
+      for nPt in fourNbors:
             nborDict = linkDict.setdefault(nPt, {'kids' : [] } )
             nborDict['kids'].append( (x,y) )
             ptDict['kids'].append(nPt)
       linkDict[ (x,y) ] = ptDict
    #endfor
 
-   print "Link Tree generated"
+   #print "Link Tree generated"
    #linkDict is now a bunch of trees, each with one representative pt in reps
    while len(linkDict) > 0:
       #Get a good start point
@@ -78,7 +81,7 @@ def pointsToStrokes(points):
             if k != pt and k not in seen:
                procStack.append( (k, dist + 1) )
       #endwhile
-      print "Found a good leaf, depth %s" % (maxDist)
+      #print "Found a good leaf, depth %s" % (maxDist)
 
       #Build up a stroke
       strk = Stroke()
@@ -95,7 +98,7 @@ def pointsToStrokes(points):
                if k in linkDict and k not in seen:
                   procStack.append( k )
       #endwhile
-      print "Created a stroke"
+      #print "Created a stroke"
 
       retStrokes.append(strk)
    #endfor
@@ -505,13 +508,12 @@ class Stroke(object):
 #  Image Processing
 #***************************************************
 
-def getHoughLines(img, method = 1):
+def getHoughLines(img, numlines = 4, method = 1):
    """Largely taken from http://www.seas.upenn.edu/~bensapp/opencvdocs/ref/opencvref_cv.htm"""
    global DEBUGIMG
    linethresh = 300
    rhoGran = 1
    thetaGran = math.pi / 180
-   retlines = 100
    minLen = 50
    maxGap = 10
    
@@ -528,7 +530,7 @@ def getHoughLines(img, method = 1):
       
       numLines = 0
       for line in seq:
-         if numLines > retlines:
+         if numLines > numlines:
             break
          rho, theta = line
 
@@ -551,18 +553,19 @@ def getHoughLines(img, method = 1):
          numLines += 1
 
    elif method == 2:
-      seq = cv.HoughLines2(test_img, cv.CreateMemStorage(), cv.CV_HOUGH_PROBABILISTIC, rhoGran, thetaGran, linethresh, minLen, maxGap)
+      seq = cv.HoughLines2(edges_img, cv.CreateMemStorage(), cv.CV_HOUGH_PROBABILISTIC, rhoGran, thetaGran, linethresh, minLen, maxGap)
       
       numLines = 0
       for line in seq:
-         if numLines > retlines:
+         if numLines > numlines:
             break
          p1, p2 = line
 
 
-         cv.Line(DEBUGIMG, p1,p2, 200, thickness=1)
+         cv.Line(DEBUGIMG, p1,p2, 200, thickness=5)
 
          numLines += 1
+
 
 
 
@@ -637,30 +640,17 @@ def squareSize(square):
    ((p1x, p1y), (p2x, p2y)) = square
    return (p2x - p1x)
 
-def processStrokes(cv_img):
-   """Take in a raw, color image and return a list of strokes extracted from it."""
-   global DEBUGIMG, BGVAL
-
-   #show(cv_img)
-   small_img = resizeImage(cv_img)
-   #DEBUGIMG = cv.CloneMat(small_img)
-
-   getHoughLines(small_img)
-
-   temp_img = removeBackground(small_img)
-
-
-
+def blobsToStrokes(img):
    points = []
-   for i in range (0, temp_img.cols):
-      points.extend([ (i,j) for j in range(0, temp_img.rows)] )
+   for i in range (0, img.cols):
+      points.extend([ (i,j) for j in range(0, img.rows)] )
 
    changed1 = True
    changed2 = True
    evenIter = True 
    while changed1 or changed2:
-      #saveimg(temp_img)
-      changed, points, temp_img = thinBlobsPoints(points, temp_img, evenIter = evenIter)
+      #saveimg(img)
+      changed, points, img = thinBlobsPoints(points, img, evenIter = evenIter)
       if evenIter:
          changed1 = changed
       else:
@@ -668,9 +658,32 @@ def processStrokes(cv_img):
 
       evenIter = not evenIter 
 
-   
    strokelist = pointsToStrokes(points)
-   #strokelist = bitmapToStrokes(temp_img,step = 1)
+   return strokelist
+
+def imageToStrokes(filename):
+   try:
+      in_img = cv.LoadImageM(filename)
+   except:
+      raise Exception()
+   small_img = resizeImage(cv_img)
+   temp_img = removeBackground(small_img)
+   strokelist = blobsToStrokes(temp_img)
+   return strokelist
+      
+
+def processStrokes(cv_img):
+   """Take in a raw, color image and return a list of strokes extracted from it."""
+   global DEBUGIMG, BGVAL
+
+   #show(cv_img)
+   small_img = resizeImage(cv_img)
+   DEBUGIMG = cv.CloneMat(small_img)
+
+   getHoughLines(small_img)
+
+   temp_img = removeBackground(small_img)
+   strokelist = blobsToStrokes(temp_img)
    
    cv.Set(temp_img, BGVAL)
    numPts = 0
@@ -923,6 +936,27 @@ def fname_iter():
       print fname
       imgnum += 1
       yield None
+
+def animimg(cv_img):
+   """BROKEN"""
+   global VIDEO_WRITER
+   if VIDEO_WRITER is None:
+      size = (cv_img.cols, cv_img.rows)
+      init_video(size = size)
+   if cv_img.type != cv.CV_8UC1:
+      temp_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
+      cv.CvtColor(cv_img, temp_img, cv.CV_RGB2GRAY)
+      cv_img = temp_img
+
+   iplImg = cv.GetImage(cv_img)
+   print iplImg
+   cv.WriteFrame(VIDEO_WRITER, iplImg)
+
+def init_video(size = (800, 600), fname = "./vid.mpg"):
+   global VIDEO_WRITER
+   fps = 30
+   VIDEO_WRITER = cv.CreateVideoWriter (fname, cv.CV_FOURCC('M', 'P', 'E', 'G'), fps, size, 0)
+   print "Saving video to %s at %s" % (fname, size)
 
 def saveimg(cv_img, outdir = "./temp/"):
    global FNAMEITER
