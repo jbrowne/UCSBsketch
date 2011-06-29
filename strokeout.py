@@ -38,6 +38,7 @@ FNAMEITER = fname_iter()
 #***************************************************
 
 def pointsToStrokes(points):
+   global DEBUGIMG
    linkDict = {}
    retStrokes = []
    for (x,y) in points:
@@ -54,16 +55,18 @@ def pointsToStrokes(points):
 
       #Link the neighbor points together
       ptDict = linkDict.setdefault( (x,y) , {'kids' : [] } )
-      for nPt in fourNbors:
-            nborDict = linkDict.setdefault(nPt, {'kids' : [] } )
-            nborDict['kids'].append( (x,y) )
-            ptDict['kids'].append(nPt)
-      linkDict[ (x,y) ] = ptDict
+      for nPt in eightNbors:
+            if nPt in points:
+               nborDict = linkDict.setdefault(nPt, {'kids' : [] } )
+               nborDict['kids'].append( (x,y) )
+               ptDict['kids'].append(nPt)
+      #linkDict[ (x,y) ] = ptDict
    #endfor
 
-   #print "Link Tree generated"
    #linkDict is now a bunch of trees, each with one representative pt in reps
-   while len(linkDict) > 0:
+   numPoints = 0
+   ptsInStrokes = {}
+   while len(points) > len(ptsInStrokes):
       #Get a good start point
       r, linkNode = linkDict.items()[0]
       procStack = [(r, 0)]
@@ -74,32 +77,49 @@ def pointsToStrokes(points):
          pt, dist = procStack.pop()
 
          seen[pt] = True
-         if dist > maxDist:
-            maxLeaf = pt
-            maxDist = dist
+         
+         isLeaf = True
          for k in linkDict[pt]['kids']:
             if k != pt and k not in seen:
+               isLeaf = False
                procStack.append( (k, dist + 1) )
+         if isLeaf and dist > maxDist:
+            maxLeaf = pt
+            maxDist = dist
       #endwhile
       #print "Found a good leaf, depth %s" % (maxDist)
 
       #Build up a stroke
       strk = Stroke()
-      procStack = [maxLeaf]
+      procStack = [ (maxLeaf, []) ]
       seen = {}
       while len(procStack) > 0:
-        pt = procStack.pop()
+        pt, traceStack = procStack.pop()
+        if pt in seen:
+           continue
+
         seen[pt] = True
-        if pt in linkDict: #Otherwise, already processed
-           strk.addPoint(pt)
-           kids = linkDict[pt]['kids']
-           del(linkDict[pt])
-           for k in kids:
-               if k in linkDict and k not in seen:
-                  procStack.append( k )
+
+        par = pt
+        while len(traceStack) > 0 and pt not in linkDict[par]['kids']:
+           par = traceStack.pop()
+           strk.addPoint(par)
+        if par != pt:
+           traceStack.append(par) #add back in the last parent
+        traceStack.append(pt)
+
+        strk.addPoint(pt)
+        ptsInStrokes[pt] = True
+        kids = linkDict[pt]['kids']
+        for k in kids:
+            if k not in seen and k in linkDict:
+               procStack.append( (k, traceStack ) )
       #endwhile
       #print "Created a stroke"
 
+      for pt in strk.points:
+         if pt in linkDict:
+            del(linkDict[pt])
       retStrokes.append(strk)
    #endfor
 
@@ -192,7 +212,6 @@ def thinBlobsPoints(points, img, evenIter = True, dir = 0):
    outImg = cv.CloneMat(img)
    retPoints = []
    changed = False
-   print "Thinning blobs"
    for p in points:
       (i,j) = p
       valDict = filledAndCrossingVals(p, img)
@@ -641,32 +660,34 @@ def squareSize(square):
    return (p2x - p1x)
 
 def blobsToStrokes(img):
+   global DEBUGIMG
    points = []
    for i in range (0, img.cols):
       points.extend([ (i,j) for j in range(0, img.rows)] )
 
+   passnum = 1
    changed1 = True
    changed2 = True
    evenIter = True 
+   print "Thinning blobs:"
    while changed1 or changed2:
+      print "\rPass %s" % (passnum),
       #saveimg(img)
       changed, points, img = thinBlobsPoints(points, img, evenIter = evenIter)
-      if evenIter:
+      if passnum % 2 == 0:
          changed1 = changed
       else:
          changed2 = changed
+      passnum += 1
+   print ""
 
-      evenIter = not evenIter 
-
+   print "Tracing strokes"
    strokelist = pointsToStrokes(points)
    return strokelist
 
 def imageToStrokes(filename):
-   try:
-      in_img = cv.LoadImageM(filename)
-   except:
-      raise Exception()
-   small_img = resizeImage(cv_img)
+   in_img = cv.LoadImageM(filename)
+   small_img = resizeImage(in_img)
    temp_img = removeBackground(small_img)
    strokelist = blobsToStrokes(temp_img)
    return strokelist
@@ -678,11 +699,12 @@ def processStrokes(cv_img):
 
    #show(cv_img)
    small_img = resizeImage(cv_img)
-   DEBUGIMG = cv.CloneMat(small_img)
 
-   getHoughLines(small_img)
+   #getHoughLines(small_img)
 
    temp_img = removeBackground(small_img)
+   DEBUGIMG = cv.CloneMat(temp_img)
+   cv.Set(DEBUGIMG, 255)
    strokelist = blobsToStrokes(temp_img)
    
    cv.Set(temp_img, BGVAL)
@@ -691,15 +713,17 @@ def processStrokes(cv_img):
    for s in strokelist:
       prev = None
       for p in s.getPoints():
+         setImgVal(p[0], p[1], 0, DEBUGIMG)
          if prev is not None:
-            cv.Line(temp_img, prev, p, 0x0, thickness=1)
+            cv.Line(temp_img, prev, p, 0x0, thickness=0)
             #saveimg (temp_img)
          else:
-            cv.Circle(temp_img, p, 2, 0x0, thickness=1)
-         prev = p
+            cv.Circle(temp_img, p, 2, 200, thickness=2)
          numPts += 1
-         if numPts %100 == 0:
+         prev = p
+         if numPts % 50 == 0:
             saveimg(temp_img)
+
    return temp_img
 
 def pruneSquareTree(squareTree):
@@ -960,10 +984,11 @@ def init_video(size = (800, 600), fname = "./vid.mpg"):
 
 def saveimg(cv_img, outdir = "./temp/"):
    global FNAMEITER
-   outfname = outdir + FNAMEITER.next()
-   print "Saving %s"  % outfname
+   if __name__ == '__main__':
+      outfname = outdir + FNAMEITER.next()
+      print "Saving %s"  % outfname
 
-   cv.SaveImage(outfname, cv_img)
+      cv.SaveImage(outfname, cv_img)
 
 def main(args):
    global SQUARE_ERROR, PRUNING_ERROR
