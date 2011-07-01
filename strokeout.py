@@ -41,6 +41,7 @@ def pointsToStrokes(points):
    global DEBUGIMG
    linkDict = {}
    retStrokes = []
+   print "Building neighbor graph"
    for (x,y) in points:
       n = (x , y + 1)
       s = (x , y - 1)
@@ -73,6 +74,7 @@ def pointsToStrokes(points):
       maxLeaf = r
       maxDist = 0
       seen = {}
+      print "Starting stroke %s" % (len(retStrokes)+ 1)
       while len(procStack) > 0:
          pt, dist = procStack.pop()
 
@@ -87,8 +89,8 @@ def pointsToStrokes(points):
             maxLeaf = pt
             maxDist = dist
       #endwhile
-      #print "Found a good leaf, depth %s" % (maxDist)
 
+      print "Found a good end point leaf"
       #Build up a stroke
       strk = Stroke()
       procStack = [ (maxLeaf, []) ]
@@ -100,15 +102,26 @@ def pointsToStrokes(points):
 
         seen[pt] = True
 
-        par = pt
-        while len(traceStack) > 0 and pt not in linkDict[par]['kids']:
+        if len(traceStack) > 0:
            par = traceStack.pop()
-           strk.addPoint(par)
-        if par != pt:
+           numBackpoints = 0
+           while len(traceStack) > 0 and pt not in linkDict[par]['kids']:
+              numBackpoints += 1
+              if numBackpoints % 10 == 0:
+                 strk.addPoint(par)
+                 #cv.Circle(DEBUGIMG, pt, 1, 128, thickness=2)
+                 #saveimg(DEBUGIMG)
+
+              par = traceStack.pop()
+              #print "    %s - backup point" % (str(par))
+
            traceStack.append(par) #add back in the last parent
         traceStack.append(pt)
 
         strk.addPoint(pt)
+        #cv.Circle(DEBUGIMG, pt, 1, 0, thickness=2)
+        #saveimg(DEBUGIMG)
+        #print "  %s" % (str(pt))
         ptsInStrokes[pt] = True
         kids = linkDict[pt]['kids']
         for k in kids:
@@ -117,6 +130,7 @@ def pointsToStrokes(points):
       #endwhile
       #print "Created a stroke"
 
+      print "Adding all those points to a stroke"
       for pt in strk.points:
          if pt in linkDict:
             del(linkDict[pt])
@@ -129,7 +143,7 @@ def pointsToStrokes(points):
 def filledAndCrossingVals(point, img):
    """
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
-   """
+   """  
    global CENTERVAL, BGVAL
    retDict = {'filled':0, 'crossing':-1, 'esnwne': False, 'wnsesw': False}
    px, py = point
@@ -207,11 +221,15 @@ def printPoint(pt, img):
       print "|"
    print "--------------------------"
 
-def thinBlobsPoints(points, img, evenIter = True, dir = 0):
+def thinBlobsPoints(points, img, ignoreEnds = False, evenIter = True, dir = 0):
    global DEBUGIMG, FILLEDVAL, BGVAL
    outImg = cv.CloneMat(img)
    retPoints = []
    changed = False
+   if ignoreEnds:
+      minFill = 1
+   else:
+      minFill = 3
    for p in points:
       (i,j) = p
       valDict = filledAndCrossingVals(p, img)
@@ -222,7 +240,7 @@ def thinBlobsPoints(points, img, evenIter = True, dir = 0):
       else:
          badEdge = valDict['wnsesw']
 
-      if filled >= 3 and filled <= 6 and cnum_p == 1 and not badEdge: 
+      if filled >= minFill and filled <= 6 and cnum_p == 1 and not badEdge: 
          changed = True
          #printPoint(p, img)
          #printPoint(p, img)
@@ -673,7 +691,8 @@ def blobsToStrokes(img):
    while changed1 or changed2:
       print "\rPass %s" % (passnum),
       #saveimg(img)
-      changed, points, img = thinBlobsPoints(points, img, evenIter = evenIter)
+      evenIter = (passnum %2 == 0)
+      changed, points, img = thinBlobsPoints(points, img, ignoreEnds = (passnum < 5), evenIter = evenIter)
       if passnum % 2 == 0:
          changed1 = changed
       else:
@@ -721,7 +740,7 @@ def processStrokes(cv_img):
             cv.Circle(temp_img, p, 2, 200, thickness=2)
          numPts += 1
          prev = p
-         if numPts % 50 == 0:
+         if numPts % 10 == 0:
             saveimg(temp_img)
 
    return temp_img
