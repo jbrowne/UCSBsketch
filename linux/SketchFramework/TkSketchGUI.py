@@ -21,6 +21,7 @@ Todo:
 
 import time
 from Tkinter import *
+from tkFileDialog import askopenfilename
 from tkMessageBox import *
 
 from SketchFramework.SketchGUI import _SketchGUI
@@ -28,6 +29,7 @@ from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
 from SketchSystem import initialize, standAloneMain
+from SketchFramework.strokeout import imageToStrokes
 
 # Constants
 WIDTH = 1000
@@ -114,7 +116,30 @@ class TkSketchFrame(Frame):
         #top_menu.add_command(label="Load stks.txt", command = (lambda : LoadStrokes(self.StrokeList) or self.Redraw()), underline=1 )
         #top_menu.add_command(label="Save stks.txt", command = (lambda : SaveStrokes()), underline=1 )
         top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
+        top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
 
+
+    def LoadStrokesFromImage(self):
+        fname = askopenfilename(initialdir='/home/jbrowne/src/sketchvision/images/')
+        if fname == "":
+           return
+
+        try:
+           print "Loading strokes..."
+           strokes = imageToStrokes(fname)
+        except Exception as e:
+           print "Error importing strokes from image '%s':\n %s" % (fname, e)
+           return
+        print "Loaded %s strokes from '%s'" % (len(strokes), fname)
+
+        for s in strokes:
+           newStroke = Stroke()
+           for x,y in s.points:
+              scale = WIDTH / float(1280)
+              newPoint = Point(scale * x,HEIGHT - scale * y)
+              newStroke.addPoint(newPoint)
+           self.Board.AddStroke(newStroke)
+           self.StrokeList.append(newStroke)
 
     def RemoveLatestStroke(self):
         #pdb.set_trace()

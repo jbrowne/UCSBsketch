@@ -55,7 +55,7 @@ def initialize():
     #d.trackAnnotation(ArrowObserver.ArrowAnnotation)
     #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
     #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
-    #d.trackAnnotation(CircleObserver.CircleAnnotation)
+    d.trackAnnotation(CircleObserver.CircleAnnotation)
     
     #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
     #d.trackAnnotation(TextObserver.TextAnnotation)

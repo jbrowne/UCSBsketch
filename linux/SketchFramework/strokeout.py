@@ -1,0 +1,1 @@
+/home/jbrowne/src/sketchvision/strokeout.py
