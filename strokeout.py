@@ -21,6 +21,7 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
+NORMWIDTH = 1200
 
 VIDEO_WRITER = None
 
@@ -37,63 +38,50 @@ FNAMEITER = fname_iter()
 # Bitmap thinning functions
 #***************************************************
 
-def pointsToStrokes(points):
+def pointsToStrokes(pointSet):
    global DEBUGIMG
    linkDict = {}
    retStrokes = []
-   print "Building neighbor graph"
-   for (x,y) in points:
-      n = (x , y + 1)
-      s = (x , y - 1)
-      e = (x + 1 , y)
-      w = (x + 1 , y)
-      ne = (x + 1 , y + 1)
-      se = (x + 1 , y - 1)
-      nw = (x + 1 , y + 1)
-      sw = (x + 1 , y - 1)
-      fourNbors = [ n, e, s, w ]
-      eightNbors = fourNbors + [ne, se, nw, sw]
+   repPoints = []
+   seen = {}
+   print "Converting points to strokes"
+   while len(pointSet) > 0:
+      seed = pointSet.pop()
+      pointSet.add(seed)
+      repPoints.append(seed)
+      procStack = [ seed ]
 
-      #Link the neighbor points together
-      ptDict = linkDict.setdefault( (x,y) , {'kids' : [] } )
-      for nPt in eightNbors:
-            if nPt in points:
-               nborDict = linkDict.setdefault(nPt, {'kids' : [] } )
-               nborDict['kids'].append( (x,y) )
+      while len(procStack) > 0:
+         (x,y) = procStack.pop(0)
+         seen[ (x,y) ] = True
+         n = (x , y + 1)
+         s = (x , y - 1)
+         e = (x + 1 , y)
+         w = (x - 1 , y)
+         ne = (x + 1 , y + 1)
+         se = (x + 1 , y - 1)
+         nw = (x - 1 , y + 1)
+         sw = (x - 1 , y - 1)
+         fourNbors = [ n, e, s, w ]
+         eightNbors = fourNbors + [ne, se, nw, sw]
+
+         ptDict = linkDict.setdefault( (x,y) , {'kids' : [] } )
+         for nPt in eightNbors:
+            if nPt in pointSet:
                ptDict['kids'].append(nPt)
-      #linkDict[ (x,y) ] = ptDict
-   #endfor
+               if nPt not in linkDict and nPt not in procStack:
+                  procStack.append(nPt)
+         pointSet.remove( (x,y) )
+
 
    #linkDict is now a bunch of trees, each with one representative pt in reps
    numPoints = 0
    ptsInStrokes = {}
-   while len(points) > len(ptsInStrokes):
+   for r in repPoints:
       #Get a good start point
-      r, linkNode = linkDict.items()[0]
-      procStack = [(r, 0)]
-      maxLeaf = r
-      maxDist = 0
-      seen = {}
-      print "Starting stroke %s" % (len(retStrokes)+ 1)
-      while len(procStack) > 0:
-         pt, dist = procStack.pop()
-
-         seen[pt] = True
-         
-         isLeaf = True
-         for k in linkDict[pt]['kids']:
-            if k != pt and k not in seen:
-               isLeaf = False
-               procStack.append( (k, dist + 1) )
-         if isLeaf and dist > maxDist:
-            maxLeaf = pt
-            maxDist = dist
-      #endwhile
-
-      print "Found a good end point leaf"
       #Build up a stroke
       strk = Stroke()
-      procStack = [ (maxLeaf, []) ]
+      procStack = [ (r, []) ]
       seen = {}
       while len(procStack) > 0:
         pt, traceStack = procStack.pop()
@@ -107,13 +95,12 @@ def pointsToStrokes(points):
            numBackpoints = 0
            while len(traceStack) > 0 and pt not in linkDict[par]['kids']:
               numBackpoints += 1
-              if numBackpoints % 10 == 0:
+              if numBackpoints % 4 == 0:
                  strk.addPoint(par)
                  #cv.Circle(DEBUGIMG, pt, 1, 128, thickness=2)
                  #saveimg(DEBUGIMG)
 
               par = traceStack.pop()
-              #print "    %s - backup point" % (str(par))
 
            traceStack.append(par) #add back in the last parent
         traceStack.append(pt)
@@ -121,21 +108,19 @@ def pointsToStrokes(points):
         strk.addPoint(pt)
         #cv.Circle(DEBUGIMG, pt, 1, 0, thickness=2)
         #saveimg(DEBUGIMG)
-        #print "  %s" % (str(pt))
         ptsInStrokes[pt] = True
         kids = linkDict[pt]['kids']
         for k in kids:
             if k not in seen and k in linkDict:
                procStack.append( (k, traceStack ) )
       #endwhile
-      #print "Created a stroke"
 
-      print "Adding all those points to a stroke"
       for pt in strk.points:
          if pt in linkDict:
             del(linkDict[pt])
       retStrokes.append(strk)
    #endfor
+   print "Strokes %s" % (len(retStrokes))
 
    return retStrokes
 
@@ -221,16 +206,18 @@ def printPoint(pt, img):
       print "|"
    print "--------------------------"
 
-def thinBlobsPoints(points, img, ignoreEnds = False, evenIter = True, dir = 0):
+def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, dir = 0):
    global DEBUGIMG, FILLEDVAL, BGVAL
    outImg = cv.CloneMat(img)
-   retPoints = []
-   changed = False
-   if ignoreEnds:
+   retPoints = set([])
+   numChanged = 0
+   if cleanNoise:
+      noise = 1
       minFill = 1
    else:
+      noise = -1
       minFill = 3
-   for p in points:
+   for p in pointSet:
       (i,j) = p
       valDict = filledAndCrossingVals(p, img)
       filled = valDict['filled']
@@ -240,18 +227,17 @@ def thinBlobsPoints(points, img, ignoreEnds = False, evenIter = True, dir = 0):
       else:
          badEdge = valDict['wnsesw']
 
-      if filled >= minFill and filled <= 6 and cnum_p == 1 and not badEdge: 
-         changed = True
+      if filled >= minFill and filled <= 6 and cnum_p == 1 and not badEdge or filled == noise: 
+         numChanged += 1
          #printPoint(p, img)
          #printPoint(p, img)
          #setImgVal(i, j, 220, outImg)
          setImgVal(i, j, FILLEDVAL, outImg)
       elif filled > 1:
-
-         retPoints.append(p)
+         retPoints.add(p)
    saveimg(outImg)
 
-   return ( changed, retPoints, outImg )
+   return ( numChanged, retPoints, outImg )
 
 
 #***************************************************
@@ -607,16 +593,14 @@ def getHoughLines(img, numlines = 4, method = 1):
 
 
 def resizeImage(img):
-   targetWidth = 1280
+   global NORMWIDTH
+   targetWidth = NORMWIDTH
    realWidth = img.cols
 
    scale = targetWidth / float(realWidth) #rough scaling
-   if scale < 1:
-      print "Scaling %s" % (scale)
-      retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
-      cv.Resize(img, retImg)
-   else:
-      retImg = img
+   print "Scaling %s" % (scale)
+   retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
+   cv.Resize(img, retImg)
    return retImg
 
 def smooth(img, ksize = 9, type='median'):
@@ -643,10 +627,19 @@ def invert (cv_img):
 
 def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
-   global BGVAL
+   global BGVAL, NORMWIDTH
    #Hardcoded for resolution/phone/distance
-   denoise_k = 3
+   tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
+   denoise_k =3
    smooth_k = 13
+
+   denoise_k = max (1, int(denoise_k * tranScale))
+   if denoise_k % 2 == 0:
+      denoise_k += 1
+   smooth_k = max (1, int(smooth_k * tranScale))
+   if smooth_k % 2 == 0:
+      smooth_k += 1
+
    inv_factor = 0.5
    ink_thresh = 122
    gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
@@ -654,6 +647,8 @@ def removeBackground(cv_img):
    bg_img = smooth(gray_img, ksize=smooth_k)
    bg_img = invert(bg_img)
    gray_img = smooth(gray_img, ksize=denoise_k)
+
+   saveimg(gray_img)
   
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
    cv.Threshold(gray_img, gray_img, 250, BGVAL, cv.CV_THRESH_BINARY)
@@ -679,29 +674,35 @@ def squareSize(square):
 
 def blobsToStrokes(img):
    global DEBUGIMG
-   points = []
-   for i in range (0, img.cols):
-      points.extend([ (i,j) for j in range(0, img.rows)] )
+   print "Thinning blobs:"
+
+   def AllPtsIter(w,h):
+      for i in xrange(w):
+         for j in xrange(h):
+            yield (i, j)
+
+   pointSet = AllPtsIter(img.cols, img.rows)
 
    passnum = 1
    changed1 = True
    changed2 = True
    evenIter = True 
-   print "Thinning blobs:"
    while changed1 or changed2:
-      print "\rPass %s" % (passnum),
+      print "Pass %s" % (passnum)
       #saveimg(img)
       evenIter = (passnum %2 == 0)
-      changed, points, img = thinBlobsPoints(points, img, ignoreEnds = (passnum < 5), evenIter = evenIter)
+      numChanged, pointSet, img = thinBlobsPoints(pointSet, img, cleanNoise = (passnum <= 2), evenIter = evenIter)
+      print "Num changes = %s" % (numChanged)
       if passnum % 2 == 0:
-         changed1 = changed
+         changed1 = numChanged > 10
       else:
-         changed2 = changed
+         changed2 = numChanged > 10
       passnum += 1
    print ""
+   show (img)
 
    print "Tracing strokes"
-   strokelist = pointsToStrokes(points)
+   strokelist = pointsToStrokes(pointSet)
    return strokelist
 
 def imageToStrokes(filename):
@@ -737,11 +738,13 @@ def processStrokes(cv_img):
             cv.Line(temp_img, prev, p, 0x0, thickness=0)
             #saveimg (temp_img)
          else:
+            pass
             cv.Circle(temp_img, p, 2, 200, thickness=2)
          numPts += 1
          prev = p
-         if numPts % 10 == 0:
-            saveimg(temp_img)
+         if numPts % 30 == 0:
+            pass
+            #saveimg(temp_img)
 
    return temp_img
 
@@ -1026,6 +1029,7 @@ def main(args):
    in_img = cv.LoadImageM(fname)
    print "Processing image %sx%s" % (getWidth(in_img), getHeight(in_img))
    out_img = processStrokes(in_img)
+   show(out_img)
    
    if outfname is not None:
       cv.SaveImage(outfname, out_img)
