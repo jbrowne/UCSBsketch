@@ -7,7 +7,7 @@ import random
 import math
 import pdb
 
-BLACK = 0x0
+BLACK = 0
 WHITE = 255
 GRAY = 200
 
@@ -43,21 +43,22 @@ FNAMEITER = fname_iter()
 # Bitmap thinning functions
 #***************************************************
 
-def pointsToTrees(pointSet):
+def pointsToTrees(pointSet, rawImg):
    global DEBUGIMG
    linkDict = {}
    repPoints = []
    seen = {}
+   allKeyPoints = []
    print "Converting points to strokes"
    while len(pointSet) > 0:
       seed = pointSet.pop()
       pointSet.add(seed)
       #repPoints.append(seed)
       procStack = [ (seed, 0) ]
+      keyPoints = set([])
 
-      keyPoints = []
 
-      maxLeaf = seed
+      endPoint1 = seed
       maxDist = 0
 
       while len(procStack) > 0:
@@ -70,7 +71,7 @@ def pointsToTrees(pointSet):
             seen[ (x,y) ] = True
 
          if dist > maxDist:
-            maxLeaf = (x,y)
+            endPoint1 = (x,y)
             maxDist = dist
 
          n = (x , y + 1)
@@ -98,38 +99,102 @@ def pointsToTrees(pointSet):
 
 
          if len(ptDict['kids']) > 2:
-            keyPoints.append(pt)
+            keyPoints.add(pt)
 
          pointSet.remove( (x,y) )
 
       #Collapse internal nodes. Also prunes single-point subtrees
-      for kPt in keyPoints:
+      for kPt in list(keyPoints):
          if kPt in linkDict:
+            #print kPt, linkDict[kPt] 
             kidlist = list(linkDict[kPt]['kids'])
-            print kPt, linkDict[kPt] 
             for kid in kidlist:
                linkDict[kPt]['kids'].remove(kid) #Remove mutual connection
                linkDict[kid]['kids'].remove(kPt)
-               print "  ", kid, linkDict[kid]
+               #print "  ", kid, linkDict[kid]
                gkidlist = list(linkDict[kid]['kids'])
                for gkid in gkidlist:
-                  print "    ", gkid, linkDict[gkid]
+                  #print "    ", gkid, linkDict[gkid]
                   linkDict[gkid]['kids'].remove(kid) #Link grandkid to this point
                   linkDict[gkid]['kids'].add(kPt)
                   linkDict[kPt]['kids'].add(gkid)
-                  print "    ", gkid, linkDict[gkid], "After"
-               print "   Removing %s" % (str(kid))
+                  #print "    ", gkid, linkDict[gkid], "After"
+               #print "   Removing %s" % (str(kid))
                del(linkDict[kid])
-               if kid == maxLeaf:
-                  maxLeaf = kPt
-            print kPt, linkDict[kPt], "After"
-      repPoints.append(maxLeaf)
-   return {'reps' : repPoints, 'trees' : linkDict, 'keypoints' : keyPoints}
+               if kid == endPoint1:
+                  endPoint1 = kPt
+               if kid in keyPoints:
+                  keyPoints.remove(kid)
+               keyPoints.add(kPt)
+            #print kPt, linkDict[kPt], "After"
+      allKeyPoints.extend(list(keyPoints))
+
+      #Search for the farthest away point from here
+      seen = {}
+      maxPath = [endPoint1]
+      procStack = [ (endPoint1, maxPath) ]
+      while len(procStack) > 0:
+         pt, path = procStack.pop()
+         if pt not in seen:
+            seen[pt] = True
+
+            linkDict[pt]['thickness'] = pointThickness(pt, rawImg)
+            if len(path) > len(maxPath):
+               maxPath = path
+            for k in linkDict[pt]['kids']:
+               procStack.append( (k, path + [pt]) )
+
+      #Annotate each point with the direction to the next endpoint
+      endPoint2 = maxPath[-1]
+      for i, pt in enumerate(maxPath):
+         if pt != endPoint2:
+            linkDict[pt]['kidToEndPoint'] = maxPath[i+1]
+      linkDict[pt]['kidToEndPoint'] = None
+
+      repPoints.append(endPoint1)
+   return {'reps' : repPoints, 'trees' : linkDict, 'keypoints' : allKeyPoints}
+
+def pointThickness(point, img):
+   global BGVAL
+
+   px, py = point
+
+   pixval = getImgVal(px, py, img)
+   t = 0
+   if pixval == BGVAL:
+      return t
+
+   keepGrowing = True
+   while keepGrowing:
+      t += 1 #thickness
+
+      nw = (px - t, py - t)
+      n  = (px    , py - t)
+      ne = (px + t, py - t)
+      sw = (px - t, py + t)
+      s  = (px    , py + t)
+      se = (px + t, py + t)
+      e  = (px + t, py - t)
+      w  = (px - t, py + t)
+
+      for (x,y) in (nw, n, ne, e, se, s, sw, w):
+         pVal = getImgVal(x,y, img)
+         if pVal == BGVAL:
+            keepGrowing = False
+            break
+
+   return 2 * (t - 1) + 1 #Return last good thickness
+
+   
 
 
-def pointsToStrokes(pointSet):
+
+
+def pointsToStrokes(pointSet, rawImg):
    global DEBUGIMG
-   trees = pointsToTrees(pointSet)
+   trees = pointsToTrees(pointSet, rawImg)
+   #for pt in trees['keypoints']:
+      #cv.Circle(DEBUGIMG, pt, 2, 128, thickness=2)
    retStrokes = pointtreesToStrokes(trees['reps'], trees['trees'])
    return retStrokes
 
@@ -140,97 +205,58 @@ def pointtreesToStrokes(repPoints, linkDict):
    retStrokes = []
    seen = {}
 
-   """
-   pointWeights = {}
-   TRIMTHRESH = 0
-   for r in repPoints:
-      procStack = [ (r, None) ]
-      while len(procStack) > 0:
-         print "\r", len(procStack),
-         computeWeight = True
-         pt, parent = procStack.pop()
-         setImgVal(pt[0], pt[1], 0, DEBUGIMG)
-         saveimg(DEBUGIMG)
-         seen[pt] = True
-         weight = 1
-         for k in linkDict[pt]['kids']:
-            if k is parent or k is r:
-               continue
-            elif k not in pointWeights:
-               procStack.append(( k, pt) )
-               computeWeight = False
-            else:
-               print " Adding weight %s " % (pointWeights[k])
-               weight += pointWeights[k]
-
-         if computeWeight:
-            pointWeights[pt] = weight
-         else:
-            procStack.insert(0, (pt, parent) ) #put this at the bottom of the stack
-
-   print pointWeights
-
-   seen = {}
-   for p, w in pointWeights.items():
-      if w <= TRIMTHRESH:
-         seen[p] = True #HACK to ignore this branch
-   """
 
    for r in repPoints:
       #Get a good start point
       #Build up a stroke
+      numLeaves = 0
       strk = Stroke()
       procStack = [ (r, []) ]
       while len(procStack) > 0:
         pt, traceStack = procStack.pop()
         if pt in seen:
            continue
+        thickness = linkDict[pt]['thickness']
+
+        
 
         seen[pt] = True
 
         par = None
         if len(traceStack) > 0:
            par = traceStack.pop()
+           if pt not in linkDict[par]['kids']:
+              numLeaves += 1
+
            numBackpoints = 0
            while len(traceStack) > 0 and pt not in linkDict[par]['kids']:
               numBackpoints += 1
               if numBackpoints % 4 == 0:
-                 strk.addPoint(par)
+                 strk.addPoint(par, thickness = linkDict[par]['thickness'] )
 
               par = traceStack.pop()
 
            traceStack.append(par) #add back in the last parent
         traceStack.append(pt)
 
-        strk.addPoint(pt)
+        strk.addPoint(pt, thickness = thickness)
         ptsInStrokes[pt] = True
 
-        """
-        kidStack = list(linkDict[pt]['kids'])
-        if par is not None:
-           kidStack.sort (key = (lambda k: - angularDistance(par, pt, k) ) )
-        for k in kidStack:
-           seen[k] = True
-           gKids = linkDict[k]['kids']
-           for gk in gKids:
-               if gk not in seen:
-                  procStack.append( (gk, traceStack + [k] ) )
-        """
+        progressKid = linkDict.get('kidToEndPoint', None)
+
+        if progressKid is not None:
+           procStack.append( (progressKid, traceStack) )
 
         kids = list(linkDict[pt]['kids'])
         if par is not None:
            kids.sort (key = (lambda k: angularDistance(par, pt, k) ) )
         for k in kids:
-            if k not in seen:
+            if k not in seen and k != progressKid:
                procStack.append( (k, traceStack ) )
       #endwhile
 
-      """
-      for pt in strk.points:
-         if pt in linkDict:
-            del(linkDict[pt])
-      """
       retStrokes.append(strk)
+      print "%s Leaves in stroke" % (numLeaves)
    #endfor
 
    return retStrokes
@@ -279,6 +305,7 @@ def angularDistance(p1, p2, p3):
 def filledAndCrossingVals(point, img, skipCorners = False):
    """
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
+   with some corner cutting capability from Louisa Lam 1992.
    """  
    global CENTERVAL, BGVAL
    retDict = {'filled':0, 'crossing':-1, 'esnwne': False, 'wnsesw': False}
@@ -423,145 +450,6 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
    return ( numChanged, retPoints, outImg )
 
 
-#***************************************************
-#Square filling + helper functions
-#***************************************************
-
-def fillSquares(startPoint, img, squareFill=FILLEDVAL):
-   """Get a list of squares filling a blob starting at startPoint.
-   Overwrites the blob with squareFill value"""
-
-   centersTree = {}
-
-   returnSquares = []
-   squareSeeds = [(startPoint, None, 'E')] #Start looking east
-
-   while len(squareSeeds) > 0:
-      seedPt, parentPt, direction = squareSeeds.pop()
-      #print "Checking %s for square" % (str(seedPt))
-      dirs = []
-      if direction == 'NW':
-         dirs.append('NW')
-         dirs.append('NE')
-         dirs.append('SW')
-      elif direction == 'N':
-         dirs.append('NW')
-         dirs.append('NE')
-      elif direction == 'NE':
-         dirs.append('NW')
-         dirs.append('NE')
-         dirs.append('SE')
-      elif direction == 'SE':
-         dirs.append('SE')
-         dirs.append('NE')
-         dirs.append('SW')
-      elif direction == 'S':
-         dirs.append('SE')
-         dirs.append('SW')
-      elif direction == 'SW':
-         dirs.append('SE')
-         dirs.append('SW')
-         dirs.append('NW')
-      elif direction == 'W':
-         dirs.append('SW')
-         dirs.append('NW')
-      elif direction == 'E':
-         dirs.append('SE')
-         dirs.append('NE')
-      else:
-         dirs = ['NW','NE','SE','SW']
-      newSquare = growSquare(seedPt, img, dirs)
-      if newSquare is not None:
-         returnSquares.append(newSquare)
-         squareNum = len(returnSquares)
-
-         p1x, p1y = newSquare[0]
-         p2x, p2y = newSquare[1]
-
-         cx = (p1x + p2x) / 2
-         cy = (p1y + p2y) / 2
-         center = (cx, cy)
-         size = (p2x + 1) - p1x
-
-         cNode = centersTree.setdefault(center, {'kids':[], 'size': None, 'square': None})
-         cNode['size'] = size
-         cNode['square'] = newSquare
-         if parentPt is not None:
-            pNode = centersTree.setdefault(parentPt, {'kids':[], 'size': None, 'square': None})
-            pNode['kids'].append(center)
-            cNode['kids'].append(parentPt)
-
-
-         #Look at diagonal points later
-         next_N = []
-         next_S = []
-         next_E = []
-         next_W = []
-         next_N.append(((p1x-1, p1y-1), center, 'NW')) #NW
-         next_S.append(((p1x-1, p2y+1), center, 'SW')) #SW
-         for x in range(p1x, p2x+1):
-            ew = ''
-            if x < (p1x + p2x +1) / 3:
-               ew = 'W'
-            elif x > (2 * (p1x + p2x) +1) / 3:
-               ew = 'E'
-
-            next_N.append(((x, p1y-1), center, 'N'+ew)) #Add the top/bottom perimeter points
-            next_S.append(((x, p2y+1), center, 'S'+ew))
-            for y in range(p1y, p2y+1):
-               if isValidPoint((x,y), img, filledVal = CENTERVAL):
-                  setImgVal(x,y,squareFill,img)  #Don't match any of these points next time
-         next_N.append(((p2x+1, p1y-1), center, 'NE')) #NE
-         next_S.append(((p2x+1, p2y+1), center, 'SE')) #SE
-
-         for y in range(p1y, p2y+1): #Add the right/left perimeter points
-            ns = ''
-            if y < (p1y + p2y +1) / 3:
-               ns = 'N'
-            elif y > (2 * (p1y + p2y) +1) / 3:
-               ns = 'S'
-            next_W.append(((p1x-1, y), center, ns+'W'))
-            next_E.append(((p2x+1, y), center, ns+'E'))
-         #endfor y 
-
-         pushList = []
-         if direction == 'NW':
-            pushList.extend(next_N + next_W)
-         elif direction == 'N':
-            random.shuffle(next_N)
-            pushList.extend(next_N + next_W + next_E)
-         elif direction == 'NE':
-            next_N.reverse()
-            pushList.extend(next_N + next_E)
-         elif direction == 'SE':
-            next_S.reverse()
-            next_E.reverse()
-            pushList.extend(next_S + next_E)
-         elif direction == 'S':
-            random.shuffle(next_S)
-            next_E.reverse()
-            next_W.reverse()
-            pushList.extend(next_S + next_E + next_W)
-         elif direction == 'SW':
-            next_W.reverse()
-            pushList.extend(next_S + next_W)
-         elif direction == 'W':
-            random.shuffle(next_W)
-            pushList.extend(next_W + next_N + next_S)
-         elif direction == 'E':
-            next_S.reverse()
-            next_N.reverse()
-            random.shuffle(next_E)
-            pushList.extend(next_E + next_N + next_S)
-         pushList.reverse()
-
-         squareSeeds.extend(pushList)
-
-         #saveimg(img)
-      #endif
-   #endwhile
-   return centersTree
-
 def getImgVal(x,y,img):
    h = img.rows
    w = img.cols
@@ -586,92 +474,7 @@ def isFilledVal(value):
    global FILLEDVAL
    return value == FILLEDVAL
 
-def isValidPoint(point, img, filledVal = FILLEDVAL):
-   """Checks with an img to see if the point is filled or not"""
-   height = getHeight(img)
-   width = getWidth(img[0])
-   x,y = point
-   if y < 0 or y >= height or x < 0 or x >= width:
-      #Bounds check
-      retval  = False
-   else:
-      retval = ( getImgVal(x,y,img) == filledVal )
-   return retval
 
-def isValidSquare(square, img):
-   """Check to see if square is error free enough"""
-   global SQUARE_ERROR, CENTERVAL
-   errorThresh  = SQUARE_ERROR
-   p1, p2 = square
-   p1x, p1y = square[0] 
-   p2x, p2y = square[1] 
-   size = 1 + (p2x - p1x)
-
-   maxInvalidPixels = int( errorThresh * (4 * size - 2)) 
-   badPixels = 0
-   #Assume that the inner square is valid and only check the perimeter
-   for x in range(p1x, p2x+1):
-      pTopVal = getImgVal(x, p1y, img)
-      if not pTopVal == FILLEDVAL and not pTopVal == CENTERVAL:
-         badPixels += 1
-      pBotVal = getImgVal(x, p2y, img)
-      if not pBotVal == FILLEDVAL and not pBotVal == CENTERVAL:
-         badPixels += 1
-   if badPixels > maxInvalidPixels:
-      #INVALID square
-      return False
-   for y in range(p1y+1, p2y): #Don't overlap with top/bottom
-      pLeftVal = getImgVal(p1x,y,img)
-      if not pLeftVal == FILLEDVAL and not pLeftVal == CENTERVAL:
-         badPixels += 1
-      pRightVal = getImgVal(p2x,y,img)
-      if not pRightVal == FILLEDVAL and not pRightVal == CENTERVAL:
-         badPixels += 1
-   if badPixels > maxInvalidPixels:
-      #INVALID square
-      return False
-   #VALID
-   return True
-
-def growSquare(point, img, directions = ['NW','NE','SW','SE']):
-   """Given an input point, find the biggest square that can fit around it.
-   Returns a square tuple ( (tlx, tly), (brx, bry) )"""
-   #Sanity check
-   global CENTERVAL
-
-   pointVal = getImgVal( point[0], point[1], img)
-   if pointVal != CENTERVAL: #Center must be this value
-      return None
-
-
-   #Initialize to simplest case
-   curSquare = maxSquare = (point, point)
-   maxSize = 0
-
-   squareStack = [curSquare]
-   while len(squareStack) > 0:
-      curSquare = squareStack.pop()
-
-      curSize = curSquare[1][1] + 1 - curSquare[0][1] #Y difference = size
-      if curSize > maxSize:
-         maxSquare = tuple(curSquare)
-         maxSize = curSize
-
-      p1x, p1y = list(curSquare[0])
-      p2x, p2y = list(curSquare[1])
-
-      testSquares = {}
-      growth = 1 #(curSize + 1) / 2
-      testSquares['NW'] = ( (p1x-growth, p1y-growth), (p2x, p2y) ) #NorthWest
-      testSquares['NE'] = ( (p1x, p1y-growth), (p2x+growth, p2y) ) #NorthEast
-      testSquares['SW'] = ( (p1x-growth, p1y), (p2x, p2y+growth) ) #SouthWest
-      testSquares['SE'] = ( (p1x, p1y), (p2x+growth, p2y+growth) ) #SouthEast
-
-      for dir, newSquare in testSquares.items():
-         if dir in directions and isValidSquare(newSquare, img):
-            squareStack.append(newSquare)
-     
-   return maxSquare
 
 #***************************************************
 #  Stroke Class
@@ -683,10 +486,12 @@ class Stroke(object):
    """A stroke consisting of a list of points"""
    def __init__(self):
       self.points = []
+      self.thicknesses = []
+      self.thickness = 0
       self.center = (-1, -1)
       self.topleft = (-1, -1)
       self.bottomright = (-1, -1)
-   def addPoint(self,point):
+   def addPoint(self,point, thickness = 1):
       """Add a point to the end of the stroke"""
       x,y = point
       left = min( x, self.topleft[0])
@@ -701,11 +506,21 @@ class Stroke(object):
       self.center = ( (left + right ) / 2, 
                       (top + bottom ) / 2 )
 
-      self.points.append(point)
+      self.points.append( (x, y) )
+      self.thicknesses.append(thickness)
       
    def getPoints(self):
       """Return a list of points"""
       return self.points
+   def getThickness(self):
+      sortedList = list(self.thicknesses)
+      sortedList.sort()
+      if len(self.thicknesses) > 0:
+         return sortedList[(len(sortedList) / 2) ]
+      else:
+         return 0
+   def getThicknesses(self):
+      return self.thicknesses
    def merge(self, rhsStroke):
       """Merge two strokes together"""
       self.points.extend(rhsStroke.points)
@@ -831,33 +646,23 @@ def removeBackground(cv_img):
    bg_img = invert(bg_img)
    gray_img = smooth(gray_img, ksize=denoise_k)
 
-   #saveimg(gray_img)
+   saveimg(gray_img)
   
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
    cv.Threshold(gray_img, gray_img, 250, BGVAL, cv.CV_THRESH_BINARY)
 
-   #saveimg(gray_img)
+   saveimg(gray_img)
 
 
    return gray_img
 
 
 
-def squareCenter(square):
-   """Get the integer center point of this square"""
-   ((p1x, p1y), (p2x, p2y)) = square
-
-   #             CentX          CentY
-   return ( (p1x + p2x)/2, (p1y+p2y)/2 )
-   
-def squareSize(square):
-   """Return the length of a side of this square"""
-   ((p1x, p1y), (p2x, p2y)) = square
-   return (p2x - p1x)
 
 def blobsToStrokes(img):
    global DEBUGIMG
    print "Thinning blobs:"
+   rawImg = cv.CloneMat(img)
 
    def AllPtsIter(w,h):
       for i in xrange(w):
@@ -883,10 +688,9 @@ def blobsToStrokes(img):
       passnum += 1
    print ""
    numChanged, pointSet, img = thinBlobsPoints(pointSet, img, finalPass = True)
-   exit(1)
 
    print "Tracing strokes"
-   strokelist = pointsToStrokes(pointSet)
+   strokelist = pointsToStrokes(pointSet, rawImg)
    return strokelist
 
 def imageToStrokes(filename):
@@ -901,7 +705,7 @@ def processStrokes(cv_img):
    """Take in a raw, color image and return a list of strokes extracted from it."""
    global DEBUGIMG, BGVAL
 
-   pointsPerFrame = 5
+   pointsPerFrame = 10
    #show(cv_img)
    small_img = resizeImage(cv_img)
 
@@ -909,9 +713,9 @@ def processStrokes(cv_img):
 
    temp_img = removeBackground(small_img)
    #DEBUGIMG = cv.CloneMat(temp_img)
-   #DEBUGIMG = cv.CreateMat(DEBUGSCALE * temp_img.rows, DEBUGSCALE * temp_img.cols, cv.CV_8UC1)
-   #cv.Set(DEBUGIMG, 255)
-   DEBUGIMG = cv.CloneMat(temp_img)
+   DEBUGIMG = cv.CreateMat(DEBUGSCALE * temp_img.rows, DEBUGSCALE * temp_img.cols, cv.CV_8UC1)
+   cv.Set(DEBUGIMG, 255)
+   #DEBUGIMG = cv.CloneMat(temp_img)
    strokelist = blobsToStrokes(temp_img)
    
    cv.Set(temp_img, BGVAL)
@@ -922,236 +726,26 @@ def processStrokes(cv_img):
    stopColor = 128
    for s in strokelist:
       prev = None
+      t = s.getThickness()
+      print "Stroke thickness = %s" % (t)
       for p in s.getPoints():
          debugPt = ( DEBUGSCALE * p[0], DEBUGSCALE * p[1])
          #setImgVal(DEBUGSCALE * p[0], DEBUGSCALE * p[1], 0, DEBUGIMG)
          if prev is not None:
-            cv.Line(DEBUGIMG, prev, debugPt, lineColor, thickness=2)
+            cv.Line(DEBUGIMG, prev, debugPt, lineColor, thickness=t)
             #saveimg (temp_img)
          else:
             pass
-            cv.Circle(DEBUGIMG, debugPt, 2, startColor, thickness=3)
+            cv.Circle(DEBUGIMG, debugPt, 2, startColor, thickness=2)
          numPts += 1
          prev = debugPt
          if numPts % pointsPerFrame == 0:
             pass
             saveimg(DEBUGIMG)
-      cv.Circle(DEBUGIMG, debugPt, 2, stopColor, thickness=3)
+      cv.Circle(DEBUGIMG, debugPt, 2, stopColor, thickness=2)
+   saveimg(DEBUGIMG)
 
    return temp_img
-
-def pruneSquareTree(squareTree):
-   global PRUNING_ERROR
-   threshold = (1 - PRUNING_ERROR) #how close a fit to all of the blobs
-   availSizes = {}
-   totalSize = 0
-   for node in squareTree.values():
-      size = node['size']
-      totalSize += size * size
-      sizeCount = availSizes.get(size, 0)
-      availSizes[size] = sizeCount + 1
-
-
-
-   target = threshold * totalSize
-   sizes = availSizes.keys()
-   sizes.sort(key=(lambda x: -x))
-   for s in sizes:
-      num = ( availSizes[s] + 10 )/ 10
-      print "%s\t%s" % (s, 'X'*num)
-      
-   useSizes = {}
-   while target > 0:
-      s = sizes.pop(0)
-      needed = (target + 1) / (s*s) #Ceiling
-      if needed > availSizes[s]:
-         useSizes[s] = availSizes[s]
-         target -= useSizes[s] * (s * s)
-      elif needed > 0:
-         useSizes[s] = int(needed)
-         target -= needed * (s*s) #should be zero!
-   print "Using:"
-   
-   sizes = useSizes.keys()
-   sizes.sort(key=(lambda x: -x))
-   for s in sizes:
-      num = ( useSizes[s] + 10 )/ 10
-      print "%s\t%s" % (s, 'X'*num)
-
-   #Now we know how many of each size we need
-   retTree = {}
-   root = None
-   for pt, node in squareTree.items():
-      if node['size'] in useSizes:
-         root = pt
-         break
-
-   procStack = [(root, None)]
-   seen = {}
-   while len(procStack) > 0:
-      curPt, parent = procStack.pop()
-      seen[curPt] = True
-      curNode = dict(squareTree[curPt])
-      size = curNode['size'] 
-      linkParent = parent #link kids to parent
-      if size in useSizes and useSizes[size] > 0:
-         #Add to tree
-         retTree[curPt] = curNode
-         curNode['kids'] = [] #Clear its children
-
-         #link to parent
-         if parent is not None:
-            retTree[parent]['kids'].append(curPt)
-            retTree[curPt]['kids'].append(parent)
-
-         useSizes[size] -= 1 #Covered
-
-         linkParent = curPt #Link kids to curPt
-
-      #Keep traversing the original tree
-      for k in squareTree[curPt]['kids']:
-         if k not in seen:
-            procStack.append((k, linkParent))
-
-   print "Pruned square tree from %s to %s points at %s%% accuracy" % (len(squareTree), len(retTree), 100 * threshold)
-   return retTree
-
-def squareTreeToStrokes(squareTree):
-   global DEBUGIMG
-
-   retStrokes = []
-   tempTree = pruneSquareTree(squareTree)
-   preTree = dict(tempTree)
-   #tempTree = dict(squareTree) #Copy the orig tree
-   totPoints = 0
-   while len(tempTree) > 0:
-      #Find a good leaf
-      maxLeaf = tempTree.keys()[0]
-      maxDist = 0
-      pointStack = [(maxLeaf, 0)]
-      seen = {}
-      while len(pointStack) > 0:
-         top, curlevel = pointStack.pop()
-         if curlevel > maxDist:
-            maxDist = curlevel
-            maxLeaf = top
-         seen[top] = True
-         for kid in tempTree[top]['kids']:
-            if kid not in seen and kid in tempTree:
-               pointStack.append( (kid, curlevel+1) )
-
-      #Find the longest path from the leaf
-      root = maxLeaf
-      maxPath = []
-      pathStack = [[root]]
-      seen = {}
-      while len(pathStack) > 0:
-         curPath = pathStack.pop()
-         thisNode = curPath[-1]
-         seen[thisNode] = True
-
-         if len(curPath) > len(maxPath):
-            maxPath = curPath
-
-         for kid in tempTree[thisNode]['kids']:
-            if kid not in seen and kid in tempTree:
-               pathStack.append( curPath + [kid] )
-
-
-      #Make it a stroke
-      newStroke = Stroke()
-      #nextTree = {}
-      keyDict = tempTree.keys()
-      for point in keyDict:
-         node = tempTree[point]
-         newkids = []
-         for kid in node['kids']:
-            if point not in maxPath or kid not in maxPath and kid in tempTree:
-               #Keep all of the connections not part of the current stroke
-               newkids.append(kid)
-
-         node['kids'] = newkids
-
-         if len(newkids) == 0 :
-            del(tempTree[point])
-      #tempTree = nextTree
-
-      for point in maxPath:
-         newStroke.addPoint(point)
-      totPoints += len(newStroke.points)
-      retStrokes.append(newStroke)
-
-   """
-   allPoints = []
-   for s in retStrokes:
-      allPoints.extend(s.points)
-
-   for p in preTree.keys():
-      if p not in allPoints:
-         print "%s in tree but not covered by strokes" % (str(p))
-         #cv.Circle(DEBUGIMG, p, 1, 0x0, thickness=3)
-
-   """
-   print "Blob completed in %s strokes" % (len (retStrokes))
-   return retStrokes
-
-def debugSquareTreeToStrokes(squareTree):
-   print "*** USING DEBUG TREE TO STROKES ***"
-   
-   squareTree = pruneSquareTree(squareTree)
-   retStrokes = []
-   for p, node in squareTree.items():
-      for kid in node['kids']:
-         newStroke = Stroke()
-         newStroke.addPoint( p )
-         newStroke.addPoint( kid )
-         retStrokes.append(newStroke)
-
-   print "*** USING DEBUG TREE TO STROKES ***"
-
-   return retStrokes
-
-
-def bitmapToPoints(img, step = 1):
-   global DEBUGIMG
-   allSquares = set([])
-   print img.cols
-   for i in range (0, img.cols, step):
-      for j in range(0, img.rows, step):
-         print "Processing point  %s" % (str((i,j)))
-         p = (i,j)
-         maxSquare = growSquare(p, img)
-         allSquares.add(maxSquare)
-
-   for sqr in allSquares:
-      (p1x, p1y) , (p2x, p2y) = sqr
-      center = ( (p1x + p2x) / 2, (p1y + p2y) /2 )
-      setImgVal(center[0], center[1], 0, DEBUGIMG)
-
-
-
-
-def bitmapToStrokes(img,step = 1):
-   """Take in a binary image and group blobs of black into strokes.
-   Point ordering of these strokes is undefined"""
-   global DEBUGIMG
-   retStrokes = []
-   print img.cols
-   for i in range (0, img.cols, step):
-      #print "Processing column %s" % (i)
-      for j in range(0, img.rows, step):
-         p = (i,j)
-         pixval = getImgVal(i, j, img) 
-         if pixval == CENTERVAL:
-            blobSquareTree = fillSquares(p, img)
-            blobSquares = []
-            for center, squareNode in blobSquareTree.items():
-               size = squareNode['size']
-               cv.Circle(DEBUGIMG, center, (size / 2), 0x0, thickness=1)
-            retStrokes.extend(squareTreeToStrokes(blobSquareTree))
-
-   print "\rFound %s strokes                 " % (len(retStrokes))
-   return retStrokes
 
 def pointDist(p1, p2):
    p1x, p1y = p1
