@@ -7,9 +7,14 @@ import random
 import math
 import pdb
 
-FILLEDVAL = 200
-CENTERVAL = 0
-BGVAL = 255
+BLACK = 0x0
+WHITE = 255
+GRAY = 200
+
+FILLEDVAL = GRAY
+CENTERVAL = BLACK
+BGVAL = WHITE
+
 COLORFACTOR = 10
 
 DENOISE_K = 5
@@ -115,6 +120,8 @@ def pointsToTrees(pointSet):
                   print "    ", gkid, linkDict[gkid], "After"
                print "   Removing %s" % (str(kid))
                del(linkDict[kid])
+               if kid == maxLeaf:
+                  maxLeaf = kPt
             print kPt, linkDict[kPt], "After"
       repPoints.append(maxLeaf)
    return {'reps' : repPoints, 'trees' : linkDict, 'keypoints' : keyPoints}
@@ -330,19 +337,18 @@ def filledAndCrossingVals(point, img, skipCorners = False):
       s = getImgVal(px, py-1, img) == CENTERVAL
       se = getImgVal(px+1, py-1, img) == CENTERVAL
 
-      esnwne = (not ne and not e and not se and s) or \
-      (not sw and not s and not se and e) or \
-      (not w  and not n and sw and ne ) or \
-      (not e  and not n and se and nw ) 
-      #(not w  and not n and ((sw and ne) or (s and e)) ) or \
-      #(not e  and not n and ((se and nw) or (s and w)) )
+      eEdge = (not ne and not e and not se and s)
+      sEdge = (not ne and not e and not se and s)
+      nwEdge = (not w  and not n and (sw and ne) )
+      neEdge = (not e  and not n and (se and nw) ) 
 
-      wnsesw = (not nw and not w and not sw and n) or \
-      (not nw and not n and not ne and w) or \
-      (not s and not e and ne and sw ) or \
-      (not s and not w and se and nw )
-      #(not s and not e and ((ne and sw) or (n and w)) ) or \
-      #(not s and not w and ((se and nw) or (n and e)) )
+      wEdge = (not nw and not w and not sw and n)
+      nEdge = (not nw and not n and not ne and w)
+      seEdge = (not s and not e and (ne and sw) )
+      swEdge = (not s and not w and (se and nw) )
+
+      esnwne = eEdge or sEdge or nwEdge or neEdge
+      wnsesw = wEdge or nEdge or seEdge or swEdge
 
 
       retDict['esnwne'] = esnwne
@@ -406,11 +412,11 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
 
       if (filled >= minFill and filled <= 6 and cnum_p == 1 and (not badEdge or finalPass) ) or \
          (filled == noise): 
-      #if filled >= minFill and filled <= maxFill and cnum_p == 1 or filled == noise:
-         #if not badEdge or filled == noise or finalPass: 
          numChanged += 1
+         #if filled == 3:
+            #printPoint(p, img)
          setImgVal(i, j, FILLEDVAL, outImg)
-      elif filled > 1:
+      elif filled > 2:
          retPoints.add(p)
    saveimg(outImg)
 
@@ -868,7 +874,7 @@ def blobsToStrokes(img):
       print "Pass %s" % (passnum)
       #saveimg(img)
       evenIter = (passnum %2 == 0)
-      numChanged, pointSet, img = thinBlobsPoints(pointSet, img, cleanNoise = (passnum <= 4), evenIter = evenIter)
+      numChanged, pointSet, img = thinBlobsPoints(pointSet, img, cleanNoise = False and (passnum <= 2), evenIter = evenIter)
       print "Num changes = %s" % (numChanged)
       if passnum % 2 == 0:
          changed1 = numChanged > 0
@@ -877,6 +883,7 @@ def blobsToStrokes(img):
       passnum += 1
    print ""
    numChanged, pointSet, img = thinBlobsPoints(pointSet, img, finalPass = True)
+   exit(1)
 
    print "Tracing strokes"
    strokelist = pointsToStrokes(pointSet)
@@ -894,7 +901,7 @@ def processStrokes(cv_img):
    """Take in a raw, color image and return a list of strokes extracted from it."""
    global DEBUGIMG, BGVAL
 
-   pointsPerFrame = 10
+   pointsPerFrame = 5
    #show(cv_img)
    small_img = resizeImage(cv_img)
 
@@ -904,29 +911,32 @@ def processStrokes(cv_img):
    #DEBUGIMG = cv.CloneMat(temp_img)
    #DEBUGIMG = cv.CreateMat(DEBUGSCALE * temp_img.rows, DEBUGSCALE * temp_img.cols, cv.CV_8UC1)
    #cv.Set(DEBUGIMG, 255)
-   DEBUGIMG = temp_img
+   DEBUGIMG = cv.CloneMat(temp_img)
    strokelist = blobsToStrokes(temp_img)
    
    cv.Set(temp_img, BGVAL)
    numPts = 0
    strokelist.sort(key = (lambda s: s.center[1] * 10 + s.center[0]) ) 
+   lineColor = 200
+   startColor = 0
+   stopColor = 128
    for s in strokelist:
       prev = None
       for p in s.getPoints():
          debugPt = ( DEBUGSCALE * p[0], DEBUGSCALE * p[1])
          #setImgVal(DEBUGSCALE * p[0], DEBUGSCALE * p[1], 0, DEBUGIMG)
          if prev is not None:
-            cv.Line(DEBUGIMG, prev, debugPt, 0x0, thickness=1)
+            cv.Line(DEBUGIMG, prev, debugPt, lineColor, thickness=2)
             #saveimg (temp_img)
          else:
             pass
-            cv.Circle(DEBUGIMG, debugPt, 2, 200, thickness=2)
+            cv.Circle(DEBUGIMG, debugPt, 2, startColor, thickness=3)
          numPts += 1
          prev = debugPt
          if numPts % pointsPerFrame == 0:
             pass
             saveimg(DEBUGIMG)
-      cv.Circle(DEBUGIMG, debugPt, 2, 200, thickness=2)
+      cv.Circle(DEBUGIMG, debugPt, 2, stopColor, thickness=3)
 
    return temp_img
 
