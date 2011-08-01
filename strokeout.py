@@ -27,7 +27,7 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
-NORMWIDTH = 500
+NORMWIDTH = 1000
 DEBUGSCALE = 1
 
 class Timer (object):
@@ -104,7 +104,8 @@ def pointsToTrees(pointSet, rawImg):
 
          passTwoPoints = set([])
          ptDict = linkDict.setdefault( pt , {'kids' : set([]) } )
-         ptDict['thickness'] = pointThickness(pt, rawImg)
+         thickness = pointThickness(pt, rawImg)
+         ptDict['thickness'] = thickness
          for nPt in eightNbors:
             if nPt in pointSet:
                nptDict = linkDict.setdefault( nPt , {'kids' : set([]) } )
@@ -126,8 +127,12 @@ def pointsToTrees(pointSet, rawImg):
 
       #The tree is hooked together, and needs to be pruned
 
+      #collapseCrossingPoints(keyPoints, linkDict)
+
       if len(endPoints) == 0:
          endPoints.add(maxLeaf) 
+
+      #collapseCrossingPoints(keyPoints, linkDict):
       #collapseCrossingAndEndPoints(crossPoints, endPoints, linkDict)
 
       endPoint1 = endPoints.pop()
@@ -161,6 +166,77 @@ def pointsToTrees(pointSet, rawImg):
    #endwhile PointSet > 0
 
    return {'reps' : repPoints, 'trees' : linkDict, 'keypoints' : allKeyPoints}
+
+def collapseCrossingPoints(keyPoints, linkDict):
+   assert False, "This function not yet working"
+   endPoints = keyPoints['ends']
+   crossPoints = keyPoints['crosses']
+   collapsedPoints = set([])
+   #Find out what nodes all collapse together
+   for cp in crossPoints:
+      if cp not in linkDict:
+         continue
+
+      thickness = linkDict[cp]['thickness']
+      collapsedPoints = set([])
+      procStack = [( cp, 0 )]
+      while len(procStack) > 0:
+         pt, depth = procStack.pop()
+         collapsedPoints.add(pt)
+         if depth < thickness / float(2):
+            for k in linkDict[pt]['kids']:
+               procStack.append( (k, depth +1) )
+
+      #collapsedPoints contains all of the points to be merged
+      numPts = len(collapsedPoints)
+      avgPoint = None
+      nBorPts = set([])
+      for p in collapsedPoints:
+         pWeightX = p[0] / float(numPts)
+         pWeightY = p[1] / float(numPts)
+         if avgPoint == None:
+            avgPoint = [pWeightX, pWeightY]
+         else:
+            avgPoint[0] += pWeightX
+            avgPoint[1] += pWeightY
+
+         if p in collapsedPoints:
+            nBorPts.add(p)
+         elif p in linkDict:
+            nBors = removeFromTreeDict(p, linkDict) 
+            nBorPts.update(nBors)
+
+      #points are removed from the tree, and the collapsed point is figured from the average
+
+      avgPoint = tuple(avgPoint)
+      avgPtDict = linkDict.setdefault(avgPoint, {'kids' : set([]), 'thickness' : None})
+      avgPtDict['thickness'] = thickness
+      for npt in nBorPts:
+         if npt in linkDict: #Might have been removed earlier
+            avgPtDict['kids'].add(npt)
+            linkDict[npt]['kids'].add(avgPoint)
+      if len(nBorPts) == 1: #May have created an endpoint
+         endPoints.append(avgPoint)
+   #endFor cp in crossPoints
+   for ep in list(endPoints):
+      if ep not in linkDict:
+         endPoints.remove(ep)
+      elif len(linkDict[ep]['kids']) != 1:
+         endPoints.remove(ep)
+
+def removeFromTreeDict(point, treeDict):
+   if point in treeDict:
+      kidlist = treeDict[pt]['kids']
+      for k in kidlist:
+         assert k in treeDict, "Removing point with invalid 'kids'"
+         assert point in treeDict[k], "Removing point but neighbor doesn't know about it"
+         treeDict[k]['kids'].remove(point)
+      del(treeDict[pt])
+      return kidlist
+   else:
+      print "Warning: Trying to remove point not present in treeDict"
+
+         
 
 def collapseCrossingAndEndPoints(crossPoints, endPoints, linkDict):
    """Destructively collapses intersection points within the link tree"""
@@ -226,7 +302,7 @@ def collapseCrossingAndEndPoints(crossPoints, endPoints, linkDict):
          #print kPt, linkDict[kPt], "After"
 
 def pointThickness(point, img):
-   global BGVAL
+   global BGVAL, FILLEDVAL, CENTERVAL
 
    px, py = point
 
@@ -235,27 +311,36 @@ def pointThickness(point, img):
    if pixval == BGVAL:
       return t
 
-   keepGrowing = True
-   while keepGrowing:
-      t += 1 #thickness
+   horiz = (1, 0)
+   vert  = (0, 1)
+   rdiag = (1, 1)
+   ldiag = (1,-1)
+   growthDirs = [horiz, vert, rdiag, ldiag]
+   minThickness = 1000
+   for d in growthDirs:
+      t = 0
+      maxPosT = 0
+      posVal = pixval
+      while posVal == CENTERVAL or posVal == FILLEDVAL:
+         maxPosT += 1
+         posPt = (point[0] + t * d[0], point[1] + t * d[1])
+         posVal = getImgVal(posPt[0], posPt[1], img)
+         t += 1
 
-      nw = (px - t, py - t)
-      n  = (px    , py - t)
-      ne = (px + t, py - t)
-      sw = (px - t, py + t)
-      s  = (px    , py + t)
-      se = (px + t, py + t)
-      e  = (px + t, py - t)
-      w  = (px - t, py + t)
+      maxNegT = 0
+      negVal = pixval
+      t = 0
+      while negVal == CENTERVAL or negVal == FILLEDVAL:
+         maxNegT += 1
+         negPt = (point[0] - t * d[0], point[1] - t * d[1])
+         negVal = getImgVal(negPt[0], negPt[1], img)
+         t += 1
 
-      for (x,y) in (nw, n, ne, e, se, s, sw, w):
-         pVal = getImgVal(x,y, img)
-         if pVal == BGVAL:
-            keepGrowing = False
-            break
-
-   return 2 * (t - 1) + 1 #Return last good thickness
-
+      diagScale = math.sqrt(d[0] * d[0] + d[1] * d[1])
+      totalThickness = diagScale * (maxPosT + maxNegT + 1)
+      if totalThickness < minThickness:
+         minThickness = totalThickness
+   return minThickness
    
 
 
@@ -282,8 +367,9 @@ def pointtreesToStrokes(keyPoints, repPoints, linkDict):
    retStrokes = []
    for strokeDict in keyPoints:
       if len(strokeDict['ends']) + len(strokeDict['crosses']) == 1:
+         singlePoint = (strokeDict['ends'] + strokeDict['crosses'])[0] 
          stroke = Stroke()
-         stroke.addPoint( (strokeDict['ends'] + strokeDict['crosses'])[0] )
+         stroke.addPoint( singlePoint, linkDict[singlePoint]['thickness'])
          retStrokes.append(stroke)
          continue
       endPoints = list(strokeDict['ends'])
@@ -358,27 +444,13 @@ def pointtreesToStrokes(keyPoints, repPoints, linkDict):
             stroke = Stroke()
             pt = cp
             while dest in strokeGraph[pt]:
-               stroke.addPoint(pt)
+               stroke.addPoint(pt, linkDict[pt]['thickness'])
                pt = strokeGraph[pt][dest]
 
             assert pt == dest
-            stroke.addPoint(dest)
+            stroke.addPoint(dest, linkDict[dest]['thickness'])
             retStrokes.append(stroke)
             #print "New stroke %s to %s" % (cp, dest)
-
-         """
-         endNbors = []
-         cpNbors = []
-         for vert in strokeGraph[cp].keys():
-            if vert in endPoints:
-               endNbors.append(vert)
-            elif vert in crossingPoints:
-               cpNbors.append(vert)
-            else:
-               print "%s: Unclassified vertext from point %s %s" % (vert, cp, strokeGraph[cp])
-         #Have lists of endpoints and crossingpoint neighbors
-         #print "%s has neighbors:\n ENDS %s\n CROSSES %s" % (cp, endNbors, cpNbors)
-         """
       
 
 
@@ -682,9 +754,6 @@ class Stroke(object):
          return 0
    def getThicknesses(self):
       return self.thicknesses
-   def merge(self, rhsStroke):
-      """Merge two strokes together"""
-      self.points.extend(rhsStroke.points)
 
 #***************************************************
 #  Image Processing
@@ -751,12 +820,13 @@ def getHoughLines(img, numlines = 4, method = 1):
 
 
 
-def resizeImage(img):
+def resizeImage(img, scale = None):
    global NORMWIDTH
-   targetWidth = NORMWIDTH
-   realWidth = img.cols
+   if scale is None:
+      targetWidth = NORMWIDTH
+      realWidth = img.cols
+      scale = targetWidth / float(realWidth) #rough scaling
 
-   scale = targetWidth / float(realWidth) #rough scaling
    print "Scaling %s" % (scale)
    retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
    cv.Resize(img, retImg)
@@ -788,29 +858,34 @@ def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
    global BGVAL, NORMWIDTH
    #Hardcoded for resolution/phone/distance
-   tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
-   denoise_k =3
-   smooth_k = 13
+   #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
+   denoise_k =3 / 1000.0
+   smooth_k = 3 / 100.0
+   ink_thresh = 250 
+   width = cv_img.cols
 
-   denoise_k = max (1, int(denoise_k * tranScale))
+   denoise_k = max (1, int(denoise_k * width))
    if denoise_k % 2 == 0:
       denoise_k += 1
-   smooth_k = max (1, int(smooth_k * tranScale))
+   smooth_k = max (1, int(smooth_k * width))
    if smooth_k % 2 == 0:
       smooth_k += 1
 
    inv_factor = 0.5
-   ink_thresh = 122
    gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
    cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
    bg_img = smooth(gray_img, ksize=smooth_k)
+   #cv.EqualizeHist(bg_img, bg_img)
+   #cv.EqualizeHist(gray_img, gray_img)
    bg_img = invert(bg_img)
-   gray_img = smooth(gray_img, ksize=denoise_k)
+   #gray_img = smooth(gray_img, ksize=denoise_k)
 
    saveimg(gray_img)
   
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
-   cv.Threshold(gray_img, gray_img, 250, BGVAL, cv.CV_THRESH_BINARY)
+   #cv.EqualizeHist(gray_img, gray_img)
+   cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
+   gray_img = smooth(gray_img, ksize=denoise_k)
 
    saveimg(gray_img)
 
@@ -884,26 +959,30 @@ def processStrokes(cv_img):
    temp_img = removeBackground(small_img)
    #DEBUGIMG = cv.CloneMat(temp_img)
    DEBUGIMG = cv.CreateMat(DEBUGSCALE * temp_img.rows, DEBUGSCALE * temp_img.cols, cv.CV_8UC1)
-   cv.Set(DEBUGIMG, 255)
-   #DEBUGIMG = cv.CloneMat(temp_img)
+   #cv.Set(DEBUGIMG, 255)
    strokelist = blobsToStrokes(temp_img)
+      
+   DEBUGIMG = cv.CloneMat(temp_img)
+   #cv.Set(DEBUGIMG, 255)
    
    cv.Set(temp_img, BGVAL)
    numPts = 0
    strokelist.sort(key = (lambda s: s.center[1] * 10 + s.center[0]) ) 
-   lineColor = 200
+   lineColor = 128 
    startColor = 0
    stopColor = 128
    for s in strokelist:
       prev = None
-      t = s.getThickness()
+      #t = s.getThickness()
       #print "Stroke thickness = %s" % (t)
-      for p in s.getPoints():
+      thicks = s.getThicknesses()
+      for i, p in enumerate(s.getPoints()):
+         t = thicks[i]
          debugPt = ( DEBUGSCALE * p[0], DEBUGSCALE * p[1])
          setImgVal(DEBUGSCALE * p[0], DEBUGSCALE * p[1], 0, DEBUGIMG)
          if prev is not None:
             pass
-            #cv.Line(DEBUGIMG, prev, debugPt, lineColor, thickness=t)
+            cv.Line(DEBUGIMG, prev, debugPt, lineColor, thickness=t/2)
             #saveimg (temp_img)
          else:
             pass
