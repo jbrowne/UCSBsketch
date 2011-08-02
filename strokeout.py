@@ -27,8 +27,145 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
-NORMWIDTH = 1000
+NORMWIDTH = 700
 DEBUGSCALE = 1
+class Blob(object):
+   BLOBCOLOR = 128
+   SKELETONCOLOR = 0
+   def __init__(self):
+      self.rawpixels = set([])
+      self.thinpixels = None
+      self.tree = {}
+      self.treeRoot = None
+   def addPixel(self, p):
+      self.rawpixels.add(p)
+
+   def draw(self, img):
+      for x,y in self.rawpixels:
+         img[y,x] = Blob.BLOBCOLOR
+      if self.thinpixels is not None:
+         for x,y in self.thinpixels:
+            img[y,x] = Blob.SKELETONCOLOR
+
+   def thin(self):
+      global DEBUGIMG
+      self.thinpixels = set(self.rawpixels)
+      changed1 = True
+      changed2 = True
+      passNum = 0
+      while changed1 or changed2:
+         self.draw(DEBUGIMG)
+         saveimg(DEBUGIMG)
+         evenIter = ( passNum % 2 == 0 )
+         numChanged, self.thinpixels = self._thinByOneLayer(cleanNoise = False, evenIteration = evenIter)
+         print "Pass %s: %s changes" % (passNum, numChanged)
+         if evenIter:
+            if numChanged > 0:
+               changed1 = True
+            else:
+               changed1 = False
+         else:
+            if numChanged > 0:
+               changed2 = True
+            else:
+               changed2 = False
+         passNum += 1
+      self.draw(DEBUGIMG)
+      saveimg(DEBUGIMG)
+
+   def _thinByOneLayer(self, cleanNoise = False, evenIteration = False, finalPass = False):
+      minFill = 3
+      maxFill = 6
+      retPoints = set([])
+      numChanged = 0
+      if cleanNoise:
+         noise = 2
+         #minFill = 1
+      else:
+         noise = -1
+         #minFill = 3
+      for p in self.thinpixels:
+         i,j = p
+         valDict = _filledAndCrossingVals2(p, self.thinpixels, skipCorners = False)
+         filled = valDict['filled']
+         cnum_p = valDict['crossing']
+
+         if evenIteration:
+            badEdge = valDict['esnwne']
+         else:
+            badEdge = valDict['wnsesw']
+
+         if (filled >= minFill and filled <= 6 and cnum_p == 1 and (not badEdge or finalPass) ) or \
+            (filled == noise): 
+            numChanged += 1
+
+         elif filled >= 2:
+            retPoints.add(p)
+      return numChanged, retPoints
+
+
+
+def printSetPoint(pt, pointSet):
+   x, y = pt
+
+   pixval = (x,y) in pointSet
+   n = (x , y + 1) in pointSet
+   s = (x , y - 1) in pointSet
+   e = (x + 1 , y) in pointSet
+   w = (x - 1 , y) in pointSet
+   ne = (x + 1 , y + 1) in pointSet
+   se = (x + 1 , y - 1) in pointSet
+   nw = (x - 1 , y + 1) in pointSet
+   sw = (x - 1 , y - 1) in pointSet
+
+   chars = (' ', '#')
+   print "--------------------------"
+   for row in [ [nw, n, ne], [w, pixval, e], [sw, s, se] ]:
+      print "\t|",
+      for val in row:
+         print "%s" % (chars[int(val)]),
+      print "|"
+   print "--------------------------"
+      
+
+
+def blobsFromImage(cv_img):
+   global CENTERVAL, DEBUGIMG
+   procQueue = [ (Blob(), (-1, -1)) ]
+   seen = set([])
+   width = cv_img.cols
+   height = cv_img.rows
+
+   allBlobs = set([])
+   #totalPixels = 0
+   while len(procQueue) > 0:
+      blob, pt = procQueue.pop()
+      x,y = pt
+      #print "Processing point %s" % (str(pt))
+      n = (x , y + 1)
+      s = (x , y - 1)
+      e = (x + 1 , y)
+      w = (x - 1 , y)
+      ne = (x + 1 , y + 1)
+      se = (x + 1 , y - 1)
+      nw = (x - 1 , y + 1)
+      sw = (x - 1 , y - 1)
+      for nPt in [n, s, e, w, ne, nw, se, sw]:
+         nx, ny = nPt
+         if nPt not in seen and nx >= 0 and nx < width and ny >= 0 and ny < height:
+            #Check to see if it's part of the current blob
+            if cv_img[ny,nx] == CENTERVAL:
+               blob.addPixel(nPt)
+               allBlobs.add(blob)
+               procQueue.append( (blob, nPt) ) #process this next
+            else:
+               procQueue.insert(0, (Blob(), nPt) ) #Otherwise process it after all the black pixels
+         seen.add(nPt)
+   #print allBlobs
+
+   return allBlobs
+      
+   
 
 class Timer (object):
    def __init__(self, desc = "Timer"):
@@ -54,20 +191,26 @@ FNAMEITER = fname_iter()
 #***************************************************
 # Bitmap thinning functions
 #***************************************************
+def pointsDistSquared (pt1, pt2):
+   x1, y1 = pt1
+   x2, y2 = pt2
+
+   return (x1 - x2) ** 2 + (y1 - y2) ** 2
 
 def pointsToTrees(pointSet, rawImg):
    global DEBUGIMG
    linkDict = {}
-   repPoints = []
-   seen = {}
+   seen = set([])
    allKeyPoints = []
    print "Converting points to strokes"
 
+   numStrokes = 0
    while len(pointSet) > 0:
+      print "%s points left to process" % (len(pointSet))
+      numStrokes += 1
       seed = pointSet.pop()
-      pointSet.add(seed)
-      #repPoints.append(seed)
-      procStack = [ (seed, 0) ]
+      procStack = [ {'pt' :seed, 'leafDist' : 0, 'parent': None, 'path': []} ]
+      seen.add(seed)
       crossPoints = set([])
       endPoints = set([])
 
@@ -77,19 +220,39 @@ def pointsToTrees(pointSet, rawImg):
 
       #Initial pass to build the a linkDict tree from some seed point
       while len(procStack) > 0:
-         ( pt, dist ) = procStack.pop(0)
+         procDict = procStack.pop(0)
+         pt = procDict['pt']
+         dist = procDict['leafDist']
+         parPt = procDict['parent'] 
+         parPath = procDict['path']
          (x,y) = pt
 
-         if pt in seen:
-            continue
-         else:
-            seen[ (x,y) ] = True
-         if pt == (236, 158):
-            pdb.set_trace()
+         if parPt is None or pointsDistSquared(parPt, pt) > (linkDict[parPt]['thickness'] / 2.0) ** 2:
+            #Add this point to the linkdict
+            if dist > maxDist:
+               maxLeaf = (x,y)
+               maxDist = dist
+            #setImgVal(pt[0], pt[1], 128, DEBUGIMG)
+            thickness = pointThickness(pt, rawImg)
+            ptDict = linkDict.setdefault( pt , {'kids' : set([]), 'thickness' : thickness } )
+            #cv.Circle(DEBUGIMG, pt, linkDict[pt]['thickness']/ 2.0, 128, thickness=-1)
+            #Link the two points together
+            if parPt is not None:
+               ptDict['kids'].add(parPt)
+               linkDict[parPt]['kids'].add(pt)
+               if len(linkDict[parPt]['kids']) > 2:
+                  crossPoints.add(parPt)
+                  """
+                  pdb.set_trace()
+                  pointThickness(parPt, rawImg)
+                  print "Crosspoint %s: %s" % (str(parPt), linkDict[parPt])
+                  for k in linkDict[parPt]['kids']:
+                     print "%s -> %s: %s" % (k, parPt, parPath) 
+                  """
+            parPt = pt
+            parPath = []
 
-         if dist > maxDist:
-            maxLeaf = (x,y)
-            maxDist = dist
+         parPath.append(pt)
 
          n = (x , y + 1)
          s = (x , y - 1)
@@ -102,70 +265,57 @@ def pointsToTrees(pointSet, rawImg):
          fourNbors = [ n, e, s, w ]
          eightNbors = fourNbors + [ne, se, nw, sw]
 
-         passTwoPoints = set([])
-         ptDict = linkDict.setdefault( pt , {'kids' : set([]) } )
-         thickness = pointThickness(pt, rawImg)
-         ptDict['thickness'] = thickness
          for nPt in eightNbors:
-            if nPt in pointSet:
-               nptDict = linkDict.setdefault( nPt , {'kids' : set([]) } )
+            if nPt in pointSet and nPt not in seen:
+               procStack.append({'pt' :nPt, 'leafDist' : dist + 1, 'parent': parPt, 'path' : parPath} )
+               seen.add(nPt)
+               pointSet.remove(nPt)
 
-               nptDict['kids'].add( pt )
-               ptDict['kids'].add(nPt)
-
-               if nPt not in seen:
-                  procStack.append( (nPt, dist + 1) )
-
-
-         if len(ptDict['kids']) > 2:
-            crossPoints.add(pt)
-         elif len(ptDict['kids']) <= 1:
-            endPoints.add(pt)
-         pointSet.remove( (x,y) )
-
-      #endWhile
+      #endWhile len(procStack)
 
       #The tree is hooked together, and needs to be pruned
+      #saveimg(DEBUGIMG)
 
       #collapseCrossingPoints(keyPoints, linkDict)
-
-      if len(endPoints) == 0:
-         endPoints.add(maxLeaf) 
-
-      #collapseCrossingPoints(keyPoints, linkDict):
-      #collapseCrossingAndEndPoints(crossPoints, endPoints, linkDict)
-
-      endPoint1 = endPoints.pop()
-
-      if len(endPoints) == 0: #No real endpoints, have to fake some
-         #Search for the farthest away point from here
-         seen = {}
-         maxPath = [endPoint1]
-         procStack = [ (endPoint1, maxPath) ]
-         while len(procStack) > 0:
-            pt, path = procStack.pop()
-            #print "Pt %s" % (str(pt))
-            if pt not in seen:
-               seen[pt] = True
-
-               if len(path) > len(maxPath):
-                  maxPath = path
-               for k in linkDict[pt]['kids']:
-                  procStack.append( (k, path + [pt]) )
-
-         endPoint2 = maxPath[-1]
-
-         endPoints.add(endPoint2)
-      endPoints.add(endPoint1)
-
-
+      endPoints = getEndPoints(linkDict, endPoints, maxLeaf)
 
       allKeyPoints.append( {'crosses' : list(crossPoints), 'ends' :list(endPoints)} ) #Pair crosspoints with endpoints
-      repPoints.append(endPoint1)
 
    #endwhile PointSet > 0
 
-   return {'reps' : repPoints, 'trees' : linkDict, 'keypoints' : allKeyPoints}
+   return {'trees' : linkDict, 'keypoints' : allKeyPoints}
+
+def getEndPoints(tree, seeds, leaf):
+   endPoints = set(seeds)
+   if len(endPoints) == 0:
+      endPoints.add(leaf) 
+
+   #collapseCrossingPoints(keyPoints, linkDict):
+   #collapseCrossingAndEndPoints(crossPoints, endPoints, linkDict)
+
+   endPoint1 = endPoints.pop()
+
+   if len(endPoints) == 0: #No real endpoints, have to fake some
+      #Search for the farthest away point from here
+      seen = set([])
+      maxPath = [endPoint1]
+      procStack = [ (endPoint1, maxPath) ]
+      while len(procStack) > 0:
+         pt, path = procStack.pop()
+         #print "Pt %s" % (str(pt))
+         if pt not in seen:
+            seen.add(pt)
+
+            if len(path) > len(maxPath):
+               maxPath = path
+            for k in tree[pt]['kids']:
+               procStack.append( (k, path + [k]) )
+
+      endPoint2 = maxPath[-1]
+
+      endPoints.add(endPoint2)
+   endPoints.add(endPoint1)
+   return list(endPoints)
 
 def collapseCrossingPoints(keyPoints, linkDict):
    assert False, "This function not yet working"
@@ -322,7 +472,7 @@ def pointThickness(point, img):
       maxPosT = 0
       posVal = pixval
       while posVal == CENTERVAL or posVal == FILLEDVAL:
-         maxPosT += 1
+         maxPosT = t
          posPt = (point[0] + t * d[0], point[1] + t * d[1])
          posVal = getImgVal(posPt[0], posPt[1], img)
          t += 1
@@ -331,7 +481,7 @@ def pointThickness(point, img):
       negVal = pixval
       t = 0
       while negVal == CENTERVAL or negVal == FILLEDVAL:
-         maxNegT += 1
+         maxNegT = t
          negPt = (point[0] - t * d[0], point[1] - t * d[1])
          negVal = getImgVal(negPt[0], negPt[1], img)
          t += 1
@@ -356,11 +506,11 @@ def pointsToStrokes(pointSet, rawImg):
       for pt in keypts['ends']:
          cv.Circle(DEBUGIMG, pt, 1, 50, thickness=2)
    """
-   retStrokes = pointtreesToStrokes(trees['keypoints'], trees['reps'], trees['trees'])
+   retStrokes = pointtreesToStrokes(trees['keypoints'], trees['trees'])
    return retStrokes
 
 
-def pointtreesToStrokes(keyPoints, repPoints, linkDict):
+def pointtreesToStrokes(keyPoints, linkDict):
    global DEBUGIMG
    #Build up smaller link graph of intersection points and end points
    
@@ -382,8 +532,9 @@ def pointtreesToStrokes(keyPoints, repPoints, linkDict):
       endPoints.remove(seed)
       seen[seed] = True
       #print "Seed: %s" % (str(seed))
+      procStack = []
       for k in linkDict[seed]['kids']:
-         procStack = [ (k, [seed] )] #point, parent vertex
+         procStack.append( (k, [seed] ) ) #point, parent vertex
 
       while len(procStack) > 0:
          curPt, links = procStack.pop()
@@ -436,8 +587,6 @@ def pointtreesToStrokes(keyPoints, repPoints, linkDict):
          cp = procList.pop()
          seen[cp] = True
 
-         if cp == (236, 158):
-            pdb.set_trace()
          for dest in strokeGraph[cp].keys():
             if dest in seen:
                continue
@@ -523,6 +672,62 @@ def angularDistance(p1, p2, p3):
 
 
    
+def _filledAndCrossingVals2(point, pointSet, skipCorners = False):
+
+   retDict = {'filled':0, 'crossing':0}
+   if point in pointSet:
+      crossing = 0
+      filled = 1
+      px, py = point
+
+      n = (px , py + 1) in pointSet
+      s = (px , py - 1) in pointSet
+      e = (px + 1 , py) in pointSet
+      w = (px - 1 , py) in pointSet
+      ne = (px + 1 , py + 1) in pointSet
+      se = (px + 1 , py - 1) in pointSet
+      nw = (px - 1 , py + 1) in pointSet
+      sw = (px - 1 , py - 1) in pointSet
+
+      filledList = [ne, n, nw, w, sw, s, se, e]
+      prevFilled = e
+      for i, ptFilled in enumerate(filledList):
+         if ptFilled:
+            filled += 1
+         if prevFilled and not ptFilled:
+            if skipCorners and i in [0, 2, 4, 6]: #don't count if the missing corner doesn't affect connectivity
+               nextNborIdx = (i + 1) % 8
+               nextFilled = filledList[nextNborIdx]
+               if not nextFilled:
+                  crossing += 1
+            else:
+               crossing += 1
+         prevFilled = ptFilled
+
+      retDict['filled'] = filled
+      retDict['crossing'] = crossing
+      
+
+
+      eEdge = (not ne and not e and not se and s)
+      sEdge = (not ne and not e and not se and s)
+      nwEdge = (not w  and not n and (sw and ne) )
+      neEdge = (not e  and not n and (se and nw) ) 
+
+      wEdge = (not nw and not w and not sw and n)
+      nEdge = (not nw and not n and not ne and w)
+      seEdge = (not s and not e and (ne and sw) )
+      swEdge = (not s and not w and (se and nw) )
+
+      esnwne = eEdge or sEdge or nwEdge or neEdge
+      wnsesw = wEdge or nEdge or seEdge or swEdge
+
+
+      retDict['esnwne'] = esnwne
+      retDict['wnsesw'] = wnsesw
+   #endif
+   return retDict
+      
 def filledAndCrossingVals(point, img, skipCorners = False):
    """
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
@@ -655,10 +860,8 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
 
    if cleanNoise:
       noise = 2
-      #minFill = 1
    else:
       noise = -1
-      #minFill = 3
    for p in pointSet:
       (i,j) = p
       valDict = filledAndCrossingVals(p, img, skipCorners = finalPass)
@@ -672,8 +875,6 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
       if (filled >= minFill and filled <= 6 and cnum_p == 1 and (not badEdge or finalPass) ) or \
          (filled == noise): 
          numChanged += 1
-         #if filled == 3:
-            #printPoint(p, img)
          setImgVal(i, j, FILLEDVAL, outImg)
       elif filled > 2:
          retPoints.add(p)
@@ -859,9 +1060,9 @@ def removeBackground(cv_img):
    global BGVAL, NORMWIDTH
    #Hardcoded for resolution/phone/distance
    #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
-   denoise_k =3 / 1000.0
-   smooth_k = 3 / 100.0
-   ink_thresh = 250 
+   denoise_k = 3 / 1000.0
+   smooth_k  = 3 / 100.0
+   ink_thresh = 240 
    width = cv_img.cols
 
    denoise_k = max (1, int(denoise_k * width))
@@ -874,20 +1075,24 @@ def removeBackground(cv_img):
    inv_factor = 0.5
    gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
    cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
+   #saveimg(cv_img)
    bg_img = smooth(gray_img, ksize=smooth_k)
+   #saveimg(gray_img)
    #cv.EqualizeHist(bg_img, bg_img)
    #cv.EqualizeHist(gray_img, gray_img)
    bg_img = invert(bg_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
 
-   saveimg(gray_img)
+   #saveimg(gray_img)
   
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
+   #saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
-   gray_img = smooth(gray_img, ksize=denoise_k)
-
    saveimg(gray_img)
+   #gray_img = smooth(gray_img, ksize=denoise_k)
+
+   #saveimg(gray_img)
 
 
    return gray_img
@@ -906,10 +1111,7 @@ def blobsToStrokes(img):
             yield (i, j)
 
    t1 = time.time()
-   pointSet = []
-   for p in AllPtsIter(img.cols, img.rows):
-      if img[p[1],p[0]] != BGVAL:
-         pointSet.append(p)
+   pointSet = AllPtsIter(img.cols, img.rows)
    t2 = time.time()
    print "Candidate Points generated %s ms" % (1000 * (t2 - t1))
          
@@ -923,7 +1125,7 @@ def blobsToStrokes(img):
       #saveimg(img)
       evenIter = (passnum %2 == 0)
       t1 = time.time()
-      numChanged, pointSet, img = thinBlobsPoints(pointSet, img, cleanNoise = False and (passnum <= 2), evenIter = evenIter)
+      numChanged, pointSet, img = thinBlobsPoints(pointSet, img, cleanNoise = (passnum <= 2), evenIter = evenIter)
       t2 = time.time()
       print "Num changes = %s in %s ms" % (numChanged, (t2-t1) * 1000 )
       if passnum % 2 == 0:
@@ -946,23 +1148,40 @@ def imageToStrokes(filename):
    return strokelist
       
 
+
+
+      
+
 def processStrokes(cv_img):
    """Take in a raw, color image and return a list of strokes extracted from it."""
+
    global DEBUGIMG, BGVAL
 
-   pointsPerFrame = 20
+   pointsPerFrame = 2
    #show(cv_img)
    small_img = resizeImage(cv_img)
 
    #getHoughLines(small_img)
 
    temp_img = removeBackground(small_img)
-   #DEBUGIMG = cv.CloneMat(temp_img)
-   DEBUGIMG = cv.CreateMat(DEBUGSCALE * temp_img.rows, DEBUGSCALE * temp_img.cols, cv.CV_8UC1)
+   DEBUGIMG = cv.CloneMat(temp_img)
+   #cv.Set(DEBUGIMG, 255)
+   """
+   blobs = blobsFromImage(temp_img)
+
+   for b in blobs:
+      b.thin()
+      b.draw(DEBUGIMG)
+      saveimg(DEBUGIMG)
+   exit(1)
+   """
+
+   
+   #DEBUGIMG = cv.CreateMat(DEBUGSCALE * temp_img.rows, DEBUGSCALE * temp_img.cols, cv.CV_8UC1)
    #cv.Set(DEBUGIMG, 255)
    strokelist = blobsToStrokes(temp_img)
       
-   DEBUGIMG = cv.CloneMat(temp_img)
+   #DEBUGIMG = cv.CloneMat(temp_img)
    #cv.Set(DEBUGIMG, 255)
    
    cv.Set(temp_img, BGVAL)
@@ -978,6 +1197,7 @@ def processStrokes(cv_img):
       thicks = s.getThicknesses()
       for i, p in enumerate(s.getPoints()):
          t = thicks[i]
+         #t = 2
          debugPt = ( DEBUGSCALE * p[0], DEBUGSCALE * p[1])
          setImgVal(DEBUGSCALE * p[0], DEBUGSCALE * p[1], 0, DEBUGIMG)
          if prev is not None:
