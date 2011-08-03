@@ -27,7 +27,7 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
-NORMWIDTH = 700
+NORMWIDTH = 1000
 DEBUGSCALE = 1
 class Blob(object):
    BLOBCOLOR = 128
@@ -199,6 +199,7 @@ def pointsDistSquared (pt1, pt2):
 
 def pointsToTrees(pointSet, rawImg):
    global DEBUGIMG
+   #cv.Set(DEBUGIMG, 255)
    linkDict = {}
    seen = set([])
    allKeyPoints = []
@@ -240,17 +241,19 @@ def pointsToTrees(pointSet, rawImg):
             if parPt is not None:
                ptDict['kids'].add(parPt)
                linkDict[parPt]['kids'].add(pt)
-               if len(linkDict[parPt]['kids']) > 2:
-                  crossPoints.add(parPt)
-                  """
-                  pdb.set_trace()
-                  pointThickness(parPt, rawImg)
-                  print "Crosspoint %s: %s" % (str(parPt), linkDict[parPt])
-                  for k in linkDict[parPt]['kids']:
-                     print "%s -> %s: %s" % (k, parPt, parPath) 
-                  """
             parPt = pt
             parPath = []
+            #Go through this point to get to its siblings (added previous round)
+            for siblingDict in procStack:
+               ptThickness = linkDict[pt]['thickness'] ** 2
+               if pointsDistSquared(pt, siblingDict['pt']) < ptThickness:
+                  siblingDict['parent'] = pt
+                  siblingDict['path'] = [pt]
+
+            #setImgVal(pt[0], pt[1], 220, DEBUGIMG)
+         else:
+            pass
+            #setImgVal(pt[0], pt[1], 0, DEBUGIMG)
 
          parPath.append(pt)
 
@@ -274,48 +277,55 @@ def pointsToTrees(pointSet, rawImg):
       #endWhile len(procStack)
 
       #The tree is hooked together, and needs to be pruned
-      #saveimg(DEBUGIMG)
 
       #collapseCrossingPoints(keyPoints, linkDict)
-      endPoints = getEndPoints(linkDict, endPoints, maxLeaf)
+      endPoints, crossPoints = getKeyPoints(linkDict, endPoints, maxLeaf)
+
+      """
+      for debugPt in list(endPoints) + list(crossPoints):
+         setImgVal(pt[0], pt[1], 128, DEBUGIMG)
+         cv.Circle(DEBUGIMG, debugPt, 1, 128, thickness=-1)
+      saveimg(DEBUGIMG)
+      """
+
 
       allKeyPoints.append( {'crosses' : list(crossPoints), 'ends' :list(endPoints)} ) #Pair crosspoints with endpoints
 
    #endwhile PointSet > 0
 
+   #saveimg(DEBUGIMG)
    return {'trees' : linkDict, 'keypoints' : allKeyPoints}
 
-def getEndPoints(tree, seeds, leaf):
+def getKeyPoints(tree, seeds, leaf):
    endPoints = set(seeds)
-   if len(endPoints) == 0:
-      endPoints.add(leaf) 
-
+   crossPoints = set()
    #collapseCrossingPoints(keyPoints, linkDict):
    #collapseCrossingAndEndPoints(crossPoints, endPoints, linkDict)
 
-   endPoint1 = endPoints.pop()
+   seen = set([])
+   maxPath = [leaf]
+   procStack = [ (leaf, maxPath) ]
+   while len(procStack) > 0:
+      pt, path = procStack.pop()
+      #print "Pt %s" % (str(pt))
+      if pt not in seen:
+         seen.add(pt)
+
+         if len(path) > len(maxPath):
+            maxPath = path
+         for k in tree[pt]['kids']:
+            procStack.append( (k, path + [k]) )
+
+      if len(tree[pt]['kids']) == 1:
+         endPoints.add(pt)
+      elif len(tree[pt]['kids']) > 2:
+         crossPoints.add(pt)
 
    if len(endPoints) == 0: #No real endpoints, have to fake some
       #Search for the farthest away point from here
-      seen = set([])
-      maxPath = [endPoint1]
-      procStack = [ (endPoint1, maxPath) ]
-      while len(procStack) > 0:
-         pt, path = procStack.pop()
-         #print "Pt %s" % (str(pt))
-         if pt not in seen:
-            seen.add(pt)
-
-            if len(path) > len(maxPath):
-               maxPath = path
-            for k in tree[pt]['kids']:
-               procStack.append( (k, path + [k]) )
-
-      endPoint2 = maxPath[-1]
-
-      endPoints.add(endPoint2)
-   endPoints.add(endPoint1)
-   return list(endPoints)
+      endPoints.add(maxPath[-1])
+      endPoints.add(maxPath[0])
+   return list(endPoints), list(crossPoints)
 
 def collapseCrossingPoints(keyPoints, linkDict):
    assert False, "This function not yet working"
@@ -847,18 +857,20 @@ def printPoint(pt, img):
 
 def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPass = False):
    global DEBUGIMG, FILLEDVAL, BGVAL
-   minFill = 3
+   minFill = 4
    maxFill = 6
    retPoints = set([])
    numChanged = 0
    if finalPass:
       print "Final pass"
+      minFill = 3
       outImg = img #Edit inline
    else:
       outImg = cv.CloneMat(img)
    outImg = img #Edit inline
 
    if cleanNoise:
+      minFill = 3
       noise = 2
    else:
       noise = -1
@@ -872,7 +884,7 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
       else:
          badEdge = valDict['wnsesw']
 
-      if (filled >= minFill and filled <= 6 and cnum_p == 1 and (not badEdge or finalPass) ) or \
+      if (filled >= minFill and filled <= maxFill and cnum_p == 1 and (not badEdge or finalPass) ) or \
          (filled == noise): 
          numChanged += 1
          setImgVal(i, j, FILLEDVAL, outImg)
@@ -1157,7 +1169,6 @@ def processStrokes(cv_img):
 
    global DEBUGIMG, BGVAL
 
-   pointsPerFrame = 2
    #show(cv_img)
    small_img = resizeImage(cv_img)
 
@@ -1166,15 +1177,6 @@ def processStrokes(cv_img):
    temp_img = removeBackground(small_img)
    DEBUGIMG = cv.CloneMat(temp_img)
    #cv.Set(DEBUGIMG, 255)
-   """
-   blobs = blobsFromImage(temp_img)
-
-   for b in blobs:
-      b.thin()
-      b.draw(DEBUGIMG)
-      saveimg(DEBUGIMG)
-   exit(1)
-   """
 
    
    #DEBUGIMG = cv.CreateMat(DEBUGSCALE * temp_img.rows, DEBUGSCALE * temp_img.cols, cv.CV_8UC1)
@@ -1182,40 +1184,43 @@ def processStrokes(cv_img):
    strokelist = blobsToStrokes(temp_img)
       
    #DEBUGIMG = cv.CloneMat(temp_img)
-   #cv.Set(DEBUGIMG, 255)
+   cv.Set(DEBUGIMG, 255)
    
    cv.Set(temp_img, BGVAL)
+   pointsPerFrame = 5
    numPts = 0
    strokelist.sort(key = (lambda s: s.center[1] * 10 + s.center[0]) ) 
    lineColor = 128 
    startColor = 0
-   stopColor = 128
+   stopColor = 220
    for s in strokelist:
       prev = None
       #t = s.getThickness()
+      t = 1
       #print "Stroke thickness = %s" % (t)
       thicks = s.getThicknesses()
       for i, p in enumerate(s.getPoints()):
-         t = thicks[i]
-         #t = 2
+         #t = int(thicks[i] / 2)
          debugPt = ( DEBUGSCALE * p[0], DEBUGSCALE * p[1])
-         setImgVal(DEBUGSCALE * p[0], DEBUGSCALE * p[1], 0, DEBUGIMG)
+         setImgVal(DEBUGSCALE * p[0], DEBUGSCALE * p[1], 0, temp_img)
          if prev is not None:
             pass
-            cv.Line(DEBUGIMG, prev, debugPt, lineColor, thickness=t/2)
+            cv.Line(temp_img, prev, debugPt, lineColor, thickness=t)
+            #cv.Line(temp_img, prev, debugPt, 0, thickness=2)
             #saveimg (temp_img)
          else:
             pass
-            #cv.Circle(DEBUGIMG, debugPt, 2, startColor, thickness=2)
+            cv.Circle(temp_img, debugPt, t, startColor, thickness=-1)
+            #saveimg(temp_img)
          numPts += 1
          prev = debugPt
          if numPts % pointsPerFrame == 0:
             pass
-            saveimg(DEBUGIMG)
+            #saveimg(temp_img)
             #if numPts % (5 * pointsPerFrame) == 0:
-               #cv.Set(DEBUGIMG, 255)
-      #cv.Circle(DEBUGIMG, debugPt, 2, stopColor, thickness=2)
-   saveimg(DEBUGIMG)
+               #cv.Set(temp_img, 255)
+      cv.Circle(temp_img, debugPt, t, stopColor, thickness=-1)
+      saveimg(temp_img)
 
    return temp_img
 
