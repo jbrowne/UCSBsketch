@@ -200,9 +200,139 @@ def pointsDistSquared (pt1, pt2):
 
    return (x1 - x2) ** 2 + (y1 - y2) ** 2
 
+def trimSpuriousLeaves(tree):
+   for pt, ptDict in tree.items():
+      if len(ptDict['kids']) == 1: #Found a leaf
+         seen = set([])
+         mergePt = None
+         procStack = [pt]
+         while len(procStack) > 0:
+            curPt = procStack.pop(0) #Breadth first
+            curPtDict = tree[pt]
+            if len(curPtDict['kids']) > 2:
+               
+               distSqr = pointsDistSquared(curPt, pt)
+               if distSqr < (tree[curPt]['thickness'] / 2.0) ** 2:
+                  pass
+
+
+
+def test():
+   assert [pt for pt in linePixels((0,0), (1,1))] == [ (0,0), (1,1) ]
+   assert [pt for pt in linePixels((0,0), (3,3))] == [ (0,0), (1,1) , (2,2), (3,3)]
+   print [pt for pt in linePixels((0,0), (3,1))] #== [ (0,0), (1,1) , (2,2), (3,3)]
+   assert [pt for pt in linePixels((0,0), (0,0))] == [ (0,0) ]
+   assert [pt for pt in linePixels((0,0), (-1,-1))] == [ (-1, -1), (0,0) ]
+   assert [pt for pt in linePixels((0,0), (0,3))] == [ (0,0), (0,1),(0,2),(0,3) ]
+   assert [pt for pt in linePixels((0,0), (3,0))] == [ (0,0),(1,0),(2,0),(3,0)]
+
+def linePixels(pt1, pt2):
+   """Generates a list of pixels on a line drawn between pt1 and pt2"""
+   #print "Pixels from %s to %s" % (pt1, pt2)
+   left, right = sorted([pt1, pt2], key = lambda pt: pt[0])
+
+   deltax = right[0] - left[0]
+   deltay = right[1] - left[1]
+
+   if deltax != 0:
+      slope = deltay / float(deltax)
+      y = left[1]
+      error = 0.0
+      for x in xrange(left[0], right[0] + 1):
+         #print "Err:", error
+         if error > -0.5 and error < 0.5:
+            yield (x,y)
+         while error >= 0.5:
+            y += 1
+            error -= 1.0
+            yield (x,y)
+         while error <= -0.5:
+            y -= 1
+            error += 1.0
+            yield (x,y)
+         error += slope
+   else:
+      bottom, top = sorted([pt1, pt2], key = lambda pt: pt[1])
+      for y in xrange(bottom[1], top[1] + 1):
+         yield (left[0], y)
+
+
+def drawLine(pt1, pt2, color, img):
+   for x,y in linePixels(pt1, pt2):
+      setImgVal(x,y,color,img)
+
+
+def pointsOverlap(pt1, pt2, img):
+   global CENTERVAL
+   """Checks to see if two points cover each other with their thickness and are not separatred by white"""
+   distSqr = pointsDistSquared(pt1, pt2) 
+   pt1ThicknessSqr = (thicknessAtPoint(pt1, img) / 2.0) ** 2
+   pt2ThicknessSqr = (thicknessAtPoint(pt2, img) / 2.0) ** 2
+   if distSqr > pt2ThicknessSqr and distSqr > pt1ThicknessSqr: #If neither thickness covers the other point
+      return False
+   for x,y in linePixels(pt1, pt2):
+      if getImgVal(x,y,img) != CENTERVAL:
+         return False
+   return True
+
+
+def getEightNeighbors(pt, shuffle = False):
+   x,y = pt
+   n = (x , y + 1)
+   s = (x , y - 1)
+   e = (x + 1 , y)
+   w = (x - 1 , y)
+   ne = (x + 1 , y + 1)
+   se = (x + 1 , y - 1)
+   nw = (x - 1 , y + 1)
+   sw = (x - 1 , y - 1)
+   retList = [ne, n, nw, w, sw, s, se, e]
+   if shuffle:
+      random.shuffle(retList)
+   return retList
+   
+def pointsToGraph(pointSet, rawImg):
+   
+   #pdb.set_trace()
+   graphDict = {}
+   while len(pointSet) > 0:
+      seed = pointSet.pop()
+      pointSet.add(seed)
+      procStack = [{'pt': seed, 'path':[]}]
+      while len(procStack) > 0:
+         procDict = procStack.pop(0) #Breadth first
+         pt = procDict['pt']
+         if pt not in pointSet:
+            continue
+
+         path = list(procDict['path'])
+         path.append(pt)
+
+         if len(path) == 1 or not pointsOverlap(path[0], pt, rawImg):
+            for idx in xrange(1,len(path)):
+               par = path[idx-1]
+               kid = path[idx]
+               parDict = graphDict.setdefault(par, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
+               kidDict = graphDict.setdefault(kid, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
+               parDict['kids'].add(kid)
+               kidDict['kids'].add(par)
+            path = [pt]
+
+               
+         for nPt in getEightNeighbors(pt, shuffle = True):
+            if nPt in pointSet:
+               procStack.append({'pt':nPt, 'path': path})
+         pointSet.remove(pt)
+
+   return graphDict
+
+
+
+
 def pointsToTrees(pointSet, rawImg):
    global DEBUGIMG
-   cv.Set(DEBUGIMG, 255)
+   DEBUGIMG = cv.CloneMat(rawImg)
+   #cv.Set(DEBUGIMG, 255)
    linkDict = {}
    seen = {}
    allKeyPoints = []
@@ -237,12 +367,12 @@ def pointsToTrees(pointSet, rawImg):
          pointOutOfRange = False
          if parPt is None:
             pointOutOfRange = True
-         else:
-            distSqr = pointsDistSquared(parPt, pt) 
-            parThicknessSqr = (linkDict[parPt]['thickness'] / 2.0) ** 2
-            ptThicknessSqr = (pointThickness(pt, rawImg) / 2.0) ** 2
-            if parThicknessSqr < distSqr and ptThicknessSqr < distSqr:
-               pointOutOfRange = True
+         elif not pointsOverlap(pt, parPt, rawImg):
+            #distSqr = pointsDistSquared(parPt, pt) 
+            #parThicknessSqr = (linkDict[parPt]['thickness'] / 2.0) ** 2
+            #ptThicknessSqr = (thicknessAtPoint(pt, rawImg) / 2.0) ** 2
+            #if parThicknessSqr < distSqr and ptThicknessSqr < distSqr:
+            pointOutOfRange = True
 
          if pointOutOfRange:
             #Add this point to the linkdict
@@ -250,7 +380,7 @@ def pointsToTrees(pointSet, rawImg):
                maxLeaf = (x,y)
                maxDist = dist
             #setImgVal(pt[0], pt[1], 128, DEBUGIMG)
-            thickness = pointThickness(pt, rawImg)
+            thickness = thicknessAtPoint(pt, rawImg)
             ptDict = linkDict.setdefault( pt , {'kids' : set([]), 'thickness' : thickness } )
             #cv.Circle(DEBUGIMG, pt, linkDict[pt]['thickness']/ 2.0, 128, thickness=-1)
             #Link the two points together
@@ -524,7 +654,7 @@ def collapseCrossingAndEndPoints(crossPoints, endPoints, linkDict):
             endPoints.add(kPt)
          #print kPt, linkDict[kPt], "After"
 
-def pointThickness(point, img):
+def thicknessAtPoint(point, img):
    global BGVAL, FILLEDVAL, CENTERVAL
 
    px, py = point
@@ -571,14 +701,18 @@ def pointThickness(point, img):
 
 def pointsToStrokes(pointSet, rawImg):
    global DEBUGIMG
-   trees = pointsToTrees(pointSet, rawImg)
-   for p, pdict in trees['trees'].items():
+   graph = pointsToGraph(pointSet, rawImg)
+   for p, pdict in graph.items():
       for k in pdict['kids']:
-         cv.Line(DEBUGIMG, p, k, 220, thickness = 1)
+         drawLine(p,k,220,DEBUGIMG)
+         #cv.Line(DEBUGIMG, p, k, 220, thickness = 1)
          setImgVal(p[0], p[1], 128, DEBUGIMG)
          setImgVal(k[0], k[1], 128, DEBUGIMG)
 
    saveimg(DEBUGIMG)
+   exit(1)
+
+   trees = pointsToTrees(pointSet, rawImg)
    """
    for keypts in trees['keypoints']:
       for pt in keypts['crosses']:
@@ -882,12 +1016,12 @@ def filledAndCrossingVals(point, img, skipCorners = False):
 
 
       eEdge = (not ne and not e and not se and s)
-      sEdge = (not ne and not e and not se and s)
+      sEdge = (not sw and not s and not se and (w and e) )
       nwEdge = (not w  and not n and (sw and ne) )
       neEdge = (not e  and not n and (se and nw) ) 
 
       wEdge = (not nw and not w and not sw and n)
-      nEdge = (not nw and not n and not ne and w)
+      nEdge = (not nw and not n and not ne and (w and e))
       seEdge = (not s and not e and (ne and sw) )
       swEdge = (not s and not w and (se and nw) )
 
@@ -937,10 +1071,9 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
       outImg = img #Edit inline
    else:
       outImg = cv.CloneMat(img)
-   outImg = img #Edit inline
 
    if cleanNoise:
-      minFill = 3
+      #minFill = 3
       noise = 1
    else:
       noise = -1
@@ -949,6 +1082,7 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
       valDict = filledAndCrossingVals(p, img, skipCorners = finalPass)
       filled = valDict['filled']
       cnum_p = valDict['crossing']
+
       if evenIter:
          badEdge = valDict['esnwne']
       else:
@@ -958,7 +1092,8 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
          (filled == noise): 
          numChanged += 1
          setImgVal(i, j, FILLEDVAL, outImg)
-      elif filled > 2:
+         #saveimg(outImg)
+      elif filled > 2: #No need to process otherwise
          retPoints.add(p)
    saveimg(outImg)
 
@@ -1252,7 +1387,7 @@ def removeBackground(cv_img):
       printHistogramList(getHistogramList(bg_img), granularity = 5)
 
       print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
-      bg_img = smooth(bg_img, ksize=smooth_k)
+      bg_img = smooth(bg_img, ksize=smooth_k, t='median')
       smooth_k = int(smooth_k * 1.1)
       if smooth_k % 2 == 0:
          smooth_k += 1
@@ -1268,26 +1403,11 @@ def removeBackground(cv_img):
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
    saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
+   gray_img = smooth(gray_img, ksize=denoise_k, t='gauss')
+   saveimg(gray_img)
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
    saveimg(gray_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
-
-   """
-   itr = 0
-   bg_img = cv.CloneMat(gray_img)
-   while not isForeGroundGone(bg_img):
-      itr += 1
-      #print "Iteration %s" % (itr)
-      #printHistogramList(getHistogramList(bg_img), granularity = 5)
-
-      #print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
-      bg_img = smooth(gray_img, ksize= (2 * itr + 1))
-
-      saveimg(bg_img)
-
-   print "Foreground disappeared in %s iterations" % (itr)
-   saveimg(bg_img)
-   """
 
    return gray_img
 
@@ -1328,7 +1448,6 @@ def blobsToStrokes(img):
          changed2 = numChanged > 0
       passnum += 1
    print ""
-   saveimg(img)
    numChanged, pointSet, img = thinBlobsPoints(pointSet, img, finalPass = True)
 
    saveimg(img)
@@ -1495,3 +1614,4 @@ def main(args):
 if __name__ == "__main__":
    import sys
    main(sys.argv)
+   #test()
