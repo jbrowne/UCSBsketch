@@ -3,11 +3,12 @@ import cv
 import Image
 import pickle
 import random
-import random
 import math
 import pdb
 import time
 
+
+random.seed("sketchvision")
 BLACK = 0
 WHITE = 255
 GRAY = 200
@@ -29,6 +30,7 @@ PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
 NORMWIDTH = 1000
 DEBUGSCALE = 1
+"""
 class Blob(object):
    BLOBCOLOR = 128
    SKELETONCOLOR = 0
@@ -166,6 +168,7 @@ def blobsFromImage(cv_img):
    return allBlobs
       
    
+"""
 
 class Timer (object):
    def __init__(self, desc = "Timer"):
@@ -199,9 +202,9 @@ def pointsDistSquared (pt1, pt2):
 
 def pointsToTrees(pointSet, rawImg):
    global DEBUGIMG
-   #cv.Set(DEBUGIMG, 255)
+   cv.Set(DEBUGIMG, 255)
    linkDict = {}
-   seen = set([])
+   seen = {}
    allKeyPoints = []
    print "Converting points to strokes"
 
@@ -211,7 +214,9 @@ def pointsToTrees(pointSet, rawImg):
       numStrokes += 1
       seed = pointSet.pop()
       procStack = [ {'pt' :seed, 'leafDist' : 0, 'parent': None, 'path': []} ]
-      seen.add(seed)
+      seen[seed] = set([])
+      #cv.Circle(DEBUGIMG, seed, 2, 128, thickness=-1)
+      
       crossPoints = set([])
       endPoints = set([])
 
@@ -227,8 +232,19 @@ def pointsToTrees(pointSet, rawImg):
          parPt = procDict['parent'] 
          parPath = procDict['path']
          (x,y) = pt
+         #setImgVal(x,y,220, DEBUGIMG)
 
-         if parPt is None or pointsDistSquared(parPt, pt) > (linkDict[parPt]['thickness'] / 2.0) ** 2:
+         pointOutOfRange = False
+         if parPt is None:
+            pointOutOfRange = True
+         else:
+            distSqr = pointsDistSquared(parPt, pt) 
+            parThicknessSqr = (linkDict[parPt]['thickness'] / 2.0) ** 2
+            ptThicknessSqr = (pointThickness(pt, rawImg) / 2.0) ** 2
+            if parThicknessSqr < distSqr and ptThicknessSqr < distSqr:
+               pointOutOfRange = True
+
+         if pointOutOfRange:
             #Add this point to the linkdict
             if dist > maxDist:
                maxLeaf = (x,y)
@@ -250,10 +266,6 @@ def pointsToTrees(pointSet, rawImg):
                   siblingDict['parent'] = pt
                   siblingDict['path'] = [pt]
 
-            #setImgVal(pt[0], pt[1], 220, DEBUGIMG)
-         else:
-            pass
-            #setImgVal(pt[0], pt[1], 0, DEBUGIMG)
 
          parPath.append(pt)
 
@@ -266,23 +278,57 @@ def pointsToTrees(pointSet, rawImg):
          nw = (x - 1 , y + 1)
          sw = (x - 1 , y - 1)
          fourNbors = [ n, e, s, w ]
+
          eightNbors = fourNbors + [ne, se, nw, sw]
+         random.shuffle(eightNbors)
 
          for nPt in eightNbors:
             if nPt in pointSet and nPt not in seen:
-               procStack.append({'pt' :nPt, 'leafDist' : dist + 1, 'parent': parPt, 'path' : parPath} )
-               seen.add(nPt)
-               pointSet.remove(nPt)
+                  procStack.append({'pt' :nPt, 'leafDist' : dist + 1, 'parent': parPt, 'path' : parPath} )
+                  pointSet.remove(nPt)
+            #elif (npt in linkdict and npt != parpt and npt not in linkdict[parpt]['kids']):
+               #linkdict[nPt]['kids'].add(parpt)
+               #linkdict[parpt]['kids'].add(npt)
+
+            seen.setdefault(nPt, set([])).add(parPt)
+         #saveimg(DEBUGIMG)
 
       #endWhile len(procStack)
+      """
+      for p, pdict in linkDict.items():
+         for k in pdict['kids']:
+            cv.Line(DEBUGIMG, p, k, 220, thickness = 1)
+            setImgVal(p[0], p[1], 128, DEBUGIMG)
+            setImgVal(k[0], k[1], 128, DEBUGIMG)
+
+      saveimg(DEBUGIMG)
+      """
+      for pt, parset in seen.items():
+         for par1 in parset:
+            for par2 in parset:
+               if par1 == par2:
+                  continue
+               else:
+                  if par2 not in linkDict[par1]['kids']:
+                     print "Discontinuity: %s and %s" % (par1, par2)
+                     assert par1 in linkDict and par2 in linkDict, "Uh oh"
+                     linkDict[par1]['kids'].add(par2)
+                     linkDict[par2]['kids'].add(par1)
+                     #cv.Circle(DEBUGIMG, par1, 1, 0, thickness=-1)
+                     #cv.Line(DEBUGIMG, par1, par2, 0, thickness = 1)
+                     #cv.Circle(DEBUGIMG, par2, 1, 0, thickness=-1)
 
       #The tree is hooked together, and needs to be pruned
 
       #collapseCrossingPoints(keyPoints, linkDict)
       endPoints, crossPoints = getKeyPoints(linkDict, endPoints, maxLeaf)
-
       """
-      for debugPt in list(endPoints) + list(crossPoints):
+
+      for debugPt in (endPoints) :
+         setImgVal(pt[0], pt[1], 128, DEBUGIMG)
+         cv.Circle(DEBUGIMG, debugPt, 1, 128, thickness=-1)
+      saveimg(DEBUGIMG)
+      for debugPt in list(crossPoints):
          setImgVal(pt[0], pt[1], 128, DEBUGIMG)
          cv.Circle(DEBUGIMG, debugPt, 1, 128, thickness=-1)
       saveimg(DEBUGIMG)
@@ -297,6 +343,8 @@ def pointsToTrees(pointSet, rawImg):
    return {'trees' : linkDict, 'keypoints' : allKeyPoints}
 
 def getKeyPoints(tree, seeds, leaf):
+   #global DEBUGIMG
+
    endPoints = set(seeds)
    crossPoints = set()
    #collapseCrossingPoints(keyPoints, linkDict):
@@ -308,6 +356,20 @@ def getKeyPoints(tree, seeds, leaf):
    while len(procStack) > 0:
       pt, path = procStack.pop()
       #print "Pt %s" % (str(pt))
+      if len(path) >=2:
+         p1 = path[-2]
+         p2 = path[-1]
+         #cv.Line(DEBUGIMG, p1,p2, 0, thickness=1)
+         p1col = p2col = 128
+         if len(tree[p1]['kids']) > 2:
+            p1col = 50
+            p2col = 220
+         if len(tree[p2]['kids']) > 2:
+            if p1col != 50:
+               p1col = 220
+            p2col = 50
+         #setImgVal(p1[0], p1[1], p1col, DEBUGIMG)
+         #setImgVal(p2[0], p2[1], p2col, DEBUGIMG)
       if pt not in seen:
          seen.add(pt)
 
@@ -325,6 +387,7 @@ def getKeyPoints(tree, seeds, leaf):
       #Search for the farthest away point from here
       endPoints.add(maxPath[-1])
       endPoints.add(maxPath[0])
+   #saveimg(DEBUGIMG)
    return list(endPoints), list(crossPoints)
 
 def collapseCrossingPoints(keyPoints, linkDict):
@@ -509,6 +572,13 @@ def pointThickness(point, img):
 def pointsToStrokes(pointSet, rawImg):
    global DEBUGIMG
    trees = pointsToTrees(pointSet, rawImg)
+   for p, pdict in trees['trees'].items():
+      for k in pdict['kids']:
+         cv.Line(DEBUGIMG, p, k, 220, thickness = 1)
+         setImgVal(p[0], p[1], 128, DEBUGIMG)
+         setImgVal(k[0], k[1], 128, DEBUGIMG)
+
+   saveimg(DEBUGIMG)
    """
    for keypts in trees['keypoints']:
       for pt in keypts['crosses']:
@@ -871,7 +941,7 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
 
    if cleanNoise:
       minFill = 3
-      noise = 2
+      noise = 1
    else:
       noise = -1
    for p in pointSet:
@@ -1045,10 +1115,10 @@ def resizeImage(img, scale = None):
    cv.Resize(img, retImg)
    return retImg
 
-def smooth(img, ksize = 9, type='median'):
+def smooth(img, ksize = 9, t='median'):
    """Do a median smoothing with kernel size ksize"""
    retimg = cv.CloneMat(img)
-   if type == 'gauss':
+   if t == 'gauss':
       smoothtype = cv.CV_GAUSSIAN
    else:
       smoothtype = cv.CV_MEDIAN
@@ -1056,7 +1126,7 @@ def smooth(img, ksize = 9, type='median'):
    #                            cols, rows, anchorx,y, shape
    #kernel = cv.CreateStructuringElementEx(3,3, 1,1, cv.CV_SHAPE_RECT,
                                           #(0,1,0,1,0,1,0,1,0))
-   cv.Smooth(img, retimg, smoothtype= smoothtype, param1=ksize, param2=ksize)
+   cv.Smooth(img, retimg, smoothtype= smoothtype, param1=ksize)
    return retimg
 
 def invert (cv_img):
@@ -1067,12 +1137,98 @@ def invert (cv_img):
    cv.AddWeighted(cv_img, -1.0, retimg, 1.0, 0.0,retimg )
    return retimg
 
+def printHistogramList(hist, granularity = 1):
+   accum = 0
+   for idx, val in enumerate(hist):
+      accum += val
+      if idx % granularity == 0:
+         print "%s:\t" % (idx),
+         while accum / granularity > 0:
+            print "X",
+            accum -= granularity
+         print "\t%3.6f" % (val)
+         accum = 0
+
+   if idx % granularity != 0:
+      print "%s:\t" % (idx),
+      while accum / granularity > 0:
+         print "X",
+         accum -= granularity
+      print "\t%3.6f" % (val)
+   
+def getHistogramList(img, normFactor = 1000):
+   """Returns a histogram of a GRAYSCALE image, normalized such that all bins add to 1.0"""
+   retVector = []
+   if img.type != cv.CV_8UC1:
+      print "Error, can only get histogram of grayscale image"
+      return retVector
+
+   hist = cv.CreateHist( [255], cv.CV_HIST_ARRAY, [[0,255]], 1)
+   cv.CalcHist([cv.GetImage(img)], hist)
+   cv.NormalizeHist(hist, normFactor)
+   gran = 5
+   accum = 0
+   for idx in xrange(0, 255):
+      retVector.append(cv.QueryHistValue_1D(hist, idx))
+   return retVector
+
+def isForeGroundGone(img):
+   debug = False
+   hist = getHistogramList(img)
+   histNorm = 1000
+   foreGroundThresh = 80
+   smudgeFactor = 35
+   total = 0
+   targetTotal = 0.7 * histNorm
+
+   if sum(hist) == 0: #Empty image
+      return True
+
+   noForeground = False
+   i = 254
+   while i >= foreGroundThresh and total < targetTotal: #Add up hist values from white to black, but don't bother going past foreGroundThresh darkness
+      total += hist[i]
+      i -= 1
+
+   #print "foreGroundThresh %s reached at %s" % (total, i)
+   if total < targetTotal: #We didn't make it to the background
+      #print "Total at %s is %s" % (i, total)
+      return False
+
+   #We have gotten past the peak of background
+   #Come down the "peak"
+   while i >= 0 and hist[i] >= 1.0:
+      i -= 1
+   lastNum = i
+   #print "last num > 1 reached at %s" % (i)
+
+   while i >= 0 and hist[i] > 0.0:
+      i -= 1
+   firstZero = i
+   #print "first zero reached at %s" % (i)
+
+   if lastNum - firstZero <= smudgeFactor:
+      noForeground = True
+      while i >= 0:
+         if hist[i] > 0.0:
+            noForeground = False
+            break
+         i -= 1
+
+   return noForeground
+
+         
+
+   
+      
+   
+   
 def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
    global BGVAL, NORMWIDTH
    #Hardcoded for resolution/phone/distance
    #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
-   denoise_k = 3 / 1000.0
+   denoise_k = 5 / 1000.0
    smooth_k  = 3 / 100.0
    ink_thresh = 240 
    width = cv_img.cols
@@ -1084,28 +1240,54 @@ def removeBackground(cv_img):
    if smooth_k % 2 == 0:
       smooth_k += 1
 
+   print "Foreground denoise kernel = %s x %s" % ( denoise_k, denoise_k)
+   print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
+
    inv_factor = 0.5
    gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
    cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
-   #saveimg(cv_img)
-   bg_img = smooth(gray_img, ksize=smooth_k)
-   #saveimg(gray_img)
+   #Create histogram for single channel (0..255 range), into 255 bins
+   bg_img = gray_img
+   while not isForeGroundGone(bg_img):
+      printHistogramList(getHistogramList(bg_img), granularity = 5)
+
+      print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
+      bg_img = smooth(bg_img, ksize=smooth_k)
+      smooth_k = int(smooth_k * 1.1)
+      if smooth_k % 2 == 0:
+         smooth_k += 1
+
+      saveimg(bg_img)
    #cv.EqualizeHist(bg_img, bg_img)
    #cv.EqualizeHist(gray_img, gray_img)
    bg_img = invert(bg_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
 
-   #saveimg(gray_img)
+   saveimg(gray_img)
   
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
-   #saveimg(gray_img)
+   saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
    saveimg(gray_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
 
-   #saveimg(gray_img)
+   """
+   itr = 0
+   bg_img = cv.CloneMat(gray_img)
+   while not isForeGroundGone(bg_img):
+      itr += 1
+      #print "Iteration %s" % (itr)
+      #printHistogramList(getHistogramList(bg_img), granularity = 5)
 
+      #print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
+      bg_img = smooth(gray_img, ksize= (2 * itr + 1))
+
+      saveimg(bg_img)
+
+   print "Foreground disappeared in %s iterations" % (itr)
+   saveimg(bg_img)
+   """
 
    return gray_img
 
@@ -1134,7 +1316,7 @@ def blobsToStrokes(img):
    evenIter = True 
    while changed1 or changed2:
       print "Pass %s" % (passnum)
-      #saveimg(img)
+      saveimg(img)
       evenIter = (passnum %2 == 0)
       t1 = time.time()
       numChanged, pointSet, img = thinBlobsPoints(pointSet, img, cleanNoise = (passnum <= 2), evenIter = evenIter)
@@ -1146,8 +1328,10 @@ def blobsToStrokes(img):
          changed2 = numChanged > 0
       passnum += 1
    print ""
+   saveimg(img)
    numChanged, pointSet, img = thinBlobsPoints(pointSet, img, finalPass = True)
 
+   saveimg(img)
    print "Tracing strokes"
    strokelist = pointsToStrokes(pointSet, rawImg)
    return strokelist
@@ -1171,6 +1355,7 @@ def processStrokes(cv_img):
 
    #show(cv_img)
    small_img = resizeImage(cv_img)
+   #small_img = cv.CloneMat(cv_img)
 
    #getHoughLines(small_img)
 
@@ -1180,25 +1365,27 @@ def processStrokes(cv_img):
 
    
    #DEBUGIMG = cv.CreateMat(DEBUGSCALE * temp_img.rows, DEBUGSCALE * temp_img.cols, cv.CV_8UC1)
-   #cv.Set(DEBUGIMG, 255)
+   cv.Set(DEBUGIMG, 255)
    strokelist = blobsToStrokes(temp_img)
       
    #DEBUGIMG = cv.CloneMat(temp_img)
-   cv.Set(DEBUGIMG, 255)
+   #cv.Set(DEBUGIMG, 255)
    
    cv.Set(temp_img, BGVAL)
    pointsPerFrame = 5
    numPts = 0
    strokelist.sort(key = (lambda s: s.center[1] * 10 + s.center[0]) ) 
-   lineColor = 128 
-   startColor = 0
+   lineColor =  0
+   startColor = 128
    stopColor = 220
+   thicknesses = []
    for s in strokelist:
       prev = None
       #t = s.getThickness()
       t = 1
       #print "Stroke thickness = %s" % (t)
       thicks = s.getThicknesses()
+      thicknesses.extend(thicks)
       for i, p in enumerate(s.getPoints()):
          #t = int(thicks[i] / 2)
          debugPt = ( DEBUGSCALE * p[0], DEBUGSCALE * p[1])
@@ -1210,7 +1397,7 @@ def processStrokes(cv_img):
             #saveimg (temp_img)
          else:
             pass
-            cv.Circle(temp_img, debugPt, t, startColor, thickness=-1)
+            cv.Circle(temp_img, debugPt, 1, startColor, thickness=-1)
             #saveimg(temp_img)
          numPts += 1
          prev = debugPt
@@ -1219,8 +1406,11 @@ def processStrokes(cv_img):
             #saveimg(temp_img)
             #if numPts % (5 * pointsPerFrame) == 0:
                #cv.Set(temp_img, 255)
-      cv.Circle(temp_img, debugPt, t, stopColor, thickness=-1)
-      saveimg(temp_img)
+      cv.Circle(temp_img, debugPt, 1, stopColor, thickness=-1)
+      #cv.Circle(temp_img, debugPt, t/2, stopColor, thickness=-1)
+      #saveimg(temp_img)
+
+   print "Average line thickness : %s" % ( sum(thicknesses) / len(thicknesses) )
 
    return temp_img
 
@@ -1292,7 +1482,7 @@ def main(args):
    in_img = cv.LoadImageM(fname)
    print "Processing image %sx%s" % (getWidth(in_img), getHeight(in_img))
    out_img = processStrokes(in_img)
-   #show(out_img)
+   saveimg(out_img)
    
    if outfname is not None:
       print "Saving to %s" % (outfname)
