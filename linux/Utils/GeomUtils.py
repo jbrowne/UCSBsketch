@@ -560,6 +560,9 @@ def strokeOrientation(inStroke):
     return math.degrees(angle)
     
  
+def strokeFeaturePoints(inStroke):
+   """Returns a list of "interesting" feature points (corners, endpoints) of a stroke"""
+   pass
 
 
 #--------------------------------------------------------------
@@ -693,7 +696,7 @@ def sliceByLength(inPoints, lengthBegin, lengthEnd):
   
 def smooth(inPoints):
     "Input: List inPoints.  returns a smoothed set of the same size using Laplacian smoothing...IN 2D!."
-    logger.warning("the GeomUtils.smooth function is deprecated, use GeomUtils.smoothStroke");
+    logger.warning("the GeomUtils.smooth function is deprecated, use GeomUtils.strokeSmooth");
     return _smooth(inPoints)
 
 def _smooth(inPoints):

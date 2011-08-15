@@ -34,21 +34,21 @@ def initialize(Board):
 
     
     CircleObserver.CircleMarker()
-    #CircleObserver.CircleVisualizer()
+    CircleObserver.CircleVisualizer()
     ArrowObserver.ArrowMarker()
     ArrowObserver.ArrowVisualizer()
     #LineObserver.LineMarker()
     #LineObserver.LineVisualizer()
     #TextObserver.TextMarker()
     #TextObserver.TextVisualizer()
-    #DiGraphObserver.DiGraphMarker()
-    #DiGraphObserver.DiGraphVisualizer()
+    DiGraphObserver.DiGraphMarker()
+    DiGraphObserver.DiGraphVisualizer()
     
     #TemplateObserver.TemplateMarker()
     #TemplateObserver.TemplateVisualizer()
     
     
-    #d = DebugObserver.DebugObserver()
+    d = DebugObserver.DebugObserver()
     #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
     #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
     #d.trackAnnotation(LineObserver.LineAnnotation)

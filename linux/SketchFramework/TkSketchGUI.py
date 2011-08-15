@@ -30,6 +30,7 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
 from SketchSystem import initialize, standAloneMain
 from SketchFramework.strokeout import imageToStrokes
+from Utils.StrokeStorage import StrokeStorage
 
 # Constants
 WIDTH = 1000
@@ -37,6 +38,7 @@ HEIGHT = 800
 MID_W = WIDTH/2
 MID_H = HEIGHT/2
 
+   
 
 class TkSketchGUI(_SketchGUI):
 
@@ -95,9 +97,11 @@ class TkSketchFrame(Frame):
         self.CurrentPointList = []
         self.StrokeList = []
 
+        self.StrokeLoader = StrokeStorage()
+
         self.ResetBoard()
         self.MakeMenu()
-        #LoadStrokes()
+       
         self.Redraw()
 
       
@@ -113,12 +117,20 @@ class TkSketchFrame(Frame):
         top_menu.add_cascade(label="ObjectMenu", menu=self.object_menu)
 
         top_menu.add_command(label="Reset Board", command = (lambda :self.ResetBoard() or self.Redraw()), underline=1 )
-        #top_menu.add_command(label="Load stks.txt", command = (lambda : LoadStrokes(self.StrokeList) or self.Redraw()), underline=1 )
-        #top_menu.add_command(label="Save stks.txt", command = (lambda : SaveStrokes()), underline=1 )
+        top_menu.add_command(label="Load stks.txt", command = (lambda : self.LoadStrokes() or self.Redraw()), underline=1 )
+        top_menu.add_command(label="Save stks.txt", command = (lambda : self.SaveStrokes()), underline=1 )
         top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
         top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
 
 
+    def LoadStrokes(self):
+      for stroke in self.StrokeLoader.loadStrokes():
+         self.Board.AddStroke(stroke)
+         self.StrokeList.append(stroke)
+
+    def SaveStrokes(self):
+      self.StrokeLoader.saveStrokes(self.StrokeList)
+        
     def LoadStrokesFromImage(self):
         fname = askopenfilename(initialdir='/home/jbrowne/src/sketchvision/images/')
         if fname == "":

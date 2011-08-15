@@ -19,6 +19,7 @@ example of something not a arrow
 #-------------------------------------
 
 import math
+import pdb
 from Utils import Logger
 from Utils import GeomUtils
 from Utils import Template
@@ -29,7 +30,7 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
-logger = Logger.getLogger('ArrowObserver', Logger.WARN )
+logger = Logger.getLogger('ArrowObserver', Logger.DEBUG)
 
 #-------------------------------------
 
@@ -61,15 +62,17 @@ class ArrowMarker( BoardObserver ):
 
     def onStrokeAdded( self, stroke ):
         "Watches for Strokes that look like an arrow to Annotate"
-        ep1 = stroke.Points[0]
-        ep2 = stroke.Points[-1]
+        smoothedStroke = GeomUtils.strokeSmooth(stroke)
+        ep1 = smoothedStroke.Points[0]
+        ep2 = smoothedStroke.Points[-1]
         isArrowHead = False
-        GeomUtils.ellipseAxisRatio(stroke)
+        #GeomUtils.ellipseAxisRatio(stroke)
+
 
         #Match single-stroke arrows
-        tip, tail = _isSingleStrokeArrow(stroke)
+        tip, tail = _isSingleStrokeArrow(smoothedStroke)
         if tip is None or tail is None:
-            revpts = list(stroke.Points)
+            revpts = list(smoothedStroke.Points)
             revpts.reverse()
             tip, tail = _isSingleStrokeArrow(Stroke(revpts))
         
@@ -78,17 +81,16 @@ class ArrowMarker( BoardObserver ):
             anno = ArrowAnnotation( tip, tail )
             BoardSingleton().AnnotateStrokes( [stroke],  anno)
         else:
-            return
-            if _isArrowHead(stroke, self.arrowHeadMatcher): #We've matched an arrowhead
-                head = stroke
+            if _isArrowHead(smoothedStroke, self.arrowHeadMatcher): #We've matched an arrowhead
+                head = smoothedStroke
                 isArrowHead = True
-                strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = 5)
+                strokeNorm = GeomUtils.strokeNormalizeSpacing(smoothedStroke, numpoints = 5)
                 tip = strokeNorm.Points[2] #Middle normalized point is the tip
                 
         
         #Match it to any tails we have
         if isArrowHead:
-            matchedTails = self._matchHeadtoTail(head = stroke, point = tip)
+            matchedTails = self._matchHeadtoTail(head = smoothedStroke, point = tip)
             for headpoint, tail in matchedTails:
                 #Orient the tail correctly
                 if tail.Points[0] == headpoint:
@@ -99,12 +101,12 @@ class ArrowMarker( BoardObserver ):
                 BoardSingleton().AnnotateStrokes([head, tail],anno)
         
         #Match it like a tail even if we think it's an arrowhead. Oh ambiguity!
-        matchedHeads = self._matchHeadtoTail(tail = stroke, point = ep1)
+        matchedHeads = self._matchHeadtoTail(tail = smoothedStroke, point = ep1)
         for tip, head in matchedHeads:
             anno = ArrowAnnotation(tip, ep2)
             BoardSingleton().AnnotateStrokes([head, stroke],anno)
             
-        matchedHeads = self._matchHeadtoTail(tail = stroke, point = ep2)
+        matchedHeads = self._matchHeadtoTail(tail = smoothedStroke, point = ep2)
         for tip, head in matchedHeads:
             anno = ArrowAnnotation(tip, ep1)
             BoardSingleton().AnnotateStrokes([head, stroke],anno)
@@ -186,7 +188,7 @@ class ArrowVisualizer( BoardObserver ):
     def drawMyself( self ):
         for a in self.annotation_list:
             SketchGUI.drawCircle( a.tail.X, a.tail.Y, color="#93bfdd", width=2.0, radius=4)
-            SketchGUI.drawCircle( a.tip.X, a.tip.Y, color="#93bfdd", width=2.0, radius=4)
+            SketchGUI.drawCircle( a.tip.X, a.tip.Y, color="#cc5544" , width=2.0, radius=4)
             
 #-------------------------------------
 
@@ -233,6 +235,7 @@ def _isSingleStrokeArrow(stroke):
     "Input: Single stroke for evaluation. Returns a tuple of points (tip, tail) if the stroke is an arrow, (None, None) otherwise"
     logger.debug("stroke len %d", stroke.length() )
     if len(stroke.Points) < 10:
+        logger.debug("Not an arrow: stroke too short")
         return (None, None)# too small to be arrow
 
     norm_len = len(stroke.Points)
@@ -241,7 +244,7 @@ def _isSingleStrokeArrow(stroke):
     points.reverse() # start from end
     # find the first 90 degree turn in the stroke
     orilist = GeomUtils.strokeLineSegOrientations( Stroke(points) )
-    logger.debug("stroke ori %s", str(orilist) )
+    #logger.debug("stroke ori %s", str(orilist) )
     prev = None
     i = 0
     for i,ori in enumerate(orilist):
@@ -252,7 +255,8 @@ def _isSingleStrokeArrow(stroke):
     first_corner = i
     # now we know the scale of the arrow head if there is one
     # if the first corner is more than 1/4 of the way from the end of the stroke
-    if first_corner > norm_len/5:
+    if first_corner > norm_len/3:
+        logger.debug("Not an arrow: First right angle too far from endpoint")
         return (None, None) # scale is wrong for an arrowhead        
 
     tail = stroke.Points[0] # first of the original points
@@ -261,10 +265,12 @@ def _isSingleStrokeArrow(stroke):
     # create a list of the monoticity of all substrokes from the first corner to some dist after
     m_list = [ GeomUtils.strokeMonotonicity(Stroke(points[first_corner:x])) for x in range(first_corner+2,first_corner*3) ]
     if len(m_list) == 0:
+        logger.debug("Not an arrow: Stroke monotonicity list zero length")
         return (None, None)
     m_min = min(m_list) 
-    logger.debug("stroke mon (%f)", m_min )
+    #logger.debug("stroke mon (%f)", m_min )
     if m_min>0.65:
+        logger.debug("Not an arrow: Stroke too monotonic")
         return (None, None)# too monotonic after the first corner, need to double back
     
     return (tip, tail)
