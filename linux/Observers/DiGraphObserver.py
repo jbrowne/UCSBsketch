@@ -160,6 +160,34 @@ class DiGraphVisualizer( ObserverBase.Visualizer ):
                     #SketchGUI.drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
 
 #-------------------------------------
+
+class DiGraphExporter ( ObserverBase.Visualizer ):
+    "Watches for DiGraph annotations, draws them"
+    def __init__(self, filename = "graph.dot"):
+        ObserverBase.Visualizer.__init__( self, DiGraphAnnotation )
+        self._fname = filename
+
+    def drawAnno( self, a ):
+        "Overridden to export a graph to a dot file"
+        if len(a.connectMap) > 0:
+            fd = open(self._fname, "w") 
+            node_map = {}
+            print >> fd, "digraph G {"
+            for from_node in a.connectMap.keys():
+                if from_node not in node_map:
+                   node_map[from_node] = len(node_map)
+                for connect_tuple in a.connectMap[from_node]:
+                    edge,to_node = connect_tuple
+                    if to_node not in node_map:
+                       node_map[to_node] = len(node_map)
+                    print >> fd, "  %s -> %s" % (node_map[from_node], node_map[to_node])
+            for node in node_map.values():
+               print >> fd, "  %s []" % (node)
+            print >> fd, "}"
+            fd.close()
+
+
+#-------------------------------------
 # if executed by itself, run all the doc tests
 
 if __name__ == "__main__":

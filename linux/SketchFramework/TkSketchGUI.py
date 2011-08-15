@@ -19,6 +19,7 @@ Todo:
 """
 
 
+import pdb
 import time
 from Tkinter import *
 from tkFileDialog import askopenfilename
@@ -31,6 +32,7 @@ from SketchFramework.Board import BoardSingleton
 from SketchSystem import initialize, standAloneMain
 from SketchFramework.strokeout import imageToStrokes
 from Utils.StrokeStorage import StrokeStorage
+from Utils.GeomUtils import getStrokesIntersection
 
 # Constants
 WIDTH = 1000
@@ -89,9 +91,15 @@ class TkSketchFrame(Frame):
         
         self.BoardCanvas= Canvas(self, width=WIDTH, height = HEIGHT, bg="white", bd=2)
         self.BoardCanvas.pack(side=BOTTOM)
+        #Left click bindings
         self.BoardCanvas.bind("<ButtonPress-1>", self.CanvasMouseDown)
         self.BoardCanvas.bind("<B1-Motion>", self.CanvasMouseDown)          
         self.BoardCanvas.bind("<ButtonRelease-1>", self.CanvasMouseUp)      
+
+        #Right click bindings
+        self.BoardCanvas.bind("<ButtonPress-3>", self.CanvasRightMouseDown)
+        self.BoardCanvas.bind("<B3-Motion>", self.CanvasRightMouseDown)          
+        self.BoardCanvas.bind("<ButtonRelease-3>", self.CanvasRightMouseUp)      
 
         self.Board = None
         self.CurrentPointList = []
@@ -154,7 +162,6 @@ class TkSketchFrame(Frame):
            self.StrokeList.append(newStroke)
 
     def RemoveLatestStroke(self):
-        #pdb.set_trace()
         if len (self.StrokeList) > 0:
             stroke = self.StrokeList.pop()
             self.Board.RemoveStroke(stroke)
@@ -188,6 +195,37 @@ class TkSketchFrame(Frame):
         self.StrokeList = []
 
                 
+    def CanvasRightMouseDown(self, event):
+        x = event.x
+        y = event.y
+        #self.BoardCanvas.create_oval(x,y,x,y,activewidth="1", fill="black", outline = "black")
+        
+        if self.p_x != None and self.p_y != None:
+            p_x = self.p_x
+            p_y = self.p_y
+            self.BoardCanvas.create_line(p_x, p_y, x ,y, fill = "gray", width=2)
+
+        x = event.x
+        y = HEIGHT - event.y
+        t = time.time()
+        self.CurrentPointList.append(Point(x,y,t))
+
+        self.p_x = x
+        self.p_y = HEIGHT - y
+
+    def CanvasRightMouseUp(self, event):
+        delStrokes = set([])
+        if len(self.CurrentPointList) > 0:
+            stroke = Stroke( self.CurrentPointList )#, smoothing=True )
+            self.CurrentPointList = []
+            for stk in list(self.StrokeList):
+                if len(getStrokesIntersection(stroke, stk) ) > 0:
+                    print "Removing Stroke"
+                    self.Board.RemoveStroke(stk)
+                    self.StrokeList.remove(stk)
+        self.p_x = self.p_y = None
+        self.Redraw()
+
     def CanvasMouseDown(self, event):
         "Draw a line connecting the points of a stroke as it is being drawn"
         

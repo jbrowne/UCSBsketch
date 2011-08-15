@@ -97,6 +97,7 @@ True
 
 import math
 import sys
+
 from Utils import Logger
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
@@ -295,6 +296,24 @@ def angleSub( a, b ):
 
 #--------------------------------------------------------------
 # Functions on Strokes
+
+def getStrokesIntersection(stroke1, stroke2):
+   "Returns the intersection(s) of two strokes"
+   intersections = []
+
+   prev1 = None
+   for p1 in stroke1.Points:
+      if prev1 is not None:
+         prev2 = None
+         for p2 in stroke2.Points:
+            if prev2 is not None:
+               cross = getLinesIntersection( (prev1, p1), (prev2, p2) )
+               if cross is not None:
+                  intersections.append(cross)
+            prev2 = p2
+      prev1 = p1
+   return intersections
+                
 
 def translateStroke(inStroke, xDist, yDist):
     "Input: Stroke, and the distance in points to translate in X- and Y-directions. Returns a new translated stroke"
@@ -890,11 +909,11 @@ def _TurnType(A, B, C):
 
 def convexHull(inPoints):
     "Input:  Set of Points as a polygon/line.  Returns a set of ordered points defined as the Convex Hull using Grahms Scan"
-    if len(inPoints) < 3:
+    pts = list(set(inPoints)) # Remove duplicates
+    if len(pts) < 3:
         print("Warning: Trying to get the hull of less than 3 points")
         return inPoints
 
-    pts = list(set(inPoints)) # Remove duplicates
     A = pts[0]
 
     #Find upperleftmost point, with leftness taking priority
@@ -991,6 +1010,13 @@ def pointInPolygon( inPoints, point ):
             numIntersections +=1
             
     return ((numIntersections%2)!=0)    #If the ray passes through an ODD number of points, then it's inside the polygon.
+
+
+                
+
+            
+
+
 
 def getLinesIntersection(line1, line2, infinite1 = False, infinite2 = False):
     "Input: two lines specified as 2-tuples of points. Returns the intersection point of two lines or None."

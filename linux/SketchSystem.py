@@ -43,6 +43,7 @@ def initialize(Board):
     #TextObserver.TextVisualizer()
     DiGraphObserver.DiGraphMarker()
     DiGraphObserver.DiGraphVisualizer()
+    DiGraphObserver.DiGraphExporter()
     
     #TemplateObserver.TemplateMarker()
     #TemplateObserver.TemplateVisualizer()
