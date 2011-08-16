@@ -30,6 +30,7 @@ PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
 NORMWIDTH = 1000
 DEBUGSCALE = 1
+
 class Timer (object):
    def __init__(self, desc = "Timer"):
       self.start = time.time()
@@ -52,13 +53,72 @@ def fname_iter():
 
 FNAMEITER = fname_iter()
 #***************************************************
-# Bitmap thinning functions
+# Random Utility Functions
 #***************************************************
-def pointsDistSquared (pt1, pt2):
-   x1, y1 = pt1
-   x2, y2 = pt2
+def printPoint(pt, img):
+   global CENTERVAL
+   px, py = pt
 
-   return (x1 - x2) ** 2 + (y1 - y2) ** 2
+   nw = getImgVal(px-1, py+1, img) == CENTERVAL
+   n = getImgVal(px, py+1, img) == CENTERVAL
+   ne = getImgVal(px+1, py+1, img) == CENTERVAL
+
+   w = getImgVal(px-1, py, img) == CENTERVAL
+   pixval = getImgVal(px, py, img) == CENTERVAL
+   e = getImgVal(px+1, py, img) == CENTERVAL
+
+   sw = getImgVal(px-1, py-1, img) == CENTERVAL
+   s = getImgVal(px, py-1, img) == CENTERVAL
+   se = getImgVal(px+1, py-1, img) == CENTERVAL
+
+   chars = (' ', '#')
+   print "--------------------------"
+   for row in [ [nw, n, ne], [w, pixval, e], [sw, s, se] ]:
+      print "\t|",
+      for val in row:
+         print "%s" % (chars[int(val)]),
+      print "|"
+   print "--------------------------"
+
+def thicknessAtPoint(point, img):
+   global BGVAL, FILLEDVAL, CENTERVAL
+   px, py = point
+
+   pixval = getImgVal(px, py, img)
+   t = 0
+   if pixval == BGVAL:
+      return t
+
+   horiz = (1, 0)
+   vert  = (0, 1)
+   rdiag = (1, 1)
+   ldiag = (1,-1)
+   growthDirs = [horiz, vert, rdiag, ldiag]
+   minThickness = 1000
+   for d in growthDirs:
+      t = 0
+      maxPosT = 0
+      posVal = pixval
+      while posVal == CENTERVAL or posVal == FILLEDVAL:
+         maxPosT = t
+         posPt = (point[0] + t * d[0], point[1] + t * d[1])
+         posVal = getImgVal(posPt[0], posPt[1], img)
+         t += 1
+
+      maxNegT = 0
+      negVal = pixval
+      t = 0
+      while negVal == CENTERVAL or negVal == FILLEDVAL:
+         maxNegT = t
+         negPt = (point[0] - t * d[0], point[1] - t * d[1])
+         negVal = getImgVal(negPt[0], negPt[1], img)
+         t += 1
+
+      diagScale = math.sqrt(d[0] * d[0] + d[1] * d[1])
+      totalThickness = diagScale * (maxPosT + maxNegT + 1)
+      if totalThickness < minThickness:
+         minThickness = totalThickness
+   return minThickness
 
 def linePixels(pt1, pt2):
    """Generates a list of pixels on a line drawn between pt1 and pt2"""
@@ -126,6 +186,16 @@ def getEightNeighbors(pt, shuffle = False):
    if shuffle:
       random.shuffle(retList)
    return retList
+def pointsDistSquared (pt1, pt2):
+   x1, y1 = pt1
+   x2, y2 = pt2
+
+   return (x1 - x2) ** 2 + (y1 - y2) ** 2
+
+#***************************************************
+# Bitmap thinning functions
+#***************************************************
+
    
 def pointsToGraph(pointSet, rawImg):
    """From a raw, binary image and approximate thinned points associated with it, 
@@ -163,61 +233,14 @@ def pointsToGraph(pointSet, rawImg):
 
    return graphDict
 
-
-
-
-def thicknessAtPoint(point, img):
-   global BGVAL, FILLEDVAL, CENTERVAL
-
-   px, py = point
-
-   pixval = getImgVal(px, py, img)
-   t = 0
-   if pixval == BGVAL:
-      return t
-
-   horiz = (1, 0)
-   vert  = (0, 1)
-   rdiag = (1, 1)
-   ldiag = (1,-1)
-   growthDirs = [horiz, vert, rdiag, ldiag]
-   minThickness = 1000
-   for d in growthDirs:
-      t = 0
-      maxPosT = 0
-      posVal = pixval
-      while posVal == CENTERVAL or posVal == FILLEDVAL:
-         maxPosT = t
-         posPt = (point[0] + t * d[0], point[1] + t * d[1])
-         posVal = getImgVal(posPt[0], posPt[1], img)
-         t += 1
-
-      maxNegT = 0
-      negVal = pixval
-      t = 0
-      while negVal == CENTERVAL or negVal == FILLEDVAL:
-         maxNegT = t
-         negPt = (point[0] - t * d[0], point[1] - t * d[1])
-         negVal = getImgVal(negPt[0], negPt[1], img)
-         t += 1
-
-      diagScale = math.sqrt(d[0] * d[0] + d[1] * d[1])
-      totalThickness = diagScale * (maxPosT + maxNegT + 1)
-      if totalThickness < minThickness:
-         minThickness = totalThickness
-   return minThickness
    
-
-
-
-
 def getKeyPoints(graph):
    """Takes in a graph of points and returns a list of keypoint dictionaries.
    {'endpoints', 'crosspoints'}"""
    retList = []
-   graph = dict(graph)
-   while len(graph) > 0:
-      seed = graph.keys()[0]
+   graphCpy = dict(graph)
+   while len(graphCpy) > 0:
+      seed = graphCpy.keys()[0]
       procStack = [{'pt':seed, 'dist':0}]
       seen = set([])
 
@@ -232,21 +255,21 @@ def getKeyPoints(graph):
             continue
 
 
-         if len(graph[pt]['kids']) > 2:
+         if len(graphCpy[pt]['kids']) > 2:
             crossPoints.add(pt)
-         elif len(graph[pt]['kids']) == 1:
+         elif len(graphCpy[pt]['kids']) == 1:
             endPoints.add(pt)
          seen.add(pt)
-         for nPt in graph[pt]['kids']:
+         for nPt in graphCpy[pt]['kids']:
             if nPt not in seen:
                procStack.append({'pt':nPt, 'dist': dist + 1})
-         del(graph[pt])
+         del(graphCpy[pt])
 
       retList.append({'seed': seed, 'endpoints' : endPoints, 'crosspoints' : crossPoints})
+
+   _getGraphEdges(graph, retList)
    
    return retList
-
-
 
 def strokesFromSeed(seed, graph):
    """Create a dumb list of strokes from any blob in a graph"""
@@ -277,14 +300,116 @@ def strokesFromSeed(seed, graph):
             procStack.append({'pt':nPt, 'stroke':stroke})
             branchesTaken += 1
 
-   return retStrokes
-
-      
+   return retStrokes 
    
+def _getGraphEdges(graph, keyPointsList):
+   """Adds the edge information to each keypoint entry in keyPointsList"""
+   global DEBUGIMG
+   #keyPointsList = getKeyPoints(graph)
+   for kpDict in keyPointsList:
+      endPoints = kpDict['endpoints']
+      crossPoints = kpDict['crosspoints']
+      seedPoint = kpDict['seed']
+      edges = kpDict['edges'] = [] #Create a new tag
+
+      if len(graph[seedPoint]['kids']) == 0: #Special case of single point stroke
+         edges.append([seedPoint])
+         continue
+
+      allKeyPts = set(list(endPoints) + list(crossPoints))
+      if len(allKeyPts) == 0:
+         #Just start the edge at the seed
+         allKeyPts.add(seedPoint)
+
+      procStack = [{'pt' : list(allKeyPts)[0], 'par' : None, 'edge' : []}]
+      seen = set([])
+      while len(procStack) > 0:
+         ptDict = procStack.pop()
+         pt = ptDict['pt']
+         par = ptDict['par']
+         curEdge = ptDict['edge']
+
+         if pt in seen:
+            continue
+
+         if par == None:
+            assert pt in allKeyPts, "Point with no parent, not in keypoint list"
+            for k in graph[pt]['kids']:
+               if k not in seen and k not in allKeyPts:
+                  procStack.append( {'pt' : k, 'par' : pt, 'edge' : [pt]} )
+         elif pt in allKeyPts:
+            curEdge.append(pt)
+            edges.append(curEdge)
+            procStack.append( {'pt' : pt, 'par' : None, 'edge' : None} )
+            """
+            #DEBUG
+            cv.Set(DEBUGIMG, 255)
+            for dbPt in curEdge:
+               setImgVal(dbPt[0], dbPt[1], 0, DEBUGIMG)
+            saveimg(DEBUGIMG)
+            #/DEBUG
+            """
+         else:
+            seen.add(pt)
+            curEdge.append(pt)
+            numKids = 0
+            for k in graph[pt]['kids']:
+               if k != par:
+                  procStack.append( {'pt': k, 'par' : pt, 'edge': curEdge} )
+                  numKids += 1
+            assert numKids == 1, "Non-keypoint %s added too many/few kids: \nptDict: %s\ngraph[pt]: %s" % (str(pt), ptDict, graph[pt])
+      #END while len(procStack) ...
+   #END for keyPointList ...
+
+def _collapseIntersections(graph, keyPoints, edges):
+   keyPoints = getKeyPoints(graph)
+   for kpDict in keyPoints:
+      mergeDict = {}
+      crossPoints = list(kpDict['crosspoints'])
+      for cp1 in crossPoints:
+         for cp2 in crossPoints:
+            if cp1 == cp2:
+               continue
+            else:
+               if pointsOverlap(cp1, cp2, rawImg):
+                  mergeSet = set([cp1, cp2])
+                  procSet = set(mergeSet)
+                  while len(procSet) > 0:
+                     mergePt = procSet.pop()
+                     mergeSet.add(mergePt)
+                     ptDict = mergeDict.get(mergePt, set([]))
+                     for k in ptDict:
+                        if k not in mergeSet:
+                           procSet.add(k)
+                     mergeDict[mergePt] = mergeSet #Merged into the set
+         #END for cp2 ...
+      #END for cp1 ...
+
+      #Do the merging now
+      for mergeSet in set(mergeDict.values()):
+         xList = [pt[0] for pt in mergeSet]
+         yList = [pt[1] for pt in mergeSet]
+         assert len(xList) > 0 and len(yList > 0), "Merging an empty set of crossing Points"
+         avgPt = ( sum(xList) / len(xList), sum(yList) / len(yList) )
+
 def graphToStrokes(graph):
    """Takes in a graph of points and generates a list of strokes that covers them"""
    retStrokes = []
+
+   keyPointsList = getKeyPoints(graph)
+   #_collapseIntersections(keyPointsList)
+   allEdgeList = [kp['edges'] for kp in keyPointsList]
+
+   for edgeList in allEdgeList:
+      for edge in edgeList:
+         stroke = Stroke()
+         for pt in edge:
+            stroke.addPoint(pt)
+         retStrokes.append(stroke)
+   return retStrokes
+   """
    keyPoints = getKeyPoints(graph)
+   edgeList = getGraphEdges(graph)
    for kpDict in keyPoints:
       endPoints = list(kpDict['endpoints'])
       crossPoints = list(kpDict['crosspoints'])
@@ -329,8 +454,8 @@ def graphToStrokes(graph):
 
       retStrokes.extend(strokes)
    return retStrokes
+   """
 
-   
 def drawGraph(graph, img):
    for p, pdict in graph.items():
       for k in pdict['kids']:
@@ -342,146 +467,15 @@ def drawGraph(graph, img):
 def pointsToStrokes(pointSet, rawImg):
    global DEBUGIMG
    graph = pointsToGraph(pointSet, rawImg)
-   #drawGraph(graph, DEBUGIMG)
-   #saveimg(DEBUGIMG)
+   """
+   cv.Set(DEBUGIMG, 255)
+   drawGraph(graph, DEBUGIMG)
+   saveimg(DEBUGIMG)
+   """
 
    retStrokes = graphToStrokes(graph)
    return retStrokes
 
-   exit(1)
-
-   #trees = pointsToTrees(pointSet, rawImg)
-   """
-   for keypts in trees['keypoints']:
-      for pt in keypts['crosses']:
-         cv.Circle(DEBUGIMG, pt, 1, 128, thickness=2)
-      for pt in keypts['ends']:
-         cv.Circle(DEBUGIMG, pt, 1, 50, thickness=2)
-   """
-   retStrokes = pointtreesToStrokes(trees['keypoints'], trees['trees'])
-   return retStrokes
-
-
-def pointtreesToStrokes(keyPoints, linkDict):
-   global DEBUGIMG
-   #Build up smaller link graph of intersection points and end points
-   
-   retStrokes = []
-   for strokeDict in keyPoints:
-      if len(strokeDict['ends']) + len(strokeDict['crosses']) == 1:
-         singlePoint = (strokeDict['ends'] + strokeDict['crosses'])[0] 
-         stroke = Stroke()
-         stroke.addPoint( singlePoint, linkDict[singlePoint]['thickness'])
-         retStrokes.append(stroke)
-         continue
-      endPoints = list(strokeDict['ends'])
-      crossingPoints = list(strokeDict['crosses'])
-      
-      #print "Crosses: %s\nEnds: %s" % (crossingPoints, endPoints)
-      seen = {}
-      strokeGraph = {}
-      seed = endPoints[0]
-      endPoints.remove(seed)
-      seen[seed] = True
-      #print "Seed: %s" % (str(seed))
-      procStack = []
-      for k in linkDict[seed]['kids']:
-         procStack.append( (k, [seed] ) ) #point, parent vertex
-
-      while len(procStack) > 0:
-         curPt, links = procStack.pop()
-         if curPt in seen:
-            continue
-         links.append(curPt)
-
-         if curPt in endPoints or curPt in crossingPoints: #Did we just reach a vertex?
-            src = links[0]
-            dest = links[-1]
-            #print "Path found from %s to %s" % (src, dest)
-            #print "Links: %s" % (links)
-            prev = None
-            for i in xrange( len(links)): #Set each dest pointer to the next in line
-               edgePt = links[i]
-               ptDict = strokeGraph.setdefault(edgePt, {})
-               if i < len(links) - 1:
-                  ptDict[dest] = links[i + 1]
-               if prev is not None: #set each src pointer to the previous
-                  ptDict[src] = prev
-               prev = edgePt
-            #links = [curPt]
-            if curPt in endPoints:
-               endPoints.remove(curPt)
-            if curPt in crossingPoints:
-               crossingPoints.remove(curPt)
-
-            seen[curPt] = True
-            for k in linkDict[curPt]['kids']:
-               if k not in seen:
-                  procStack.append( (k, [curPt]) )
-
-         #endif curPt 
-         elif curPt not in seen: #Keep searching down the tree
-            seen[curPt] = True
-            for k in linkDict[curPt]['kids']:
-               procStack.append( (k, links) )
-      #endWhile
-      #Now have a graph for the stroke(s)
-
-      #continue
-
-
-      endPoints = list(strokeDict['ends'])
-      crossingPoints = list(strokeDict['crosses'])
-      #for cp in crossingPoints:
-      procList = crossingPoints + endPoints
-      seen = {}
-      while len(procList) > 0:
-         cp = procList.pop()
-         seen[cp] = True
-
-         for dest in strokeGraph[cp].keys():
-            if dest in seen:
-               continue
-            stroke = Stroke()
-            pt = cp
-            while dest in strokeGraph[pt]:
-               stroke.addPoint(pt, linkDict[pt]['thickness'])
-               pt = strokeGraph[pt][dest]
-
-            assert pt == dest
-            stroke.addPoint(dest, linkDict[dest]['thickness'])
-            retStrokes.append(stroke)
-            #print "New stroke %s to %s" % (cp, dest)
-      
-
-
-
-
-
-   return retStrokes
-
-
-def buildStrokeFromVertices(vertices, strokeGraph):
-
-   retStroke = Stroke()
-   prev = None
-   target = None
-   while len(vertices) > 0:
-      prev = target
-      target = vertices.pop()
-      if prev == None:
-         continue
-
-      while pt != target:
-         if pt != target:
-            retStroke.addPoint(pt)
-            pt = strokeGraph[pt][target]
-   if target is not None:
-      retStroke.addPoint(target) #Add that last vertex point
-
-   return retStroke
-
-      
 def filledAndCrossingVals(point, img, skipCorners = False):
    """
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
@@ -574,30 +568,6 @@ def filledAndCrossingVals(point, img, skipCorners = False):
    #endif
    return retDict
 
-def printPoint(pt, img):
-   global CENTERVAL
-   px, py = pt
-
-   nw = getImgVal(px-1, py+1, img) == CENTERVAL
-   n = getImgVal(px, py+1, img) == CENTERVAL
-   ne = getImgVal(px+1, py+1, img) == CENTERVAL
-
-   w = getImgVal(px-1, py, img) == CENTERVAL
-   pixval = getImgVal(px, py, img) == CENTERVAL
-   e = getImgVal(px+1, py, img) == CENTERVAL
-
-   sw = getImgVal(px-1, py-1, img) == CENTERVAL
-   s = getImgVal(px, py-1, img) == CENTERVAL
-   se = getImgVal(px+1, py-1, img) == CENTERVAL
-
-   chars = (' ', '#')
-   print "--------------------------"
-   for row in [ [nw, n, ne], [w, pixval, e], [sw, s, se] ]:
-      print "\t|",
-      for val in row:
-         print "%s" % (chars[int(val)]),
-      print "|"
-   print "--------------------------"
 
 def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPass = False):
    global DEBUGIMG, FILLEDVAL, BGVAL
@@ -898,14 +868,94 @@ def isForeGroundGone(img):
       
    
    
+class ImageStrokeCoverter(object):
+   DEBUGIMG = None
+   WIDTH = 1000 #Normalized width of an image
+   #****************************
+   # Status constants
+   #****************************
+   EMPTY = 0
+   IMAGELOADED = 1
+   STROKESEXTRACTED = 2
+   #****************************
+   # Image Processing constants
+   #****************************
+   BGVAL = 255 #Background color
+   DENOISE_K = 5 / 1000.0
+   SMOOTH_K  = 3 / 100.0
+   INK_THRESH = 240
+   def __init__(self, width = WIDTH):
+      self._rawImg = None
+      self._width = width
+      self._state = ImageStrokeCoverter.EMPTY
+
+   def loadImage(self, fname):
+      self._state = ImageStrokeCoverter.EMPTY
+      self._rawImg = cv.LoadImageM(fname)
+      self._removeImageBackground()
+      self._state = ImageStrokeCoverter.IMAGELOADED
+
+   def getStrokes(self):
+      if self._state >= ImageStrokeCoverter.IMAGELOADED:
+         strokelist = blobsToStrokes(temp_img)
+      else:
+         return []
+
+   def _removeImageBackground(self):
+      """Take in a color image and convert it to a binary image of just ink"""
+      #Hardcoded for resolution/phone/distance
+      #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
+      denoise_k = ImageStrokeCoverter.DENOISE_K
+      smooth_k  = ImageStrokeCoverter.SMOOTH_K
+      ink_thresh = ImageStrokeCoverter.INK_THRESH
+      width = self._rawImg.cols
+
+      denoise_k = max (1, int(denoise_k * width))
+      if denoise_k % 2 == 0:
+         denoise_k += 1
+      smooth_k = max (1, int(smooth_k * width))
+      if smooth_k % 2 == 0:
+         smooth_k += 1
+
+      inv_factor = 0.5
+      gray_img = cv.CreateMat(self._rawImg.rows, self._rawImg.cols, cv.CV_8UC1)
+      cv.CvtColor(self._rawImg, gray_img, cv.CV_RGB2GRAY)
+      #Create histogram for single channel (0..255 range), into 255 bins
+      bg_img = gray_img
+      while not isForeGroundGone(bg_img):
+         printHistogramList(getHistogramList(bg_img), granularity = 5)
+         bg_img = smooth(bg_img, ksize=smooth_k, t='median')
+         smooth_k = int(smooth_k * 1.1)
+         if smooth_k % 2 == 0:
+            smooth_k += 1
+
+         saveimg(bg_img)
+      #cv.EqualizeHist(bg_img, bg_img)
+      #cv.EqualizeHist(gray_img, gray_img)
+      bg_img = invert(bg_img)
+      #gray_img = smooth(gray_img, ksize=denoise_k)
+
+      saveimg(gray_img)
+     
+      cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
+      saveimg(gray_img)
+      #cv.EqualizeHist(gray_img, gray_img)
+      gray_img = smooth(gray_img, ksize=denoise_k, t='gauss')
+      saveimg(gray_img)
+      cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
+      saveimg(gray_img)
+      self._rawImg = gray_img
+      #gray_img = smooth(gray_img, ksize=denoise_k)
+
+      
 def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
-   global BGVAL, NORMWIDTH
+   global BGVAL
    #Hardcoded for resolution/phone/distance
    #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
    denoise_k = 5 / 1000.0
    smooth_k  = 3 / 100.0
-   ink_thresh = 240 
+   ink_thresh = 230
    width = cv_img.cols
 
    denoise_k = max (1, int(denoise_k * width))
@@ -943,10 +993,11 @@ def removeBackground(cv_img):
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
    saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
-   gray_img = smooth(gray_img, ksize=denoise_k, t='gauss')
+   gray_img = smooth(gray_img, ksize=3, t='gauss')
    saveimg(gray_img)
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
    saveimg(gray_img)
+   #show(gray_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
 
    return gray_img
@@ -1121,456 +1172,10 @@ def main(args):
 
 
 
+
 if __name__ == "__main__":
    import sys
    main(sys.argv)
    #test()
 
-#*************************************************8
-# Unused or Deprecated functions
-#*************************************************8
-
-
-def animimg(cv_img):
-   """BROKEN"""
-   global VIDEO_WRITER
-   if VIDEO_WRITER is None:
-      size = (cv_img.cols, cv_img.rows)
-      init_video(size = size)
-   if cv_img.type != cv.CV_8UC1:
-      temp_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
-      cv.CvtColor(cv_img, temp_img, cv.CV_RGB2GRAY)
-      cv_img = temp_img
-
-   iplImg = cv.GetImage(cv_img)
-   print iplImg
-   cv.WriteFrame(VIDEO_WRITER, iplImg)
-
-def init_video(size = (800, 600), fname = "./vid.mpg"):
-   global VIDEO_WRITER
-   fps = 30
-   VIDEO_WRITER = cv.CreateVideoWriter (fname, cv.CV_FOURCC('M', 'P', 'E', 'G'), fps, size, 0)
-   print "Saving video to %s at %s" % (fname, size)
-
-def pointsToTrees(pointSet, rawImg):
-   global DEBUGIMG
-   DEBUGIMG = cv.CloneMat(rawImg)
-   #cv.Set(DEBUGIMG, 255)
-   linkDict = {}
-   seen = {}
-   allKeyPoints = []
-   print "Converting points to strokes"
-
-   numStrokes = 0
-   while len(pointSet) > 0:
-      print "%s points left to process" % (len(pointSet))
-      numStrokes += 1
-      seed = pointSet.pop()
-      procStack = [ {'pt' :seed, 'leafDist' : 0, 'parent': None, 'path': []} ]
-      seen[seed] = set([])
-      #cv.Circle(DEBUGIMG, seed, 2, 128, thickness=-1)
-      
-      crossPoints = set([])
-      endPoints = set([])
-
-
-      maxLeaf = seed
-      maxDist = 0
-
-      #Initial pass to build the a linkDict tree from some seed point
-      while len(procStack) > 0:
-         procDict = procStack.pop(0)
-         pt = procDict['pt']
-         dist = procDict['leafDist']
-         parPt = procDict['parent'] 
-         parPath = procDict['path']
-         (x,y) = pt
-         #setImgVal(x,y,220, DEBUGIMG)
-
-         pointOutOfRange = False
-         if parPt is None:
-            pointOutOfRange = True
-         elif not pointsOverlap(pt, parPt, rawImg):
-            #distSqr = pointsDistSquared(parPt, pt) 
-            #parThicknessSqr = (linkDict[parPt]['thickness'] / 2.0) ** 2
-            #ptThicknessSqr = (thicknessAtPoint(pt, rawImg) / 2.0) ** 2
-            #if parThicknessSqr < distSqr and ptThicknessSqr < distSqr:
-            pointOutOfRange = True
-
-         if pointOutOfRange:
-            #Add this point to the linkdict
-            if dist > maxDist:
-               maxLeaf = (x,y)
-               maxDist = dist
-            #setImgVal(pt[0], pt[1], 128, DEBUGIMG)
-            thickness = thicknessAtPoint(pt, rawImg)
-            ptDict = linkDict.setdefault( pt , {'kids' : set([]), 'thickness' : thickness } )
-            #cv.Circle(DEBUGIMG, pt, linkDict[pt]['thickness']/ 2.0, 128, thickness=-1)
-            #Link the two points together
-            if parPt is not None:
-               ptDict['kids'].add(parPt)
-               linkDict[parPt]['kids'].add(pt)
-            parPt = pt
-            parPath = []
-            #Go through this point to get to its siblings (added previous round)
-            for siblingDict in procStack:
-               ptThickness = linkDict[pt]['thickness'] ** 2
-               if pointsDistSquared(pt, siblingDict['pt']) < ptThickness:
-                  siblingDict['parent'] = pt
-                  siblingDict['path'] = [pt]
-
-
-         parPath.append(pt)
-
-         n = (x , y + 1)
-         s = (x , y - 1)
-         e = (x + 1 , y)
-         w = (x - 1 , y)
-         ne = (x + 1 , y + 1)
-         se = (x + 1 , y - 1)
-         nw = (x - 1 , y + 1)
-         sw = (x - 1 , y - 1)
-         fourNbors = [ n, e, s, w ]
-
-         eightNbors = fourNbors + [ne, se, nw, sw]
-         random.shuffle(eightNbors)
-
-         for nPt in eightNbors:
-            if nPt in pointSet and nPt not in seen:
-                  procStack.append({'pt' :nPt, 'leafDist' : dist + 1, 'parent': parPt, 'path' : parPath} )
-                  pointSet.remove(nPt)
-            #elif (npt in linkdict and npt != parpt and npt not in linkdict[parpt]['kids']):
-               #linkdict[nPt]['kids'].add(parpt)
-               #linkdict[parpt]['kids'].add(npt)
-
-            seen.setdefault(nPt, set([])).add(parPt)
-         #saveimg(DEBUGIMG)
-
-      #endWhile len(procStack)
-      """
-      for p, pdict in linkDict.items():
-         for k in pdict['kids']:
-            cv.Line(DEBUGIMG, p, k, 220, thickness = 1)
-            setImgVal(p[0], p[1], 128, DEBUGIMG)
-            setImgVal(k[0], k[1], 128, DEBUGIMG)
-
-      saveimg(DEBUGIMG)
-      """
-      for pt, parset in seen.items():
-         for par1 in parset:
-            for par2 in parset:
-               if par1 == par2:
-                  continue
-               else:
-                  if par2 not in linkDict[par1]['kids']:
-                     print "Discontinuity: %s and %s" % (par1, par2)
-                     assert par1 in linkDict and par2 in linkDict, "Uh oh"
-                     linkDict[par1]['kids'].add(par2)
-                     linkDict[par2]['kids'].add(par1)
-                     #cv.Circle(DEBUGIMG, par1, 1, 0, thickness=-1)
-                     #cv.Line(DEBUGIMG, par1, par2, 0, thickness = 1)
-                     #cv.Circle(DEBUGIMG, par2, 1, 0, thickness=-1)
-
-      #The tree is hooked together, and needs to be pruned
-
-      #collapseCrossingPoints(keyPoints, linkDict)
-      endPoints, crossPoints = getKeyPoints(linkDict, endPoints, maxLeaf)
-      """
-
-      for debugPt in (endPoints) :
-         setImgVal(pt[0], pt[1], 128, DEBUGIMG)
-         cv.Circle(DEBUGIMG, debugPt, 1, 128, thickness=-1)
-      saveimg(DEBUGIMG)
-      for debugPt in list(crossPoints):
-         setImgVal(pt[0], pt[1], 128, DEBUGIMG)
-         cv.Circle(DEBUGIMG, debugPt, 1, 128, thickness=-1)
-      saveimg(DEBUGIMG)
-      """
-
-
-      allKeyPoints.append( {'crosses' : list(crossPoints), 'ends' :list(endPoints)} ) #Pair crosspoints with endpoints
-
-   #endwhile PointSet > 0
-
-   #saveimg(DEBUGIMG)
-   return {'trees' : linkDict, 'keypoints' : allKeyPoints}
-
-def OLDgetKeyPoints(tree, seeds, leaf):
-   #global DEBUGIMG
-
-   endPoints = set(seeds)
-   crossPoints = set()
-   #collapseCrossingPoints(keyPoints, linkDict):
-   #collapseCrossingAndEndPoints(crossPoints, endPoints, linkDict)
-
-   seen = set([])
-   maxPath = [leaf]
-   procStack = [ (leaf, maxPath) ]
-   while len(procStack) > 0:
-      pt, path = procStack.pop()
-      #print "Pt %s" % (str(pt))
-      if len(path) >=2:
-         p1 = path[-2]
-         p2 = path[-1]
-         #cv.Line(DEBUGIMG, p1,p2, 0, thickness=1)
-         p1col = p2col = 128
-         if len(tree[p1]['kids']) > 2:
-            p1col = 50
-            p2col = 220
-         if len(tree[p2]['kids']) > 2:
-            if p1col != 50:
-               p1col = 220
-            p2col = 50
-         #setImgVal(p1[0], p1[1], p1col, DEBUGIMG)
-         #setImgVal(p2[0], p2[1], p2col, DEBUGIMG)
-      if pt not in seen:
-         seen.add(pt)
-
-         if len(path) > len(maxPath):
-            maxPath = path
-         for k in tree[pt]['kids']:
-            procStack.append( (k, path + [k]) )
-
-      if len(tree[pt]['kids']) == 1:
-         endPoints.add(pt)
-      elif len(tree[pt]['kids']) > 2:
-         crossPoints.add(pt)
-
-   if len(endPoints) == 0: #No real endpoints, have to fake some
-      #Search for the farthest away point from here
-      endPoints.add(maxPath[-1])
-      endPoints.add(maxPath[0])
-   #saveimg(DEBUGIMG)
-   return list(endPoints), list(crossPoints)
-
-def collapseCrossingPoints(keyPoints, linkDict):
-   assert False, "This function not yet working"
-   endPoints = keyPoints['ends']
-   crossPoints = keyPoints['crosses']
-   collapsedPoints = set([])
-   #Find out what nodes all collapse together
-   for cp in crossPoints:
-      if cp not in linkDict:
-         continue
-
-      thickness = linkDict[cp]['thickness']
-      collapsedPoints = set([])
-      procStack = [( cp, 0 )]
-      while len(procStack) > 0:
-         pt, depth = procStack.pop()
-         collapsedPoints.add(pt)
-         if depth < thickness / float(2):
-            for k in linkDict[pt]['kids']:
-               procStack.append( (k, depth +1) )
-
-      #collapsedPoints contains all of the points to be merged
-      numPts = len(collapsedPoints)
-      avgPoint = None
-      nBorPts = set([])
-      for p in collapsedPoints:
-         pWeightX = p[0] / float(numPts)
-         pWeightY = p[1] / float(numPts)
-         if avgPoint == None:
-            avgPoint = [pWeightX, pWeightY]
-         else:
-            avgPoint[0] += pWeightX
-            avgPoint[1] += pWeightY
-
-         if p in collapsedPoints:
-            nBorPts.add(p)
-         elif p in linkDict:
-            nBors = removeFromTreeDict(p, linkDict) 
-            nBorPts.update(nBors)
-
-      #points are removed from the tree, and the collapsed point is figured from the average
-
-      avgPoint = tuple(avgPoint)
-      avgPtDict = linkDict.setdefault(avgPoint, {'kids' : set([]), 'thickness' : None})
-      avgPtDict['thickness'] = thickness
-      for npt in nBorPts:
-         if npt in linkDict: #Might have been removed earlier
-            avgPtDict['kids'].add(npt)
-            linkDict[npt]['kids'].add(avgPoint)
-      if len(nBorPts) == 1: #May have created an endpoint
-         endPoints.append(avgPoint)
-   #endFor cp in crossPoints
-   for ep in list(endPoints):
-      if ep not in linkDict:
-         endPoints.remove(ep)
-      elif len(linkDict[ep]['kids']) != 1:
-         endPoints.remove(ep)
-
-def removeFromTreeDict(point, treeDict):
-   if point in treeDict:
-      kidlist = treeDict[pt]['kids']
-      for k in kidlist:
-         assert k in treeDict, "Removing point with invalid 'kids'"
-         assert point in treeDict[k], "Removing point but neighbor doesn't know about it"
-         treeDict[k]['kids'].remove(point)
-      del(treeDict[pt])
-      return kidlist
-   else:
-      print "Warning: Trying to remove point not present in treeDict"
-
-         
-
-def collapseCrossingAndEndPoints(crossPoints, endPoints, linkDict):
-   """Destructively collapses intersection points within the link tree"""
-   #Collapse internal nodes. Also prunes single-point subtrees
-   for ePt in list(endPoints):
-      if ePt in linkDict:
-         #print "Checking endpoint: %s\n  %s" % (ePt, linkDict[ePt])
-         kidlist = list(linkDict[ePt]['kids'])
-         for kid in kidlist:
-            if kid in endPoints:
-               continue #Leave 2-coupled line segs alone, since only one child, same as BREAK
-            if kid in crossPoints:
-               crossPoints.remove(kid)
-
-            linkDict[ePt]['kids'].remove(kid) #Remove mutual connection
-            linkDict[kid]['kids'].remove(ePt)
-            #print "  ", kid, linkDict[kid]
-            gkidlist = list(linkDict[kid]['kids'])
-            for gkid in gkidlist:
-               #print "    ", gkid, linkDict[gkid]
-               linkDict[gkid]['kids'].remove(kid) #Link grandkid to this point
-               linkDict[gkid]['kids'].add(ePt)
-               linkDict[ePt]['kids'].add(gkid)
-               #print "    ", gkid, linkDict[gkid], "After"
-            del(linkDict[kid])
-
-         if len(linkDict[ePt]['kids']) != 1:
-            assert len(linkDict[ePt]) != 0 #Sanity check
-            #print "After collapse, %s no longer endpoint\n   %s" % (ePt, linkDict[ePt])
-            endPoints.remove(ePt)
-         if len(linkDict[ePt]['kids']) > 2:
-            crossPoints.add(ePt)
-            #print "   Removing %s" % (str(kid))
-
-   for kPt in list(crossPoints):
-      if kPt in linkDict and kPt in crossPoints:
-         #print kPt, linkDict[kPt] 
-         kidlist = list(linkDict[kPt]['kids'])
-         for kid in kidlist:
-            linkDict[kPt]['kids'].remove(kid) #Remove mutual connection
-            linkDict[kid]['kids'].remove(kPt)
-            #print "  ", kid, linkDict[kid]
-            gkidlist = list(linkDict[kid]['kids'])
-            for gkid in gkidlist:
-               #print "    ", gkid, linkDict[gkid]
-               linkDict[gkid]['kids'].remove(kid) #Link grandkid to this point
-               linkDict[gkid]['kids'].add(kPt)
-               linkDict[kPt]['kids'].add(gkid)
-               #print "    ", gkid, linkDict[gkid], "After"
-            #print "   Removing %s" % (str(kid))
-            if kid in endPoints:
-               endPoints.remove(kid)
-            if kid in crossPoints:
-               crossPoints.remove(kid)
-            crossPoints.add(kPt)
-            del(linkDict[kid])
-
-         if len(linkDict[kPt]['kids']) <= 2:
-            assert len(linkDict[kPt]) != 0 #Sanity check
-            crossPoints.remove(kPt)
-         if len(linkDict[kPt]['kids']) <= 1:
-            endPoints.add(kPt)
-         #print kPt, linkDict[kPt], "After"
-   
-def _filledAndCrossingVals2(point, pointSet, skipCorners = False):
-
-   retDict = {'filled':0, 'crossing':0}
-   if point in pointSet:
-      crossing = 0
-      filled = 1
-      px, py = point
-
-      n = (px , py + 1) in pointSet
-      s = (px , py - 1) in pointSet
-      e = (px + 1 , py) in pointSet
-      w = (px - 1 , py) in pointSet
-      ne = (px + 1 , py + 1) in pointSet
-      se = (px + 1 , py - 1) in pointSet
-      nw = (px - 1 , py + 1) in pointSet
-      sw = (px - 1 , py - 1) in pointSet
-
-      filledList = [ne, n, nw, w, sw, s, se, e]
-      prevFilled = e
-      for i, ptFilled in enumerate(filledList):
-         if ptFilled:
-            filled += 1
-         if prevFilled and not ptFilled:
-            if skipCorners and i in [0, 2, 4, 6]: #don't count if the missing corner doesn't affect connectivity
-               nextNborIdx = (i + 1) % 8
-               nextFilled = filledList[nextNborIdx]
-               if not nextFilled:
-                  crossing += 1
-            else:
-               crossing += 1
-         prevFilled = ptFilled
-
-      retDict['filled'] = filled
-      retDict['crossing'] = crossing
-      
-
-
-      eEdge = (not ne and not e and not se and s)
-      sEdge = (not ne and not e and not se and s)
-      nwEdge = (not w  and not n and (sw and ne) )
-      neEdge = (not e  and not n and (se and nw) ) 
-
-      wEdge = (not nw and not w and not sw and n)
-      nEdge = (not nw and not n and not ne and w)
-      seEdge = (not s and not e and (ne and sw) )
-      swEdge = (not s and not w and (se and nw) )
-
-      esnwne = eEdge or sEdge or nwEdge or neEdge
-      wnsesw = wEdge or nEdge or seEdge or swEdge
-
-
-      retDict['esnwne'] = esnwne
-      retDict['wnsesw'] = wnsesw
-   #endif
-   return retDict
-
-   
-
-def vectorDot(Xvect, Yvect):
-    "Input: list Xvect, list Yvect representing 2 equal-length vectors.  Returns the dot product of the vectors"
-    if len(Xvect) != len(Yvect):
-       raise ValueError
-
-    retval = 0
-    for i in range(len(Xvect)):
-       retval += Xvect[i] * Yvect[i]
-    return retval
-
-def vectorMagnitude(vector):
-    "Input: list vector of size n. Returns the magnitude of the vector in n-dimensions."
-    retval = 0
-    for component in vector:
-       retval += component ** 2
-    retval = math.sqrt(retval)
-    return retval
-
-def angularDistance(p1, p2, p3):
-   p1x, p1y = p1
-   p2x, p2y = p2
-   p3x, p3y = p3
-
-   Xvect = ( (p1x - p2x) , (p1y - p2y) )
-   Yvect = ( (p3x - p2x) , (p3y - p2y) )
-   if len(Xvect) != len(Yvect):
-      raise ValueError
-   dotval = vectorDot(Xvect, Yvect)
-   xMag = vectorMagnitude(Xvect)
-   yMag = vectorMagnitude(Yvect)
-
-   if xMag == 0 or yMag == 0:
-      #One of the vectors is all 0's, i.e. junk?
-      return math.pi
-   retval = dotval / (xMag * yMag)
-   retval = round(retval, 5) #Kludge to avoid some nasty precision errors. Besides, who need accurate similarity metrics?
-   retval = math.acos(retval)
-   return retval
 
