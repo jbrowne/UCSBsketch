@@ -48,6 +48,7 @@ logger = Logger.getLogger('DiGraphObserver', Logger.WARN )
 #-------------------------------------
 
 class DiGraphAnnotation(Annotation):
+    MATCHING_DISTANCE = 1.5 # Multiplier for how far outside the circle radius to check
     def __init__(self, node_set=None, edge_set=None):
         Annotation.__init__(self)
         # DiGraph annotations maintain 3 things:
@@ -81,6 +82,10 @@ class DiGraphAnnotation(Annotation):
             tail_list = [ n for n in self.node_set if self.tailToNode(e,n) ]
             tip_list = [ n for n in self.node_set if self.tipToNode(e,n) ]
             # insert all tip_list -> tail_list for e
+            if len(tail_list) == 0:
+               tail_list.append(None)
+            if len(tip_list) == 0:
+               tip_list.append(None)
             for (tail_node,tip_node) in all_pair( tail_list, tip_list ):
                 if tail_node not in self.connectMap:
                     self.connectMap[tail_node] = []
@@ -89,11 +94,11 @@ class DiGraphAnnotation(Annotation):
 
     def tipToNode( self, arrow_anno, circle_anno ):
         "return true if the tip of the arrow points to the circle"
-        return GeomUtils.pointDist( arrow_anno.tip,  circle_anno.center ) < circle_anno.radius*1.5
+        return GeomUtils.pointDist( arrow_anno.tip,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE
 
     def tailToNode( self, arrow_anno, circle_anno ):
         "return true if the tail of the arrow comes from the circle"
-        return GeomUtils.pointDist( arrow_anno.tail, circle_anno.center ) < circle_anno.radius*1.5
+        return GeomUtils.pointDist( arrow_anno.tail, circle_anno.center ) < circle_anno.radius*DiGraphAnnotation.MATCHING_DISTANCE
 
     def shouldConnect( self, arrow_anno, circle_anno ):
         "given an arrow and a circle anno, return true if arrow points from/to circle"
@@ -170,7 +175,7 @@ class DiGraphExporter ( ObserverBase.Visualizer ):
     def drawAnno( self, a ):
         "Overridden to export a graph to a dot file"
         if len(a.connectMap) > 0:
-            fd = open(self._fname, "w") 
+            fd = open(self._fname, "a") 
             node_map = {}
             print >> fd, "digraph G {"
             for from_node in a.connectMap.keys():
@@ -181,8 +186,11 @@ class DiGraphExporter ( ObserverBase.Visualizer ):
                     if to_node not in node_map:
                        node_map[to_node] = len(node_map)
                     print >> fd, "  %s -> %s" % (node_map[from_node], node_map[to_node])
-            for node in node_map.values():
-               print >> fd, "  %s []" % (node)
+            for nodeAnno, nodeNum in node_map.items():
+               if nodeAnno is None:
+                  print >> fd, "  %s [shape=none,label=\"\"]" % (nodeNum)
+               else:
+                  print >> fd, "  %s []" % (nodeNum)
             print >> fd, "}"
             fd.close()
 

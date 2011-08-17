@@ -193,36 +193,25 @@ class ArrowVisualizer( BoardObserver ):
 #-------------------------------------
 
 def _isArrowHead(stroke, *args, **kargs):
-    """
     curvature_list = []
     
-    fp = open("indata.csv", "w")
+    print "30 Pts"
     sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = 30)
-    prev_vect = None
-    prev_pt = None
-    for point in sNorm.Points:
-        if prev_vect == None:
-            if prev_pt is not None:
-                prev_vect = (point.X - prev_pt.X, point.Y - prev_pt.Y)
-            prev_pt = point
-            continue
-        vector = [point.X - prev_pt.X, point.Y - prev_pt.Y]
-        if vector == (0.0, 0.0) or prev_vect == (0.0, 0.0):
-            curvature = 0.0
-        else:
-            curvature = GeomUtils.vectorDistance(vector, prev_vect)
-        for i in range(30 * curvature/int((math.pi / 2)) ):
-            print " ",
-        print "*      ",
-        print  "%s" % (curvature)
-        curvature_list.append(curvature)
-        prev_vect = vector
-        prev_pt = point
-    print >> fp, "Segment,Curvature"
-    for idx, curv in enumerate(curvature_list):
-        print >> fp, "%s,%s" % (idx,curv)
-    fp.close()
-    """
+    curvatures = GeomUtils.strokeGetPointsCurvature(sNorm)
+    print "\n".join([ "*" * int(100 * c)+ "\t"+str(57.295 * c) for c in curvatures]) 
+    print "Total %s" % (57.295 * sum(curvatures[1:-2])/len(curvatures[1:-2]))
+
+    print "10 Pts"
+    sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = 10)
+    curvatures = GeomUtils.strokeGetPointsCurvature(sNorm)
+    print "\n".join([ "*" * int(100 * c)+ "\t"+str(57.295 * c) for c in curvatures]) 
+    print "Total %s" % (57.295 * sum(curvatures[1:-2])/len(curvatures[1:-2]))
+
+    print "7 Pts"
+    sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = 7)
+    curvatures = GeomUtils.strokeGetPointsCurvature(sNorm)
+    print "\n".join([ "*" * int(100 * c)+ "\t"+str(57.295 * c) for c in curvatures]) 
+    print "Total %s" % (57.295 * sum(curvatures[1:-2])/len(curvatures[1:-2]))
     return _isArrowHead_Template(stroke, args[0])
         
 def _isArrowHead_Template(stroke, matcher):

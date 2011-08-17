@@ -65,7 +65,7 @@ class TkSketchGUI(_SketchGUI):
 
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
         "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"
-        self. sketchFrame.drawCircle(x,y,radius=radius, color=color, fill=fill, width=width)
+        self.sketchFrame.drawCircle(x,y,radius=radius, color=color, fill=fill, width=width)
     def drawLine(self, x1, y1, x2, y2, width=2, color="#000000"):
         "Draw a line on the canvas from (x1,y1) to (x2,y2). Color should be 24 bit RGB string #RRGGBB"
         self.sketchFrame.drawLine(x1, y1, x2, y2, width=width, color=color)

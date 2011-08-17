@@ -332,6 +332,35 @@ def strokeSegments( inStroke ):
         return []
     segments = zip( point_list[:-1], point_list[1:] ); # this looks like: [((0, 0), (1, 1)), ((1, 1), (2, 2))]
     return segments
+def strokeGetPointsCurvature( inStroke ):
+    "Input: stroke. Returns a list of curvatures at each point. *CAUTION* Endpoints have -1 curvature! "
+    endPointCurvature = -1
+    prev_vect = None
+    prev_pt = None
+    curvature_list = []
+    if len(inStroke.Points) > 0: #Handle the nonsense curvature at the first point
+       curvature_list.append(endPointCurvature)
+
+    for point in inStroke.Points:
+        if prev_vect == None:
+            if prev_pt is not None:
+                prev_vect = (point.X - prev_pt.X, point.Y - prev_pt.Y)
+            prev_pt = point
+            continue
+        vector = [point.X - prev_pt.X, point.Y - prev_pt.Y]
+        if vector == (0.0, 0.0) or prev_vect == (0.0, 0.0):
+            curvature = 0.0
+        else:
+            curvature = vectorDistance(vector, prev_vect)
+        curvature_list.append(curvature)
+        prev_vect = vector
+        prev_pt = point
+
+    if len(inStroke.Points) > 1: #Nonsense curvature for the last point
+       curvature_list.append(endPointCurvature)
+
+    return curvature_list
+
 
 def strokeNormalizeSpacing( inStroke, numpoints=50):
     """Input: Stroke.  Return a stroke with points evenly distributed in distance across the original path described by inStroke. 
