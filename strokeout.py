@@ -157,12 +157,19 @@ def drawLine(pt1, pt2, color, img):
       setImgVal(x,y,color,img)
 
 
-def pointsOverlap(pt1, pt2, img):
+def pointsOverlap(pt1, pt2, img, pt1Thickness = None, pt2Thickness = None):
    """Checks to see if two points cover each other with their thickness and are not separatred by white"""
    global CENTERVAL
+   assert (pt1Thickness != None and pt2Thickness != None) or img != None, "Error, cannot determine overlap without thickness!"
    distSqr = pointsDistSquared(pt1, pt2) 
-   pt1ThicknessSqr = (thicknessAtPoint(pt1, img) / 2.0) ** 2
-   pt2ThicknessSqr = (thicknessAtPoint(pt2, img) / 2.0) ** 2
+
+   if pt1Thickness != None and pt2Thickness != None:
+      pt1ThicknessSqr = pt1Thickness ** 2
+      pt2ThicknessSqr = pt2Thickness ** 2
+   else:
+      pt1ThicknessSqr = (thicknessAtPoint(pt1, img) / 2.0) ** 2
+      pt2ThicknessSqr = (thicknessAtPoint(pt2, img) / 2.0) ** 2
+      
    if distSqr > pt2ThicknessSqr and distSqr > pt1ThicknessSqr: #If neither thickness covers the other point
       return False
    for x,y in linePixels(pt1, pt2):
@@ -199,23 +206,45 @@ def pointsDistSquared (pt1, pt2):
    
 def pointsToGraph(pointSet, rawImg):
    """From a raw, binary image and approximate thinned points associated with it, 
-   turn the thinned points into a graph.
-   * Thinned strokes are trimmed according to line thickness for better results."""
+   turn the thinned points into a bunch of trees.
+   * Thinned strokes are trimmed according to line thickness for better results.
+   * The graphs returned are trees, so closed cycles are split."""
    graphDict = {}
    while len(pointSet) > 0:
       seed = pointSet.pop()
       pointSet.add(seed)
-      procStack = [{'pt': seed, 'path':[]}]
+      path = []
+      unusedPaths = [path]
+      procStack = [{'pt': seed, 'path': path}]
+      ptsInStack = set([seed])
+      endPoints = set([])
       while len(procStack) > 0:
+         #Set up the variables for the next point
          procDict = procStack.pop(0) #Breadth first
          pt = procDict['pt']
+         ptsInStack.remove(pt)
+
          if pt not in pointSet:
+            print "This shouldn't happen: Point trying to be processed twice!"
             continue
 
-         path = list(procDict['path'])
+         path = procDict['path']
          path.append(pt)
 
-         if len(path) == 1 or not pointsOverlap(path[0], pt, rawImg):
+         #Which neighbors should we add?
+         addNbors = []
+         for nPt in getEightNeighbors(pt, shuffle = True):
+            if nPt in pointSet and nPt not in ptsInStack:
+               addNbors.append(nPt)
+
+         #Add this point as a "pivot" if it's the first, out of range of the last pivot, 
+         #    or if it is an intersection point. Add all intermediate pixels that got here
+         #    from the last pivot node
+         if len(path) == 1:
+            ptDict = graphDict.setdefault(pt, {'kids': set([]), 'thickness':thicknessAtPoint(pt,rawImg)})
+
+         elif not pointsOverlap(path[0], pt, rawImg) or (len(addNbors) > 1):
+            unusedPaths.remove(path)
             for idx in xrange(1,len(path)):
                par = path[idx-1]
                kid = path[idx]
@@ -224,19 +253,70 @@ def pointsToGraph(pointSet, rawImg):
                parDict['kids'].add(kid)
                kidDict['kids'].add(par)
             path = [pt]
+            unusedPaths.append(path)
 
-               
-         for nPt in getEightNeighbors(pt, shuffle = True):
-            if nPt in pointSet:
-               procStack.append({'pt':nPt, 'path': path})
+         #Add the proper neighbors to the stack with the correct path
+         for i, nPt in enumerate(addNbors):
+            if i > 0:
+               path = list(path)
+               unusedPaths.append(path)
+            procStack.append({'pt':nPt, 'path': path})
+            ptsInStack.add(nPt)
+
+         #Cleanup the node as processed
          pointSet.remove(pt)
+      #endWhile len(procStack)   Done processing this blob.
+      
+      #Thickness based pruning has trimmed off the endpoints. Add the pruned
+      #  paths if they extend a current endpoint.
+      #  Start by marking paths to be added in.
+      usedEndpoints = set([])
+      for upath in list(unusedPaths):
+         head = upath[0]
+         if len(upath) == 1 or head in usedEndpoints or len(graphDict[head]['kids']) != 1: #Add it back in if it connects to an endpoint
+            unusedPaths.remove(upath)
+         usedEndpoints.add(head)
+
+      #Actually add in the extending paths
+      for upath in unusedPaths:
+         head = upath[0]
+         for idx in xrange(1,len(upath)):
+            par = upath[idx-1]
+            kid = upath[idx]
+            parDict = graphDict.setdefault(par, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
+            kidDict = graphDict.setdefault(kid, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
+            parDict['kids'].add(kid)
+            kidDict['kids'].add(par)
+
+      for ep in list(endPoints):
+         for nPt in getEightNeighbors(nPt):
+            if nPt in endPoints:
+               graphDict[ep]['kids'].add(nPt)
+               graphDict[nPt]['kids'].add(ep)
+
+
+   #endWhile len(pointSet)    Done processing all blobs in the image
+
+   #Link back together broken cycles
+   endPoints = set([])
+   for pt, pdict in graphDict.items():
+      if len(pdict['kids']) == 1:
+         endPoints.add(pt)
+
+   for ep in endPoints:
+      for nPt in getEightNeighbors(ep):
+         if nPt in endPoints:
+            graphDict[ep]['kids'].add(nPt)
+            graphDict[nPt]['kids'].add(ep)
+
+   _collapseIntersections(graphDict, rawImg)
 
    return graphDict
 
    
 def getKeyPoints(graph):
    """Takes in a graph of points and returns a list of keypoint dictionaries.
-   {'endpoints', 'crosspoints'}"""
+   {'endpoints', 'crosspoints', 'edges'}"""
    retList = []
    graphCpy = dict(graph)
    while len(graphCpy) > 0:
@@ -267,7 +347,7 @@ def getKeyPoints(graph):
 
       retList.append({'seed': seed, 'endpoints' : endPoints, 'crosspoints' : crossPoints})
 
-   _getGraphEdges(graph, retList)
+   _getGraphEdges(graph, retList) #Add the 'edges' field
    
    return retList
 
@@ -303,16 +383,16 @@ def strokesFromSeed(seed, graph):
    return retStrokes 
    
 def _getGraphEdges(graph, keyPointsList):
-   """Adds the edge information to each keypoint entry in keyPointsList"""
-   global DEBUGIMG
-   #keyPointsList = getKeyPoints(graph)
+   """Modifies keyPointsList, adding the edge information to each keypoint entry.
+   * DOES NOT RETURN ANYTHING *"""
    for kpDict in keyPointsList:
       endPoints = kpDict['endpoints']
       crossPoints = kpDict['crosspoints']
       seedPoint = kpDict['seed']
       edges = kpDict['edges'] = [] #Create a new tag
 
-      if len(graph[seedPoint]['kids']) == 0: #Special case of single point stroke
+      #Special case of single point stroke
+      if len(graph[seedPoint]['kids']) == 0:
          edges.append([seedPoint])
          continue
 
@@ -321,6 +401,8 @@ def _getGraphEdges(graph, keyPointsList):
          #Just start the edge at the seed
          allKeyPts.add(seedPoint)
 
+      #Walk the tree linking consecutive points via the edge.
+      #  KeyPoints are used to determine start/end points of each edge
       procStack = [{'pt' : list(allKeyPts)[0], 'par' : None, 'edge' : []}]
       seen = set([])
       while len(procStack) > 0:
@@ -332,23 +414,18 @@ def _getGraphEdges(graph, keyPointsList):
          if pt in seen:
             continue
 
+         #Keypoint is starting an edge
          if par == None:
             assert pt in allKeyPts, "Point with no parent, not in keypoint list"
             for k in graph[pt]['kids']:
                if k not in seen and k not in allKeyPts:
                   procStack.append( {'pt' : k, 'par' : pt, 'edge' : [pt]} )
+         #All other keypoints should end an edge and might start a new one
          elif pt in allKeyPts:
             curEdge.append(pt)
             edges.append(curEdge)
             procStack.append( {'pt' : pt, 'par' : None, 'edge' : None} )
-            """
-            #DEBUG
-            cv.Set(DEBUGIMG, 255)
-            for dbPt in curEdge:
-               setImgVal(dbPt[0], dbPt[1], 0, DEBUGIMG)
-            saveimg(DEBUGIMG)
-            #/DEBUG
-            """
+         #Otherwise just add it to the current edge and move down the line
          else:
             seen.add(pt)
             curEdge.append(pt)
@@ -361,43 +438,108 @@ def _getGraphEdges(graph, keyPointsList):
       #END while len(procStack) ...
    #END for keyPointList ...
 
-def _collapseIntersections(graph, keyPoints, edges):
-   keyPoints = getKeyPoints(graph)
-   for kpDict in keyPoints:
+
+def _collapseIntersections(graph, rawImg):
+   """Given a graph dictionary and a keypoints list (with edge info),
+   Collapse overlapping crossing points into one intersection. """
+   keyPointsList = getKeyPoints(graph)
+   for kpDict in keyPointsList:
       mergeDict = {}
       crossPoints = list(kpDict['crosspoints'])
-      for cp1 in crossPoints:
-         for cp2 in crossPoints:
-            if cp1 == cp2:
-               continue
-            else:
-               if pointsOverlap(cp1, cp2, rawImg):
-                  mergeSet = set([cp1, cp2])
-                  procSet = set(mergeSet)
-                  while len(procSet) > 0:
-                     mergePt = procSet.pop()
-                     mergeSet.add(mergePt)
-                     ptDict = mergeDict.get(mergePt, set([]))
-                     for k in ptDict:
-                        if k not in mergeSet:
-                           procSet.add(k)
-                     mergeDict[mergePt] = mergeSet #Merged into the set
+      #Compare each pair of crossing points
+      for i in range(len(crossPoints)):
+         cp1 = crossPoints[i]
+         p1Thick = graph[cp1]['thickness']
+         for j in range(i+1, len(crossPoints)):
+            cp2 = crossPoints[j]
+            p2Thick = graph[cp2]['thickness']
+
+            if pointsOverlap(cp1, cp2, rawImg, pt1Thickness = p1Thick, pt2Thickness = p2Thick):
+               #Recursively union each set containing any member overlapping
+               #print "Merging sets:%s, %s\n %s" % (cp1, cp2, mergeDict)
+               mergeSet = set([cp1, cp2])
+               procSet = set(mergeSet)
+               while len(procSet) > 0:
+                  mergePt = procSet.pop()
+                  mergeSet.add(mergePt)
+                  ptDict = mergeDict.get(mergePt, set([]))
+                  for k in ptDict:
+                     if k not in mergeSet:
+                        procSet.add(k)
+                  mergeDict[mergePt] = mergeSet #Merged into the set
          #END for cp2 ...
       #END for cp1 ...
-
       #Do the merging now
-      for mergeSet in set(mergeDict.values()):
+      alreadyMerged = set([])
+      for rep, mergeSet in mergeDict.items():
+
+         #HACK to only process each mergeSet once. (Stupid non-hashable types)
+         if rep in alreadyMerged: 
+            continue
+         alreadyMerged.update(mergeSet)
+         #/HACK
+
+         #Compute the point that will take their place
          xList = [pt[0] for pt in mergeSet]
          yList = [pt[1] for pt in mergeSet]
-         assert len(xList) > 0 and len(yList > 0), "Merging an empty set of crossing Points"
+         assert len(xList) > 0 and len(yList) > 0, "Merging an empty set of crossing Points"
          avgPt = ( sum(xList) / len(xList), sum(yList) / len(yList) )
+         
+         #Gather all of the points to be merged/replaced by the avg point
+         mergedPts = set([])
+         for edge in kpDict['edges']:
+            head = edge[0]
+            tail = edge[-1]
+            if head in mergeSet and tail in mergeSet: 
+               doMerge = True
+               #All the points had better overlap one of the endpoints. Otherwise, we'd squash down figure-eight's
+               for ePt in edge:
+                  if not pointsOverlap(ePt, 
+                                       head, 
+                                       rawImg, 
+                                       pt1Thickness = graph[ePt]['thickness'], 
+                                       pt2Thickness = graph[head]['thickness']) \
+                  and not pointsOverlap(ePt, 
+                                       tail, 
+                                       rawImg, 
+                                       pt1Thickness = graph[ePt]['thickness'], 
+                                       pt2Thickness = graph[tail]['thickness']):
+                     doMerge = False
+               if doMerge:
+                  mergedPts.update(set(edge))  
 
-def graphToStrokes(graph):
+         #Gather the future kids of the merged point, and disconnect them from the deleted points
+         kidSet = set([])
+         print "Deleting %s" % (mergedPts)
+         #pdb.set_trace()
+         for mPt in mergedPts:
+            print "Point %s" % (str(mPt))
+            for k in graph[mPt]['kids']:
+               print "  Kid %s" % (str(k))
+               if k not in mergedPts:
+                  print "    Belongs in kidset, %s" % (graph[k])
+                  kidSet.add(k)
+                  graph[k]['kids'].remove(mPt)
+            print "  Removing Point %s" % (str(mPt))
+            del(graph[mPt])
+
+         #Add in the new, merged point and link it to its kids
+         print "Adding point %s\n Linking to kids %s" % (avgPt, kidSet)
+         graph[avgPt] = {'kids': kidSet, 'thickness' : thicknessAtPoint(avgPt, rawImg)}
+         for k in kidSet:
+            graph[k]['kids'].add(avgPt)
+
+         print "\t**  Merged %s into %s **" % (mergeSet, avgPt)
+         #cv.Circle(DEBUGIMG, avgPt, 2, 0, thickness=-1)
+      #saveimg(DEBUGIMG)
+
+
+def graphToStrokes(graph, rawImg):
    """Takes in a graph of points and generates a list of strokes that covers them"""
    retStrokes = []
 
+
    keyPointsList = getKeyPoints(graph)
-   #_collapseIntersections(keyPointsList)
    allEdgeList = [kp['edges'] for kp in keyPointsList]
 
    for edgeList in allEdgeList:
@@ -458,22 +600,22 @@ def graphToStrokes(graph):
 
 def drawGraph(graph, img):
    for p, pdict in graph.items():
+      setImgVal(p[0], p[1], 128, img)
       for k in pdict['kids']:
          drawLine(p,k,220,img)
          #cv.Line(img, p, k, 220, thickness = 1)
-         setImgVal(p[0], p[1], 128, img)
+         #setImgVal(p[0], p[1], 128, img)
          setImgVal(k[0], k[1], 128, img)
    
 def pointsToStrokes(pointSet, rawImg):
    global DEBUGIMG
-   graph = pointsToGraph(pointSet, rawImg)
-   """
+   DEBUGIMG = cv.CloneMat(rawImg)
    cv.Set(DEBUGIMG, 255)
+   graph = pointsToGraph(pointSet, rawImg)
    drawGraph(graph, DEBUGIMG)
    saveimg(DEBUGIMG)
-   """
 
-   retStrokes = graphToStrokes(graph)
+   retStrokes = graphToStrokes(graph, rawImg)
    return retStrokes
 
 def filledAndCrossingVals(point, img, skipCorners = False):
@@ -583,7 +725,6 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
       outImg = cv.CloneMat(img)
 
    if cleanNoise:
-      #minFill = 3
       noise = 1
    else:
       noise = -1
@@ -974,7 +1115,7 @@ def removeBackground(cv_img):
    #Create histogram for single channel (0..255 range), into 255 bins
    bg_img = gray_img
    while not isForeGroundGone(bg_img):
-      printHistogramList(getHistogramList(bg_img), granularity = 5)
+      #printHistogramList(getHistogramList(bg_img), granularity = 5)
 
       print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
       bg_img = smooth(bg_img, ksize=smooth_k, t='median')
