@@ -47,7 +47,6 @@ def fname_iter():
    imgnum = 0
    while True:
       fname = "%06.0d.jpg" % (imgnum)
-      #print fname
       imgnum += 1
       yield fname 
 
@@ -122,7 +121,6 @@ def thicknessAtPoint(point, img):
 
 def linePixels(pt1, pt2):
    """Generates a list of pixels on a line drawn between pt1 and pt2"""
-   #print "Pixels from %s to %s" % (pt1, pt2)
    left, right = sorted([pt1, pt2], key = lambda pt: pt[0])
 
    deltax = right[0] - left[0]
@@ -133,7 +131,6 @@ def linePixels(pt1, pt2):
       y = left[1]
       error = 0.0
       for x in xrange(left[0], right[0] + 1):
-         #print "Err:", error
          if error > -0.5 and error < 0.5:
             yield (x,y)
          while error >= 0.5:
@@ -225,7 +222,6 @@ def pointsToGraph(pointSet, rawImg):
          ptsInStack.remove(pt)
 
          if pt not in pointSet:
-            print "This shouldn't happen: Point trying to be processed twice!"
             continue
 
          path = procDict['path']
@@ -267,9 +263,11 @@ def pointsToGraph(pointSet, rawImg):
          pointSet.remove(pt)
       #endWhile len(procStack)   Done processing this blob.
       
+      #*******************************************************
       #Thickness based pruning has trimmed off the endpoints. Add the pruned
       #  paths if they extend a current endpoint.
       #  Start by marking paths to be added in.
+      #*******************************************************
       usedEndpoints = set([])
       for upath in list(unusedPaths):
          head = upath[0]
@@ -337,14 +335,13 @@ def getKeyPoints(graph):
 
          if len(graphCpy[pt]['kids']) > 2:
             crossPoints.add(pt)
-         elif len(graphCpy[pt]['kids']) == 1:
+         elif len(graphCpy[pt]['kids']) <= 1:
             endPoints.add(pt)
          seen.add(pt)
          for nPt in graphCpy[pt]['kids']:
-            if nPt not in seen:
+            if nPt in graphCpy and nPt not in seen:
                procStack.append({'pt':nPt, 'dist': dist + 1})
          del(graphCpy[pt])
-
       retList.append({'seed': seed, 'endpoints' : endPoints, 'crosspoints' : crossPoints})
 
    _getGraphEdges(graph, retList) #Add the 'edges' field
@@ -434,7 +431,8 @@ def _getGraphEdges(graph, keyPointsList):
                if k != par:
                   procStack.append( {'pt': k, 'par' : pt, 'edge': curEdge} )
                   numKids += 1
-            assert numKids == 1, "Non-keypoint %s added too many/few kids: \nptDict: %s\ngraph[pt]: %s" % (str(pt), ptDict, graph[pt])
+            if numKids != 1:
+               print "Non-keypoint %s added too many/few kids: \n ptDict: %s\n graph[pt]: %s" % (str(pt), ptDict, graph[pt])
       #END while len(procStack) ...
    #END for keyPointList ...
 
@@ -510,26 +508,20 @@ def _collapseIntersections(graph, rawImg):
 
          #Gather the future kids of the merged point, and disconnect them from the deleted points
          kidSet = set([])
-         print "Deleting %s" % (mergedPts)
          #pdb.set_trace()
          for mPt in mergedPts:
-            print "Point %s" % (str(mPt))
-            for k in graph[mPt]['kids']:
-               print "  Kid %s" % (str(k))
-               if k not in mergedPts:
-                  print "    Belongs in kidset, %s" % (graph[k])
+            for k in list(graph[mPt]['kids']):
+               graph[k]['kids'].remove(mPt)
+               graph[mPt]['kids'].remove(k)
+               if k not in mergedPts: #We want to make sure this kid gets linked ot the merged point
                   kidSet.add(k)
-                  graph[k]['kids'].remove(mPt)
-            print "  Removing Point %s" % (str(mPt))
             del(graph[mPt])
 
          #Add in the new, merged point and link it to its kids
-         print "Adding point %s\n Linking to kids %s" % (avgPt, kidSet)
          graph[avgPt] = {'kids': kidSet, 'thickness' : thicknessAtPoint(avgPt, rawImg)}
          for k in kidSet:
             graph[k]['kids'].add(avgPt)
 
-         print "\t**  Merged %s into %s **" % (mergeSet, avgPt)
          #cv.Circle(DEBUGIMG, avgPt, 2, 0, thickness=-1)
       #saveimg(DEBUGIMG)
 
@@ -1081,7 +1073,7 @@ class ImageStrokeCoverter(object):
       cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
       saveimg(gray_img)
       #cv.EqualizeHist(gray_img, gray_img)
-      gray_img = smooth(gray_img, ksize=denoise_k, t='gauss')
+      #gray_img = smooth(gray_img, ksize=denoise_k, t='gauss')
       saveimg(gray_img)
       cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
       saveimg(gray_img)
@@ -1278,13 +1270,13 @@ def show(cv_img):
    saveimg(cv_img)
    
 
-def saveimg(cv_img, outdir = "./temp/"):
+def saveimg(cv_img, outdir = "./temp/", title=""):
    global FNAMEITER
-   if __name__ == '__main__':
-      outfname = outdir + FNAMEITER.next()
-      print "Saving %s"  % outfname
 
-      cv.SaveImage(outfname, cv_img)
+   outfname = outdir + FNAMEITER.next()
+   print "Saving %s: %s"  % (outfname, title)
+
+   cv.SaveImage(outfname, cv_img)
 
 def main(args):
    global SQUARE_ERROR, PRUNING_ERROR
