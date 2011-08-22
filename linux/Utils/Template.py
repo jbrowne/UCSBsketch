@@ -52,7 +52,7 @@ class TemplateDict( object ):
         for line in fp.readlines():
            fields = line.split()
            if line.startswith("#TEMPLATE"):
-               assert len(fields) == 3
+               #assert len(fields) == 3
                template_name = fields[1]
                current_template_set = self._templates.setdefault(template_name, [])
                current_template = []

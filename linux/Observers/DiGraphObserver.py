@@ -48,7 +48,7 @@ logger = Logger.getLogger('DiGraphObserver', Logger.WARN )
 #-------------------------------------
 
 class DiGraphAnnotation(Annotation):
-    MATCHING_DISTANCE = 1.5 # Multiplier for how far outside the circle radius to check
+    MATCHING_DISTANCE = 3.0 # Multiplier for how far outside the circle radius to check
     def __init__(self, node_set=None, edge_set=None):
         Annotation.__init__(self)
         # DiGraph annotations maintain 3 things:
@@ -130,6 +130,7 @@ class DiGraphMarker( ObserverBase.Collector ):
             for n in to_anno.node_set:
                 if to_anno.shouldConnect( e, n ):
                     merge = True
+        #And reverse
         for e in to_anno.edge_set:
             for n in from_anno.node_set:
                 if to_anno.shouldConnect( e, n ):
@@ -151,9 +152,20 @@ class DiGraphVisualizer( ObserverBase.Visualizer ):
 
     def drawAnno( self, a ):
         if len(a.connectMap) > 0:
+            node_map = {}
             for from_node in a.connectMap.keys():
+                if from_node not in node_map:
+                   node_map[from_node] = len(node_map)
                 for connect_tuple in a.connectMap[from_node]:
                     edge,to_node = connect_tuple
+                    if to_node not in node_map:
+                       node_map[to_node] = len(node_map)
+
+                    if from_node is not None:
+                       SketchGUI.drawLine( edge.tail.X, edge.tail.Y, from_node.center.X, from_node.center.Y, width=2, color="#FA8072")
+                    if to_node is not None:
+                       SketchGUI.drawLine( edge.tip.X, edge.tip.Y, to_node.center.X, to_node.center.Y, width=2, color="#FA8072")
+
                     SketchGUI.drawCircle( edge.tail.X, edge.tail.Y, radius=7, width=2, color="#ccffcc")
                     SketchGUI.drawCircle( edge.tip.X, edge.tip.Y, radius=7, width=2, color="#ccffcc")
 
@@ -163,6 +175,11 @@ class DiGraphVisualizer( ObserverBase.Visualizer ):
                     #x1,y1 = to_node.center.X, to_node.center.Y
                     #x2,y2 = edge.tip.X, edge.tip.Y
                     #SketchGUI.drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
+
+            for nodeAnno, nodeNum in node_map.items():
+                if nodeAnno is not None:
+                    x1,y1 = nodeAnno.center.X, nodeAnno.center.Y
+                    SketchGUI.drawText(x1, y1, str(nodeNum))
 
 #-------------------------------------
 

@@ -4,6 +4,7 @@ import sys
 import time
 import math
 import pdb
+from Utils import StrokeStorage
 from Utils import GeomUtils
 from SketchFramework import Stroke
 from SketchFramework import Point
@@ -132,6 +133,7 @@ class SketchGUI(Frame):
         top_menu.add_command(label="Reset Board", command = (lambda :self.Redraw()), underline=1 )
         top_menu.add_command(label="Load Templates", command = self.LoadTemplates, underline=1 )
         top_menu.add_command(label="Save Template", command = self.SaveTemplate, underline=1 )
+        top_menu.add_command(label="Load Raw Strokes from File", command = self.LoadStrokes, underline=1 )
         #top_menu.add_command(label="Recognize Stroke", command = (lambda :self.Redraw()), underline=1 )
         #top_menu.add_command(label="Input Stroke", command = (lambda : self.Redraw()), underline=1 )
 
@@ -167,7 +169,17 @@ class SketchGUI(Frame):
             storeTemplate(sNorm, tag=template_name)
 
     def LoadTemplates(self):
-        self.templates = loadTemplates()
+        self.templates = loadTemplates(filename="templates.templ")
+
+    def LoadStrokes(self):
+        strokeLoader = StrokeStorage.StrokeStorage(filename="strokes.dat")
+        for s in strokeLoader.loadStrokes():
+            for p in s.Points:
+               p.x = p.X
+               p.y = p.Y
+               self.CanvasMouseDown(p)
+            self.CanvasMouseUp(None)
+
 
     def CanvasMouseUp(self, event):
         "Finish the stroke and add it to the board"

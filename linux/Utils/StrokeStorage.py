@@ -29,7 +29,13 @@ class StrokeStorage(object):
             curStroke = None
          else:
             fields = line.split()
-            x, y, t = fields
+            assert len(fields) <= 3 and len(fields) > 1, "Error: ill-formed point"
+            if len(fields) == 2:
+               x, y = fields
+               t = 0.0
+            elif len(fields) == 3:
+               x, y, t = fields
+               
             curStroke.addPoint ( Point(float(x), float(y), float(t)) )
       fd.close()
 

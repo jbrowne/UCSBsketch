@@ -70,40 +70,53 @@ class ArrowMarker( BoardObserver ):
 
 
         #Match single-stroke arrows
-        tip, tail = _isSingleStrokeArrow(smoothedStroke)
-        if tip is None or tail is None:
-            revpts = list(smoothedStroke.Points)
-            revpts.reverse()
-            tip, tail = _isSingleStrokeArrow(Stroke(revpts))
+        #DISABLED
+        logger.debug("**Warning: Single-stroke arrows disabled**")
+        tip, tail = None, None
+        #tip, tail = _isSingleStrokeArrow(smoothedStroke)
+        #if tip is None or tail is None:
+            #revpts = list(smoothedStroke.Points)
+            #revpts.reverse()
+            #tip, tail = _isSingleStrokeArrow(Stroke(revpts))
         
         if  tip is not None and tail is not None:
             isArrowHead = False
             anno = ArrowAnnotation( tip, tail )
             BoardSingleton().AnnotateStrokes( [stroke],  anno)
+        #/DISABLED
         else:
-            if _isArrowHead(smoothedStroke, self.arrowHeadMatcher): #We've matched an arrowhead
+            if _isArrowHead(smoothedStroke, self.arrowHeadMatcher):
+                logger.debug("Arrowhead Found")
                 head = smoothedStroke
                 isArrowHead = True
-                strokeNorm = GeomUtils.strokeNormalizeSpacing(smoothedStroke, numpoints = 5)
-                tip = strokeNorm.Points[2] #Middle normalized point is the tip
+
+                #                * (tip-point)
+                #              o   o
+                #             o      o
+                #            o         o
+                #          o            o
                 
-        
-        #Match it to any tails we have
-        if isArrowHead:
-            matchedTails = self._matchHeadtoTail(head = smoothedStroke, point = tip)
-            for headpoint, tail in matchedTails:
-                #Orient the tail correctly
-                if tail.Points[0] == headpoint:
-                    endpoint = tail.Points[-1]
-                else:
-                    endpoint = tail.Points[0]
-                anno = ArrowAnnotation(tip, endpoint)
-                BoardSingleton().AnnotateStrokes([head, tail],anno)
+                #Get the endpoints/tip point as max curvature
+                strokeNorm = GeomUtils.strokeNormalizeSpacing(smoothedStroke, numpoints = 7)
+                curvatures = GeomUtils.strokeGetPointsCurvature(strokeNorm)
+                ptIdx = curvatures.index(max(curvatures))
+                tip = strokeNorm.Points[ptIdx] #Middle is the point of max curvature
+
+                #Match it to any tails we have 
+                matchedTails = self._matchHeadtoTail(head = smoothedStroke, point = tip)
+                for headpoint, tail in matchedTails:
+                    #Orient the tail correctly
+                    if tail.Points[0] == headpoint:
+                        endpoint = tail.Points[-1]
+                    else:
+                        endpoint = tail.Points[0]
+                    anno = ArrowAnnotation(tip, endpoint)
+                    BoardSingleton().AnnotateStrokes([head, tail],anno)
         
         #Match it like a tail even if we think it's an arrowhead. Oh ambiguity!
         matchedHeads = self._matchHeadtoTail(tail = smoothedStroke, point = ep1)
         for tip, head in matchedHeads:
-            anno = ArrowAnnotation(tip, ep2)
+            anno = ArrowAnnotation(tip, ep2) #Arrow is from the back endpoint to the tip of the arrowhead
             BoardSingleton().AnnotateStrokes([head, stroke],anno)
             
         matchedHeads = self._matchHeadtoTail(tail = smoothedStroke, point = ep2)
@@ -129,15 +142,17 @@ class ArrowMarker( BoardObserver ):
             
         if head is not None and tail is None: #Head is specified, find the tail
             tip = point
-            for endpoint, stroke in self._endpoints:
-                if _isPointWithHead(endpoint, head, tip):
-                    retlist.append( (endpoint, stroke) )
+            for endpoint, tailStroke in self._endpoints:
+                if GeomUtils.strokeLength(head) < GeomUtils.strokeLength(tailStroke) \
+                and _isPointWithHead(endpoint, head, tip): #Make sure the proportions aren't totally off
+                    retlist.append( (endpoint, tailStroke) )
 
         elif tail is not None and head is None: #Find the head
             endpoint = point
-            for tip, stroke in self._arrowHeads:
-                if _isPointWithHead(endpoint, stroke, tip):
-                    retlist.append( (tip, stroke) )
+            for tip, headStroke in self._arrowHeads:
+                if GeomUtils.strokeLength(headStroke) < GeomUtils.strokeLength(tail) \
+                and _isPointWithHead(endpoint, headStroke, tip):
+                    retlist.append( (tip, headStroke) )
         return retlist
                 
 
@@ -156,13 +171,31 @@ class ArrowMarker( BoardObserver ):
 
 def _isPointWithHead(point, head, tip):
     "Returns true if point is close enough and within the cone of the head stroke"
+    distanceThresh = 1 
+    distanceThresh *= distanceThresh #Keep up with squared distances
+
     ep1 = head.Points[0]
     ep2 = head.Points[-1]
-    midpoint = Point((ep1.X + ep2.X)/2, (ep1.Y + ep2.Y)/2)
+    #              *  tip
+    #           o     o
+    #          o        o
+    #        o            o
+    #      o      (x)      o
+    #          midpoint
+    #
+    #             * endpoint
+    #            o
+    #            o
+    #           o
+    #         (etc)
+    midpoint = Point((ep1.X + ep2.X)/2, (ep1.Y + ep2.Y)/2) #Mid-way between the two endpoints of the arrowhead
     tip_to_endpoint = GeomUtils.pointDistanceSquared(point.X, point.Y, tip.X, tip.Y)
     tip_to_backofarrowhead =  GeomUtils.pointDistanceSquared(tip.X, tip.Y, midpoint.X, midpoint.Y)
+    endpoint_to_backofarrowhead = GeomUtils.pointDistanceSquared(point.X, point.Y, midpoint.X, midpoint.Y)
     
-    if tip_to_endpoint < tip_to_backofarrowhead:
+    #logger.debug("tip_to_endpoint: %s\n, tip_to_backofarrowhead: %s,\n endpoint_to_backofarrowhead: %s" % (tip_to_endpoint, tip_to_backofarrowhead, endpoint_to_backofarrowhead))
+    #Tail's endpoint is close to the end of the arrowhead, or even closer to the tip of the arrowhead
+    if tip_to_backofarrowhead >= endpoint_to_backofarrowhead or tip_to_backofarrowhead >= tip_to_endpoint:
         if GeomUtils.pointInAngleCone(point, ep1, tip, ep2):
             return True
     return False
@@ -192,30 +225,29 @@ class ArrowVisualizer( BoardObserver ):
             
 #-------------------------------------
 
-def _isArrowHead(stroke, *args, **kargs):
-    curvature_list = []
+def _isArrowHead(stroke, matcher):
     
-    print "30 Pts"
-    sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = 30)
+    numPts = 11
+    #print "___________________________________________"
+    #print "%s Pts"% (numPts)
+    sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = numPts)
     curvatures = GeomUtils.strokeGetPointsCurvature(sNorm)
-    print "\n".join([ "*" * int(100 * c)+ "\t"+str(57.295 * c) for c in curvatures]) 
-    print "Total %s" % (57.295 * sum(curvatures[1:-2])/len(curvatures[1:-2]))
+    #print "\n".join([ "X" * int(100 * c)+ "\t"+str(57.295 * c) for c in curvatures]) 
+    #print "   Avg %s" % (57.295 * sum(curvatures[1:-1])/len(curvatures[1:-1]))
+    maxCurv = max(curvatures)
+    maxCurvIdx = curvatures.index(maxCurv)
+    #Make sure the max curvature is roughly in the middle of the stroke before even bothering
+    #   with more complicated checks
+    if maxCurvIdx < (numPts / 2.0) + 2 and maxCurvIdx > (numPts / 2.0) - 2: 
+        return _isArrowHead_Template(stroke, matcher) or _isArrowHead_Template(Stroke(list(reversed(stroke.Points))), matcher)
+    
+    #print "___________________________________________"
+    return False
 
-    print "10 Pts"
-    sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = 10)
-    curvatures = GeomUtils.strokeGetPointsCurvature(sNorm)
-    print "\n".join([ "*" * int(100 * c)+ "\t"+str(57.295 * c) for c in curvatures]) 
-    print "Total %s" % (57.295 * sum(curvatures[1:-2])/len(curvatures[1:-2]))
-
-    print "7 Pts"
-    sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = 7)
-    curvatures = GeomUtils.strokeGetPointsCurvature(sNorm)
-    print "\n".join([ "*" * int(100 * c)+ "\t"+str(57.295 * c) for c in curvatures]) 
-    print "Total %s" % (57.295 * sum(curvatures[1:-2])/len(curvatures[1:-2]))
-    return _isArrowHead_Template(stroke, args[0])
         
 def _isArrowHead_Template(stroke, matcher):
     score_dict = matcher.Score([stroke])
+    logger.debug("Arrowhead template score: %s" % (score_dict['score']))
     if score_dict['score'] < 0.2:
         return True
     return False
@@ -227,12 +259,37 @@ def _isSingleStrokeArrow(stroke):
         logger.debug("Not an arrow: stroke too short")
         return (None, None)# too small to be arrow
 
-    norm_len = len(stroke.Points)
-    points = GeomUtils.strokeNormalizeSpacing( stroke, numpoints=norm_len).Points
+    """
+    #Starting code for line curvature classification
+    #points = GeomUtils.strokeNormalizeSpacing( stroke, numpoints=50).Points
+    for gran in range(1, 10):
+        norm_len = max(len(stroke.Points) / gran, 5)
+        points = GeomUtils.strokeNormalizeSpacing( stroke, numpoints=norm_len).Points
 
-    points.reverse() # start from end
-    # find the first 90 degree turn in the stroke
+        points.reverse() # start from end
+        # find the first 90 degree turn in the stroke
+        curvatures = GeomUtils.strokeGetPointsCurvature( Stroke(points) )
+        gran = 0.1
+        for idx, ori in enumerate(curvatures):
+            print "%s:\t|" % (idx),
+            quantity = ori 
+            while quantity > 0:
+                quantity -= gran
+                print "X",
+            print "\t\t%s" % (ori)
+        print "_______________________________"
+        print "Max:%s, Avg%s" % (max(curvatures), sum(curvatures)/float(len(curvatures)))
+        print "_______________________________"
+    #/EndCurvature classification
+    """
+
+    norm_len = max(len(stroke.Points) / 10, 15)
+    points = GeomUtils.strokeNormalizeSpacing( stroke, numpoints=norm_len).Points
     orilist = GeomUtils.strokeLineSegOrientations( Stroke(points) )
+
+
+        
+    
     #logger.debug("stroke ori %s", str(orilist) )
     prev = None
     i = 0
@@ -244,7 +301,7 @@ def _isSingleStrokeArrow(stroke):
     first_corner = i
     # now we know the scale of the arrow head if there is one
     # if the first corner is more than 1/4 of the way from the end of the stroke
-    if first_corner > norm_len/3:
+    if first_corner > norm_len/5:
         logger.debug("Not an arrow: First right angle too far from endpoint")
         return (None, None) # scale is wrong for an arrowhead        
 
@@ -262,6 +319,7 @@ def _isSingleStrokeArrow(stroke):
         logger.debug("Not an arrow: Stroke too monotonic")
         return (None, None)# too monotonic after the first corner, need to double back
     
+    logger.debug("Single Stroke Arrow found!")
     return (tip, tail)
 if __name__ == "__main__":
     Logger.setDoctest(logger) 
