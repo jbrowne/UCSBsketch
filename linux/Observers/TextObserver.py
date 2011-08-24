@@ -17,6 +17,7 @@ Doctest Examples:
 
 #-------------------------------------
 
+import pdb
 import math
 from Utils import Logger
 from Utils import GeomUtils
@@ -44,7 +45,7 @@ class TextAnnotation(Annotation):
         self.alternates = [text]
 
 #-------------------------------------
-l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
+l_logger = Logger.getLogger('LetterMarker', Logger.DEBUG)
 class _LetterMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
     def __init__(self):
@@ -61,22 +62,23 @@ class _LetterMarker( BoardObserver ):
         head, tail = stroke.Points[0], stroke.Points[-1]
 
         endDist = GeomUtils.pointDistance(head.X, head.Y, tail.X, tail.Y)
-        l_logger.debug("Endpoints dist: %s, len: %s, fraction: %s" % (endDist, strokeLen, endDist/float(strokeLen)))
         #If the endpoints are 1/thresh apart, actually close the thing
         isClosedShape = GeomUtils.pointDistanceSquared(head.X, head.Y, tail.X, tail.Y) \
                         < (strokeLen * closedDistRatio) ** 2
-        if isClosedShape: #Close the shape back up
-            stroke = Stroke(stroke.Points + [stroke.Points[0]]) 
 
-        s_norm = GeomUtils.strokeNormalizeSpacing( stroke, normDist ) 
+        if isClosedShape: #Close the shape back up
+            s_norm = GeomUtils.strokeNormalizeSpacing( Stroke(stroke.Points + [stroke.Points[0]]) , normDist ) 
+        else:
+            s_norm = GeomUtils.strokeNormalizeSpacing( stroke , normDist ) 
         curvatures = GeomUtils.strokeGetPointsCurvature(s_norm)
         circularity = GeomUtils.strokeCircularity( s_norm ) 
-        l_logger.debug("Circularity: %s" % (circularity))
 
         if isClosedShape and circularity > circularityThresh_0:
             height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
             oAnnotation = TextAnnotation("0", height)
+            l_logger.debug("Annotating %s with %s" % ( stroke, oAnnotation))
             BoardSingleton().AnnotateStrokes( [stroke],  oAnnotation)
+            l_logger.debug(" Afterward: %s.annotations is %s" % ( stroke, stroke.Annotations))
 
         elif len(stroke.Points) >= 2 \
             and max(curvatures) < 0.5 \
@@ -84,11 +86,12 @@ class _LetterMarker( BoardObserver ):
             and stroke.Points[0].X < stroke.Points[-1].X + strokeLen / 3 \
             and stroke.Points[0].X > stroke.Points[-1].X - strokeLen / 3:
 
-               l_logger.debug("Tag as 1: p0: %s\tp1: %s" % (stroke.Points[0], stroke.Points[-1]))
-
-               height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
-               oneAnnotation = TextAnnotation("1", height)
-               BoardSingleton().AnnotateStrokes( [stroke],  oneAnnotation)
+                #l_logger.debug("Tag as 1: p0: %s\tp1: %s" % (stroke.Points[0], stroke.Points[-1])) 
+                height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
+                oneAnnotation = TextAnnotation("1", height)
+                l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation))
+                BoardSingleton().AnnotateStrokes( [stroke],  oneAnnotation)
+                l_logger.debug(" Afterward: %s.annotations is %s" % ( stroke, stroke.Annotations))
         else:
             if not isClosedShape:
                 l_logger.debug("0: Not a closed shape")
@@ -103,7 +106,16 @@ class _LetterMarker( BoardObserver ):
                 l_logger.debug("1: Not vertical enough: \nX1 %s, \nX2 %s, \nLen %s" % (stroke.Points[0].X, stroke.Points[-1].X, strokeLen))
 
 
-    #def onStrokeRemoved(self, stroke):
+    def onStrokeRemoved(self, stroke):
+        all_text_annos = set(stroke.findAnnotations(TextAnnotation))
+        all_text_strokes = set([])
+        for ta in all_text_annos:
+            all_text_strokes.update(ta.Strokes)
+            BoardSingleton().RemoveAnnotation(ta)
+
+        for s in all_text_strokes:
+            if s is not stroke:
+                self.onStrokeAdded(s)
         #Handled by collectors
 #-------------------------------------
 tc_logger = Logger.getLogger("TextCollector", Logger.WARN)

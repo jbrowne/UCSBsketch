@@ -61,7 +61,7 @@ def initialize(Board):
     #d.trackAnnotation(CircleObserver.CircleAnnotation)
     
     #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
-    d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
+    #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
     #d.trackAnnotation(TextObserver.TextAnnotation)
     #d.trackAnnotation(BarAnnotation)
     
