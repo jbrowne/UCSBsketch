@@ -44,38 +44,95 @@ class TextAnnotation(Annotation):
         self.alternates = [text]
 
 #-------------------------------------
+l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
+class _LetterMarker( BoardObserver ):
+    """Class initialized by the TextCollector object"""
+    def __init__(self):
+        BoardObserver.__init__(self)
+        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().RegisterForStroke( self )
+    def onStrokeAdded(self, stroke):
+        "Tags 1's and 0's as letters (TextAnnotation)"
+        closedDistRatio = 0.12
+        circularityThresh_0 = 0.85
+        circularityThresh_1 = 0.20
+        strokeLen = max(GeomUtils.strokeLength(stroke), 1)
+        normDist = max(3, strokeLen / 5)
+        head, tail = stroke.Points[0], stroke.Points[-1]
 
-class TextMarker( ObserverBase.Collector ):
+        endDist = GeomUtils.pointDistance(head.X, head.Y, tail.X, tail.Y)
+        l_logger.debug("Endpoints dist: %s, len: %s, fraction: %s" % (endDist, strokeLen, endDist/float(strokeLen)))
+        #If the endpoints are 1/thresh apart, actually close the thing
+        isClosedShape = GeomUtils.pointDistanceSquared(head.X, head.Y, tail.X, tail.Y) \
+                        < (strokeLen * closedDistRatio) ** 2
+        if isClosedShape: #Close the shape back up
+            stroke = Stroke(stroke.Points + [stroke.Points[0]]) 
+
+        s_norm = GeomUtils.strokeNormalizeSpacing( stroke, normDist ) 
+        curvatures = GeomUtils.strokeGetPointsCurvature(s_norm)
+        circularity = GeomUtils.strokeCircularity( s_norm ) 
+        l_logger.debug("Circularity: %s" % (circularity))
+
+        if isClosedShape and circularity > circularityThresh_0:
+            height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
+            oAnnotation = TextAnnotation("0", height)
+            BoardSingleton().AnnotateStrokes( [stroke],  oAnnotation)
+
+        elif len(stroke.Points) >= 2 \
+            and max(curvatures) < 0.5 \
+            and circularity < circularityThresh_1 \
+            and stroke.Points[0].X < stroke.Points[-1].X + strokeLen / 3 \
+            and stroke.Points[0].X > stroke.Points[-1].X - strokeLen / 3:
+
+               l_logger.debug("Tag as 1: p0: %s\tp1: %s" % (stroke.Points[0], stroke.Points[-1]))
+
+               height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
+               oneAnnotation = TextAnnotation("1", height)
+               BoardSingleton().AnnotateStrokes( [stroke],  oneAnnotation)
+        else:
+            if not isClosedShape:
+                l_logger.debug("0: Not a closed shape")
+            if not (circularity > circularityThresh_0):
+                l_logger.debug("0: Not circular enough")
+            if not (circularity < circularityThresh_1):
+                l_logger.debug("1: Too circular")
+            if not (max(curvatures) < 0.5):
+                l_logger.debug("1: Max curvature too big %s" % max(curvatures))
+            if not ( stroke.Points[0].X < stroke.Points[-1].X + strokeLen / 3 \
+               and   stroke.Points[0].X > stroke.Points[-1].X - strokeLen / 3):
+                l_logger.debug("1: Not vertical enough: \nX1 %s, \nX2 %s, \nLen %s" % (stroke.Points[0].X, stroke.Points[-1].X, strokeLen))
+
+
+    #def onStrokeRemoved(self, stroke):
+        #Handled by collectors
+#-------------------------------------
+tc_logger = Logger.getLogger("TextCollector", Logger.WARN)
+
+class TextCollector( ObserverBase.Collector ):
     "Watches for strokes that look like text"
     def __init__(self, circularity_threshold=0.90):
         # FIXME: this is for "binary" text right now
-        ObserverBase.Collector.__init__( self, \
-            [CircleObserver.CircleAnnotation, LineObserver.LineAnnotation], TextAnnotation  )
-
-    def collectionFromItem( self, strokes, annotation ):
-        text_anno = None # text_anno will be the return value
-        if annotation.isType( CircleObserver.CircleAnnotation ):
-            circle = annotation
-            text_anno = TextAnnotation("0",circle.radius*2)
-        if annotation.isType( LineObserver.LineAnnotation ):
-            line = annotation
-            # if the line is up/down then it is a one
-            if GeomUtils.angleParallel( line.angle, 90 ) > 0.6:
-                line_length = GeomUtils.pointDist( line.start_point, line.end_point )
-                text_anno = TextAnnotation("1",line_length)
-        return text_anno
+        _LetterMarker()
+        ObserverBase.Collector.__init__( self, [], TextAnnotation  )
 
     def mergeCollections( self, from_anno, to_anno ):
         "merge from_anno into to_anno if possible"
         # check that they have compatable scales
+        vertOverlapRatio = 0
+        horizDistRatio = 2.0
+        scaleDiffRatio = 1.5
         scale_diff = to_anno.scale / from_anno.scale
-        if scale_diff>2.5 or scale_diff<0.4:
+        if scale_diff> scaleDiffRatio or 1/float( scale_diff ) > scaleDiffRatio :
+            tc_logger.debug("Not merging %s and %s: Scale Diff is %s" % (to_anno.text, from_anno.text, scale_diff))
             return False
         # check that they are not overlapping
         bb_from = GeomUtils.strokelistBoundingBox( from_anno.Strokes )
         bb_to = GeomUtils.strokelistBoundingBox( to_anno.Strokes )
-        if GeomUtils.boundingboxOverlap( bb_from, bb_to ):
+        """
+        if not GeomUtils.boundingboxOverlap( bb_from, bb_to ):
+            tc_logger.debug("Not merging Bounding boxes don't overlap")
             return False
+        """
 
         #  bb[0]-------+
         #   |          |
@@ -84,20 +141,30 @@ class TextMarker( ObserverBase.Collector ):
         #   +--------bb[1]
 
         # check that they are next to each other
-        if    abs( bb_from[1].X - bb_to[0].X ) > to_anno.scale * 0.75 \
-          and abs( bb_from[0].X - bb_to[1].X ) > to_anno.scale * 0.75 :
+        if    abs( bb_from[1].X - bb_to[0].X ) > to_anno.scale * horizDistRatio \
+          and abs( bb_from[0].X - bb_to[1].X ) > to_anno.scale * horizDistRatio \
+          and abs( bb_from[1].X - bb_to[0].X ) > from_anno.scale * horizDistRatio \
+          and abs( bb_from[0].X - bb_to[1].X ) > from_anno.scale * horizDistRatio:
+            tc_logger.debug("Not merging: horizontal distance too great")
             return False
         # check y's overlap
-        if   bb_from[0].Y - bb_to[1].Y < 0 \
-          or bb_to[0].Y - bb_from[1].Y < 0 :
+        if   bb_from[0].Y - bb_to[1].Y < vertOverlapRatio \
+          or bb_to[0].Y - bb_from[1].Y < vertOverlapRatio :
+            tc_logger.debug("Not merging: vertical overlap too small")
             return False
 
         # now we know that we want to merge these text annotations
         if bb_from[0].X - bb_to[0].X > 0 :
-            to_anno.text = to_anno.text + from_anno.text 
+            outText = to_anno.text + from_anno.text 
         else :
-            to_anno.text = from_anno.text + to_anno.text 
-        to_anno.scale = max( to_anno.scale, from_anno.scale )
+            outText = from_anno.text + to_anno.text 
+
+        #Weight the scale per letter
+        to_anno.scale = ( to_anno.scale * len(to_anno.text) + from_anno.scale * len(from_anno.text) )\
+                        / float(len(to_anno.text) + len(from_anno.text))
+        tc_logger.debug("MERGED: %s and %s to %s" % (to_anno.text, from_anno.text, outText))
+        to_anno.text = outText
+        to_anno.alternates = []
         return True
 
 #-------------------------------------
@@ -108,18 +175,21 @@ class TextVisualizer( ObserverBase.Visualizer ):
         ObserverBase.Visualizer.__init__( self, TextAnnotation )
 
     def drawAnno( self, a ):
-        if len(a.text) >= 1:
+        if len(a.text) > 1:
             ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
             logger.debug(a.Strokes)
             height = ul.Y - br.Y
-            left_x = ul.X# - height/3
-            right_x = br.X + height/2
-            midpoint = (ul.Y + br.Y) / 2
-            SketchGUI.drawLine( left_x, midpoint, right_x, midpoint, color="#a0a0a0")
-            y = br.Y + 5
+            midpointY = (ul.Y + br.Y) / 2
+            midpointX = (ul.X + br.X) / 2
+            left_x = midpointX - a.scale / 2.0
+            right_x = midpointX + a.scale / 2.0
+            SketchGUI.drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
+            y = br.Y
+            SketchGUI.drawText( br.X, y, a.text, size=20, color="#a0a0a0" )
+            y -= 20
             for idx, text in enumerate(a.alternates):
-                SketchGUI.drawText( br.X, y, text, size=20, color="#a0a0a0" )
-                y -= 20
+                SketchGUI.drawText( br.X, y, text, size=10, color="#a0a0a0" )
+                y -= 10
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

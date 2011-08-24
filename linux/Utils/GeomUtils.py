@@ -470,7 +470,11 @@ def strokeCircularity(inStroke):
 
     circularity = 0.0
     pArea = area(inPoints)
+
     perim = perimeter(inPoints)
+    if perim == 0:
+        return 0
+
     circularity = ((4 * math.pi) * pArea) / (perim ** 2)
     return circularity
 

@@ -30,7 +30,7 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
-logger = Logger.getLogger('ArrowObserver', Logger.DEBUG)
+logger = Logger.getLogger('ArrowObserver', Logger.WARN)
 
 #-------------------------------------
 
@@ -228,12 +228,8 @@ class ArrowVisualizer( BoardObserver ):
 def _isArrowHead(stroke, matcher):
     
     numPts = 11
-    #print "___________________________________________"
-    #print "%s Pts"% (numPts)
     sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = numPts)
     curvatures = GeomUtils.strokeGetPointsCurvature(sNorm)
-    #print "\n".join([ "X" * int(100 * c)+ "\t"+str(57.295 * c) for c in curvatures]) 
-    #print "   Avg %s" % (57.295 * sum(curvatures[1:-1])/len(curvatures[1:-1]))
     maxCurv = max(curvatures)
     maxCurvIdx = curvatures.index(maxCurv)
     #Make sure the max curvature is roughly in the middle of the stroke before even bothering
@@ -241,7 +237,6 @@ def _isArrowHead(stroke, matcher):
     if maxCurvIdx < (numPts / 2.0) + 2 and maxCurvIdx > (numPts / 2.0) - 2: 
         return _isArrowHead_Template(stroke, matcher) or _isArrowHead_Template(Stroke(list(reversed(stroke.Points))), matcher)
     
-    #print "___________________________________________"
     return False
 
         

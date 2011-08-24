@@ -25,6 +25,7 @@ from Observers import DiGraphObserver
 from Observers import TextObserver
 from Observers import DebugObserver
 from Observers import TemplateObserver
+from Observers import TuringMachineObserver
 
 
 def initialize(Board):
@@ -34,16 +35,17 @@ def initialize(Board):
 
     
     CircleObserver.CircleMarker()
-    CircleObserver.CircleVisualizer()
+    #CircleObserver.CircleVisualizer()
     ArrowObserver.ArrowMarker()
     ArrowObserver.ArrowVisualizer()
     #LineObserver.LineMarker()
     #LineObserver.LineVisualizer()
-    #TextObserver.TextMarker()
-    #TextObserver.TextVisualizer()
+    TextObserver.TextCollector()
+    TextObserver.TextVisualizer()
     DiGraphObserver.DiGraphMarker()
     DiGraphObserver.DiGraphVisualizer()
     DiGraphObserver.DiGraphExporter()
+    TuringMachineObserver.TuringMachineCollector()
     
     #TemplateObserver.TemplateMarker()
     #TemplateObserver.TemplateVisualizer()
@@ -58,7 +60,8 @@ def initialize(Board):
     #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
     #d.trackAnnotation(CircleObserver.CircleAnnotation)
     
-    #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
+    #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
+    d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
     #d.trackAnnotation(TextObserver.TextAnnotation)
     #d.trackAnnotation(BarAnnotation)
     

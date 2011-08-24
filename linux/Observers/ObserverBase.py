@@ -25,6 +25,7 @@ Doctest Examples:
 
 #-------------------------------------
 
+import pdb
 import math
 from Utils import Logger
 from Utils import GeomUtils
@@ -33,7 +34,7 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
-logger = Logger.getLogger('ObserverBase', Logger.WARN )
+logger = Logger.getLogger('ObserverBase', Logger.DEBUG )
 
 #-------------------------------------
 
@@ -97,8 +98,38 @@ class Collector( BoardObserver ):
         self._merge_all_collections()
 
     def onAnnotationRemoved( self, annotation ):
+        """Unique to collections, removing an annotation that was used to build a collection 
+        results in every dependent collection being removed and rebuilt from scratch.
+        ** Ordering is NOT necessarily preserved! **"""
+
         if( annotation in self.all_collections ):
             self.all_collections.remove( annotation )
+
+        if type(annotation) in self.item_annotype_list:
+            logger.debug("Removing collection item: rebuilding collections")
+            all_item_annos = set([])
+            all_collection_annos = set([])
+            for s in annotation.Strokes:
+                all_collection_annos.update(set(s.findAnnotations(self.collection_annotype)) )
+
+            #For all of the collections that might depend on this annotation
+            #   Get all of the item annotations that those collections might also depend on
+            for col in all_collection_annos:
+                for s in col.Strokes:
+                    for t in self.item_annotype_list:
+                        all_item_annos.update(set(s.findAnnotations(t)) )
+                  
+
+            #Remove any collections that may depend on this annotation
+            for anno in all_collection_annos:
+                BoardSingleton().RemoveAnnotation(anno)
+
+            #Rebuild the annotations as needed from the remaining parts
+            for anno in all_item_annos:
+                if anno is not annotation:
+                    self.onAnnotationAdded(anno.Strokes, anno)
+
+            
 
     def _merge_all_collections( self ):
         "walk through all of the collections and merge any that should be"
