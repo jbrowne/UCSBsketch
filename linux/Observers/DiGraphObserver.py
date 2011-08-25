@@ -27,6 +27,7 @@ Doctest Examples:
 
 #-------------------------------------
 
+import pdb
 import math
 from Utils import Logger
 from Utils import GeomUtils
@@ -103,6 +104,37 @@ class DiGraphAnnotation(Annotation):
     def shouldConnect( self, arrow_anno, circle_anno ):
         "given an arrow and a circle anno, return true if arrow points from/to circle"
         return self.tipToNode(arrow_anno, circle_anno) or self.tailToNode(arrow_anno, circle_anno)
+    def __str__(self):
+        listedSet = set(self.node_set)
+        node_list = list(self.node_set)
+
+        retstr = "{ "
+        for node, connection_list in self.connectMap.items():
+            if node == None:
+                continue
+            if node in listedSet:
+                listedSet.remove(node)
+            nodeName = str(node_list.index(node))
+            for connection in connection_list:
+                (edge, nbor) = connection
+                if nbor in self.node_set:
+                    nborName = str(node_list.index(nbor))
+                else:
+                    nborName = "None"
+                if nbor in listedSet:
+                    listedSet.remove(nbor)
+                retstr += "%s->%s " % (nodeName, nborName)
+
+        for node in listedSet:
+            retstr += "-%s- " % (node_list.index(node))
+        retstr += "}"
+
+        return retstr
+
+            
+            
+            
+            
 
 
 #-------------------------------------

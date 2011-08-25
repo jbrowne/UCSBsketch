@@ -45,7 +45,7 @@ class TextAnnotation(Annotation):
         self.alternates = [text]
 
 #-------------------------------------
-l_logger = Logger.getLogger('LetterMarker', Logger.DEBUG)
+l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
 class _LetterMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
     def __init__(self):
@@ -195,10 +195,10 @@ class TextVisualizer( ObserverBase.Visualizer ):
             midpointX = (ul.X + br.X) / 2
             left_x = midpointX - a.scale / 2.0
             right_x = midpointX + a.scale / 2.0
-            SketchGUI.drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
+            #SketchGUI.drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
             y = br.Y
-            SketchGUI.drawText( br.X, y, a.text, size=20, color="#a0a0a0" )
-            y -= 20
+            SketchGUI.drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
+            y -= 15
             for idx, text in enumerate(a.alternates):
                 SketchGUI.drawText( br.X, y, text, size=10, color="#a0a0a0" )
                 y -= 10

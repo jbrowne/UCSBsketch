@@ -34,7 +34,7 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
-logger = Logger.getLogger('ObserverBase', Logger.DEBUG )
+logger = Logger.getLogger('ObserverBase', Logger.WARN )
 
 #-------------------------------------
 

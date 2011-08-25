@@ -35,11 +35,13 @@ logger = Logger.getLogger('ArrowObserver', Logger.WARN)
 #-------------------------------------
 
 class ArrowAnnotation( Annotation ):
-    def __init__(self, tip, tail, linearity=0):
+    def __init__(self, tip, tail, headstroke = None, tailstroke = None, linearity=0):
         Annotation.__init__(self)
         self.tip = tip  # Point
         self.tail = tail  # Point
         self.linearity = linearity
+        self.headstroke =headstroke
+        self.tailstroke = tailstroke
 
 #-------------------------------------
 
@@ -81,7 +83,7 @@ class ArrowMarker( BoardObserver ):
         
         if  tip is not None and tail is not None:
             isArrowHead = False
-            anno = ArrowAnnotation( tip, tail )
+            anno = ArrowAnnotation( tip, tail, headstroke= stroke, tailstroke = stroke )
             BoardSingleton().AnnotateStrokes( [stroke],  anno)
         #/DISABLED
         else:
@@ -110,18 +112,18 @@ class ArrowMarker( BoardObserver ):
                         endpoint = tail.Points[-1]
                     else:
                         endpoint = tail.Points[0]
-                    anno = ArrowAnnotation(tip, endpoint)
+                    anno = ArrowAnnotation(tip, endpoint, headstroke = stroke, tailstroke = tail)
                     BoardSingleton().AnnotateStrokes([head, tail],anno)
         
         #Match it like a tail even if we think it's an arrowhead. Oh ambiguity!
         matchedHeads = self._matchHeadtoTail(tail = smoothedStroke, point = ep1)
         for tip, head in matchedHeads:
-            anno = ArrowAnnotation(tip, ep2) #Arrow is from the back endpoint to the tip of the arrowhead
+            anno = ArrowAnnotation(tip, ep2, headstroke = head, tailstroke = stroke) #Arrow is from the back endpoint to the tip of the arrowhead
             BoardSingleton().AnnotateStrokes([head, stroke],anno)
             
         matchedHeads = self._matchHeadtoTail(tail = smoothedStroke, point = ep2)
         for tip, head in matchedHeads:
-            anno = ArrowAnnotation(tip, ep1)
+            anno = ArrowAnnotation(tip, ep1, headstroke = head, tailstroke = stroke)
             BoardSingleton().AnnotateStrokes([head, stroke],anno)
         
         #Add this stroke to the pool for future evaluation

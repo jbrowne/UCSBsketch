@@ -46,6 +46,7 @@ def initialize(Board):
     DiGraphObserver.DiGraphVisualizer()
     DiGraphObserver.DiGraphExporter()
     TuringMachineObserver.TuringMachineCollector()
+    TuringMachineObserver.TuringMachineExporter()
     
     #TemplateObserver.TemplateMarker()
     #TemplateObserver.TemplateVisualizer()

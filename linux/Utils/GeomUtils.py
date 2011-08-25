@@ -1172,7 +1172,6 @@ class _PointComparer:
             V2 = vectorLengthSquared(Q.X - self.A.X, Q.Y - self.A.Y)
             return cmp(V1, V2)
 
-
 #-------------------------------------
 # if executed by itself, run all the doc tests
 
