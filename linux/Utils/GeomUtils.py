@@ -506,10 +506,10 @@ def strokeLineSegOrientations( inStroke, normalize=True ):
     norm_orientations = [ angleNormalize(x-offset) for x in orientations ]
     return norm_orientations
 
-def strokeSmooth(inStroke):
+def strokeSmooth(inStroke, width = 1):
     "Input: Stroke.  Returns a simmilar stroke with the points smoothed out"
     inPoints = inStroke.Points;
-    outPoints = _smooth(inPoints)
+    outPoints = _smooth(inPoints, width = width)
     return Stroke(outPoints)
 
 def strokeDTWDist( testStroke, refStroke):
@@ -746,12 +746,8 @@ def sliceByLength(inPoints, lengthBegin, lengthEnd):
     return newPoints
     
   
-def smooth(inPoints):
-    "Input: List inPoints.  returns a smoothed set of the same size using Laplacian smoothing...IN 2D!."
-    logger.warning("the GeomUtils.smooth function is deprecated, use GeomUtils.strokeSmooth");
-    return _smooth(inPoints)
 
-def _smooth(inPoints):
+def _smooth(inPoints, width = 1):
     "Input: List inPoints.  returns a smoothed set of the same size using Laplacian smoothing...IN 2D!."
 
     if len(inPoints) < 3:
@@ -765,7 +761,7 @@ def _smooth(inPoints):
         nxt = inPoints[i + 1]
         newPoints.append(cur)
 
-        avgpt = Point((cur.X + nxt.X) / 2, (cur.Y + nxt.Y) / 2, (cur.T + nxt.T) / 2)
+        avgpt = Point((cur.X + nxt.X) / 2.0, (cur.Y + nxt.Y) / 2.0, (cur.T + nxt.T) / 2.0)
         newPoints.append(avgpt)
 
     newPoints.append(inPoints[len(inPoints) - 1]) #add the last point into the list, but do NOT add in a point between the first & last.
@@ -773,17 +769,21 @@ def _smooth(inPoints):
 
     #Decision time: Smooth and modify both new and old points, or old points only?  Currently does both
     finalPoints = []
-    finalPoints.append(newPoints[0]) # First Point remains unchanged... See above TODO to possibly contradict this statement
+    #finalPoints.append(newPoints[0]) # First Point remains unchanged... See above TODO to possibly contradict this statement
 
     #new and old point smoothing
-    for i in range(1, len(newPoints) - 1):
-        prv = newPoints[i - 1]
-        cur = newPoints[i]
-        nxt = newPoints[i + 1]
-        cur = Point((prv.X + cur.X + nxt.X) / 3, (prv.Y + cur.Y + nxt.Y) / 3, cur.T)
-        finalPoints.append(cur)
+    for i in range(len(newPoints)):
+        pointRange = range( max(0, i - width), min (len(newPoints), i + 1 + width) )  #Average over a range
+        pointListX = [newPoints[i].X for i in pointRange]
+        pointListY = [newPoints[i].Y for i in pointRange]
+        pointListT = [newPoints[i].T for i in pointRange]
 
-    finalPoints.append(newPoints[len(newPoints) - 1]) #As with first point remaining unchanged...
+        x = sum(pointListX) / float(len(pointListX))
+        y = sum(pointListY) / float(len(pointListY))
+        t = sum(pointListT) / float(len(pointListT))
+        finalPoints.append( Point(x,y,t) )
+
+    #finalPoints.append(newPoints[len(newPoints) - 1]) #As with first point remaining unchanged...
     return finalPoints
 
 

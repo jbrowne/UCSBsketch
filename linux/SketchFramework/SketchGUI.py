@@ -65,6 +65,7 @@ class _SketchGUI(object):
             if prev_p is not None:
                 self.drawLine(prev_p.X, prev_p.Y, next_p.X, next_p.Y, width=width, color=color)
             prev_p = next_p
+
     
 def SketchGUISingleton():
     "Returns the GUI instance we're currently working with."

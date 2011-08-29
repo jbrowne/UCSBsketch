@@ -3,6 +3,7 @@ import pdb
 
 from Utils import Logger
 from Utils import GeomUtils
+from Utils import Debugging as D
 
 from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
@@ -36,9 +37,27 @@ class TuringMachineAnnotation(Annotation):
         #Which state we are currently in
         self.active_state = None
         #Where on the tape we are currently residing
-        self.tape_idx = ""
+        self.tape_idx = -1
         #What is currently on the tape
-        self.tape_string = ""
+        self.tape_string = []
+        #Fail state
+        self.errcond = None
+
+        self.tape_text_anno = None
+        self.tape_box = None
+
+    def setTapeString(self, string):
+        if type(string) == str:
+            self.tape_string = list(string)
+        else:
+            self.tape_string = ""
+        self.tape_idx = 0
+        
+
+    def setTapeTextAnno(self, anno):
+        self.tape_text_anno = anno
+        if self.tape_text_anno.isType(TextAnnotation):
+            self.setTapeString(self.tape_text_anno.text)
 
     def setDiGraphAnno(self, dgAnno):
         self.state_graph_anno = dgAnno
@@ -82,9 +101,132 @@ class TuringMachineAnnotation(Annotation):
 
         return retstr
 
+    def restartSimulation(self):
+        self.active_state = None
+        self.tape_idx = 0
+
+        #Find the initial state
+        initialEdges = self.state_graph_anno.connectMap.get(None, [])
+        if len(initialEdges) == 0:
+            tm_logger.warn("No initial state for the turing machine.")
+            return
+        elif len(initialEdges) > 1:
+            tm_logger.warn("Multiple initial states for the turing machine.")
+            return
+        else:
+            initEdge, initState = initialEdges[0]
+
+        self.active_state = initState
+            
+            
         
 
+    def simulateStep(self):
+        "Edge label: <read condition> <write character> <move direction 0L, 1R>"
 
+        if self.tape_idx >= 0 and self.tape_idx < len(self.tape_string):
+            cur_tape_val = self.tape_string[self.tape_idx]
+        else:
+            cur_tape_val = '_'
+
+        out_edges = self.state_graph_anno.connectMap.get(self.active_state, [])
+        next_state = None
+        ops = []
+        for edge, to_node in out_edges:
+            for edge_label_anno in self.edge2labels_map.get(edge, None):
+                edge_label = edge_label_anno.text
+                if edge_label is not None and len(edge_label) == 3:
+                    read_cond, write_back, move_dir = edge_label
+                    bin_list = ['1', '0']
+                    if read_cond == cur_tape_val:
+                        ops.append( (read_cond, write_back, move_dir, to_node) )
+
+        if len(ops) > 1:
+            tm_logger.warn("Multiple edges leading out of TM node can be taken: using %s" % (ops[0]))
+        if len(ops) == 0:
+            tm_logger.debug("No edges leading from node, moving to fail-state")
+            self.active_state = None
+            return
+        else:
+            read_cond, write_back, move_dir, next_state = ops[0]
+            tm_logger.debug("Doing operation: read '%s', write '%s', move %s" % (read_cond, write_back, move_dir))
+            self.tape_string[self.tape_idx] = write_back
+            if move_dir == '0':
+                self.tape_idx -= 1
+            elif move_dir == '1':
+                self.tape_idx += 1
+            else:
+                tm_logger.warn("Trying to move in non-left/right direction '%s'. Staying put." % (move_dir))
+            self.active_state = next_state
+
+        
+class BoxAnnotation (Annotation):
+    def __init__(self, corners):
+        Annotation.__init__(self)
+        assert len(corners) == 4, "BoxAnnotation: Wrong number of corners in box annotation."
+        self.corners = list(corners)
+
+class BoxVisualizer (ObserverBase.Visualizer):
+    def __init__(self):
+        ObserverBase.Visualizer.__init__( self, BoxAnnotation)
+    def drawAnno(self, a):
+        prev = None
+        for cPt in a.corners + [a.corners[0]]:
+            if prev != None:
+                SketchGUI.drawLine( prev.X, prev.Y, cPt.X, cPt.Y, width=4,color="#ccffcc")
+            prev = cPt
+        
+class BoxMarker(BoardObserver):
+    def __init__(self):
+        BoardSingleton().RegisterForStroke(self)
+
+    def onStrokeAdded(self, stroke):
+        self.tagBox(stroke)
+
+    def onStrokeRemoved(self, stroke):
+        for ba in stroke.findAnnotations(BoxAnnotation):
+            BoardSingleton().RemoveAnnotation(ba)
+
+    def tagBox(self, stroke):
+
+        endPointDistPct = 0.10 #How close (as % of length) the points have to be to each other
+        boxApproxThresh = 50000 #The DTW distance between the stroke and how it best fits a box
+        stkLen = GeomUtils.strokeLength(stroke)
+        ep1, ep2 = stroke.Points[0], stroke.Points[-1]
+        epDistSqr = GeomUtils.pointDistanceSquared(ep1.X, ep1.Y, ep2.X, ep2.Y)
+        if  epDistSqr > (endPointDistPct * stkLen) ** 2:
+            print "Endpoints aren't close enough to be a box"
+            return
+        overshoot = max(1, len(stroke.Points)/10)
+        norm_stroke = GeomUtils.strokeSmooth(GeomUtils.strokeNormalizeSpacing(Stroke(stroke.Points + stroke.Points[0:overshoot]), numpoints = 70))
+        #D.strokeCurvatureHistogram(norm_stroke)
+        curvatures = GeomUtils.strokeGetPointsCurvature(norm_stroke)
+        corners = set([])
+        curvatures_cpy = list(curvatures)
+        while len(corners) < 4:
+            crnr_idx = curvatures_cpy.index(max(curvatures_cpy))
+            crnr = curvatures_cpy[crnr_idx] * 57.295
+            for nBor in range(crnr_idx -2, crnr_idx + 3):
+                if nBor < len(curvatures_cpy) and nBor > 0:
+                    curvatures_cpy[nBor] = 0
+            if crnr > 0: #30 and crnr < 150:
+                #Have a curvature, and we haven't already classified its immed neighbors as a corner
+                corners.add(crnr_idx)
+            else:
+                break
+        if len(corners) != 4:
+            return
+        else:
+            c_list = [norm_stroke.Points[c_idx] for c_idx in sorted(list(corners))]
+            cornerStroke = Stroke(c_list + c_list[:2])
+            boxStroke = GeomUtils.strokeNormalizeSpacing(Stroke(c_list + [c_list[0]]))
+            origStroke = GeomUtils.strokeNormalizeSpacing(Stroke(stroke.Points + [stroke.Points[0]]))
+            approxAcc = GeomUtils.strokeDTWDist(boxStroke, origStroke)
+            print "Box approximates original with %s accuracy" % (approxAcc)
+            if approxAcc < boxApproxThresh:
+                BoardSingleton().AnnotateStrokes([stroke], BoxAnnotation(c_list))
+
+        
 
 #-------------------------------------
 class TuringMachineCollector(BoardObserver):
@@ -93,9 +235,14 @@ class TuringMachineCollector(BoardObserver):
         BoardSingleton().RegisterForAnnotation(TextObserver.TextAnnotation, self)
         BoardSingleton().RegisterForAnnotation(DiGraphObserver.DiGraphAnnotation, self)
 
+        #BoxVisualizer()
+
+        #BoxMarker()
+
         self.labelMap = {} #Maps textAnno to set of TMAnno
         self.graphMap = {} #Maps DGAnno to TMAnno
         self.tmMap = {} #Maps TMAnno to set of component DGAnno and TextAnno
+
 
     def onAnnotationUpdated(self, anno):
         if anno.isType( TextObserver.TextAnnotation ):
@@ -189,6 +336,74 @@ class TuringMachineCollector(BoardObserver):
             del(self.graphMap[anno])
             self.refreshTuringMachines()
         return
+
+#-------------------------------------
+
+class TuringMachineVisualizer ( ObserverBase.Visualizer ):
+    "Watches for DiGraph annotations, draws them"
+    def __init__(self, filename = "turing_machine.dot"):
+        ObserverBase.Visualizer.__init__( self, TuringMachineAnnotation)
+
+    def drawAnno( self, a ):
+        edge_label_size = 15
+        tape_label_size = 20
+        state_graph = a.state_graph_anno
+        for from_node, connection_list in state_graph.connectMap.items():
+            if from_node is not None:
+                nodeColor = "#000000"
+                if from_node == a.active_state:
+                    nodeColor = "#FF00FF"
+                x, y = ( from_node.center.X, from_node.center.Y )
+                SketchGUI.drawCircle (x, y, radius=from_node.radius, color=nodeColor, width=3.0)
+
+            #GeomUtils.strokeSmooth(edge.tailstroke, width = len(edge.tailstroke.Points) / 3).drawMyself()
+            for edge, to_node in connection_list:
+                if to_node is not None:
+                    nodeColor = "#000000"
+                    if to_node == a.active_state:
+                        nodeColor = "#FF00FF"
+                    x, y = ( to_node.center.X, to_node.center.Y )
+                    SketchGUI.drawCircle (x, y, radius=to_node.radius, color=nodeColor, fill="", width=3.0)
+                smooth_tail = GeomUtils.strokeSmooth(edge.tailstroke, width = len(edge.tailstroke.Points) / 3)
+                smooth_tail.drawMyself()
+                #smooth_head = GeomUtils.strokeSmooth(edge.headstroke, width = len(edge.headstroke.Points) / 3)
+                ep1, ep2 = ( edge.headstroke.Points[0], edge.headstroke.Points[-1] )
+                smooth_head = Stroke([ep1, edge.tip, ep2])
+                smooth_head.drawMyself()
+
+                if edge in a.edge2labels_map:
+                    #Determine label offset
+                     
+                    for label in a.edge2labels_map[edge]:
+                        tl, br = GeomUtils.strokelistBoundingBox(label.Strokes)
+
+                        label_point = Point ((tl.X + br.X) / 2.0, (tl.Y + br.Y) / 2.0)
+                        label_point.X -= edge_label_size
+                        label_point.Y += edge_label_size
+                        #label_point = smooth_tail.Points[len(smooth_tail.Points)/2]
+                        SketchGUI.drawText (label_point.X, label_point.Y, InText=label.text, size=edge_label_size, color="#000000")
+                    #endfor
+                #endif
+            #end for edge
+        #end for from_node
+
+        #Draw the tape string
+        tl, br = GeomUtils.strokelistBoundingBox(a.Strokes)
+        tape_label_pt = Point( (tl.X + br.X) / 2.0 - len(a.tape_string) / 2.0, br.Y - tape_label_size)
+        for curIdx, tapeChar in enumerate(a.tape_string):
+            curPt = Point(tape_label_pt.X + curIdx * tape_label_size, tape_label_pt.Y)
+            charColor = "#000000"
+            if curIdx == a.tape_idx:
+                charColor = "#ff00ff"
+            SketchGUI.drawText (curPt.X, curPt.Y, InText=tapeChar, size=tape_label_size, color=charColor)
+            
+
+
+
+
+            
+            
+
 
 #-------------------------------------
 

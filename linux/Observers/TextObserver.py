@@ -129,6 +129,7 @@ class TextCollector( ObserverBase.Collector ):
 
     def mergeCollections( self, from_anno, to_anno ):
         "merge from_anno into to_anno if possible"
+        #FIXME: New annotation assumed to be to the right. (Does not handle inserting text in the middle)
         # check that they have compatable scales
         vertOverlapRatio = 0
         horizDistRatio = 2.0

@@ -260,7 +260,7 @@ class _Board(object):
             # keep a set to avoid adding annotations redundantly
             for a in anno_list:
                 anno_set.add( a )
-        return list(a)
+        return list(anno_set)
 
     #FIXME: I think FindStrokes would be better if it returned any stroke that had any points
     #       in the query region?  Much more computationally expensive, but much more useful?
