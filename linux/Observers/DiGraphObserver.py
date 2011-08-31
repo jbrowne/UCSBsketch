@@ -49,7 +49,7 @@ logger = Logger.getLogger('DiGraphObserver', Logger.DEBUG )
 #-------------------------------------
 
 class DiGraphAnnotation(Annotation):
-    MATCHING_DISTANCE = 3.0 # Multiplier for how far outside the circle radius to check
+    MATCHING_DISTANCE = 2.0 # Multiplier for how far outside the circle radius to check
     def __init__(self, node_set=None, edge_set=None):
         Annotation.__init__(self)
         # DiGraph annotations maintain 3 things:

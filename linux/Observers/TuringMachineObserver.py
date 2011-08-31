@@ -33,8 +33,8 @@ class TuringMachineAnnotation(Annotation):
         self.tape_idx = -1
         #What is currently on the tape
         self.tape_string = []
-        #Fail state
-        self.errcond = None
+        #What edge brought us here
+        self.leading_edge = {'edge': None, 'label' : None} #edge ArrowAnno, label TextAnno
 
         self.tape_text_anno = None
         self.tape_box = None
@@ -115,11 +115,11 @@ class TuringMachineAnnotation(Annotation):
             tm_logger.warn("No initial state for the turing machine.")
             return
         elif len(initialEdges) > 1:
-            tm_logger.warn("Multiple initial states for the turing machine.")
-            return
-        else:
-            initEdge, initState = initialEdges[0]
+            tm_logger.warn("Multiple initial states for the turing machine, choosing random.")
 
+        initEdge, initState = initialEdges[0]
+
+        self.leading_edge = {'edge': initEdge,'label': None}
         self.active_state = initState
             
             
@@ -145,28 +145,25 @@ class TuringMachineAnnotation(Annotation):
                     if read_cond == cur_tape_val \
                     and move_dir in bin_list \
                     and to_node != None:
-                        ops.append( (read_cond, write_back, move_dir, to_node) )
+                        ops.append( (read_cond, write_back, move_dir, to_node, edge, edge_label_anno) )
 
         if len(ops) > 1:
-            tm_logger.warn("Multiple edges leading out of TM node can be taken: using %s" % (ops[0]))
+            tm_logger.warn("Multiple edges leading out of TM node can be taken: using %s" % (str(ops[0])))
         if len(ops) == 0:
             tm_logger.debug("No edges leading from node, moving to fail-state")
             self.active_state = None
             return
         else:
-            read_cond, write_back, move_dir, next_state = ops[0]
+            read_cond, write_back, move_dir, next_state, along_edge, edge_label = ops[0]
             tm_logger.debug("Doing operation: read '%s', write '%s', move %s" % (read_cond, write_back, move_dir))
 
-            if write_back == '-' and self.tape_idx >= 0 and self.tape_idx < len(self.tape_string):
-                    self.tape_string[self.tape_idx] = write_back #Actually insert the blank character...
+            if self.tape_idx < 0:
+                self.tape_string.insert(0, write_back)
+                self.tape_idx = 0
+            elif self.tape_idx == len(self.tape_string):
+                self.tape_string.insert(self.tape_idx, write_back)
             else:
-                if self.tape_idx < 0:
-                    self.tape_string.insert(0, write_back)
-                    self.tape_idx = 0
-                elif self.tape_idx == len(self.tape_string):
-                    self.tape_string.insert(self.tape_idx, write_back)
-                else:
-                    self.tape_string[self.tape_idx] = write_back
+                self.tape_string[self.tape_idx] = write_back
                     
             if move_dir == '0':
                 self.tape_idx -= 1
@@ -174,6 +171,7 @@ class TuringMachineAnnotation(Annotation):
                 self.tape_idx += 1
             else:
                 tm_logger.warn("Trying to move in non-left/right direction '%s'. Staying put." % (move_dir))
+            self.leading_edge = {'edge': along_edge, 'label': edge_label}
             self.active_state = next_state
 
         
@@ -294,35 +292,33 @@ class TuringMachineCollector(BoardObserver):
             BoardSingleton().RemoveAnnotation(tmAnno)
             del(self.tmMap[tmAnno])
 
-        for graphAnno in self.graphMap:
-            #Match edges to labels
-            for edgeAnno in graphAnno.edge_set:
-                edgeLabelPoints = GeomUtils.strokeNormalizeSpacing(edgeAnno.tailstroke, 19).Points #Midpoint in the arrow-stroke
-                for textAnno in self.labelMap:
-                    labelTL, labelBR = GeomUtils.strokelistBoundingBox(textAnno.Strokes)
-                    #Midpoint of the labe's bounding box
-                    labelCenterPt = Point ( (labelTL.X + labelBR.X) / 2.0, (labelTL.Y + labelBR.Y) / 2.0) 
+        for textAnno in self.labelMap.keys():
+            labelTL, labelBR = GeomUtils.strokelistBoundingBox(textAnno.Strokes)
+            #Midpoint of the labe's bounding box
+            labelCenterPt = Point ( (labelTL.X + labelBR.X) / 2.0, (labelTL.Y + labelBR.Y) / 2.0) 
 
+            labelMatchDict = labelEdgeMatches.setdefault(textAnno, {}) 
+
+            for graphAnno in self.graphMap:
+                #Match edges to labels
+                for edgeAnno in graphAnno.edge_set:
+                    edgeLabelPoints = GeomUtils.strokeNormalizeSpacing(edgeAnno.tailstroke, 19).Points #Midpoint in the arrow-stroke
                     for elp in edgeLabelPoints:
                         dist = GeomUtils.pointDistanceSquared(elp.X, elp.Y, labelCenterPt.X, labelCenterPt.Y)
-                        labelMatchDict = labelEdgeMatches.setdefault(textAnno, {'bestmatch': (edgeAnno, dist), 'allmatches': []}) 
-                        labelMatchDict['allmatches'].append({'anno': edgeAnno, 'dist': dist})
-                        if dist < labelMatchDict['bestmatch'][1]:
+                        #labelMatchDict['allmatches'].append({'anno': edgeAnno, 'dist': dist})
+                        if 'bestmatch' not in labelMatchDict or dist < labelMatchDict['bestmatch'][1]:
                             labelMatchDict['bestmatch'] = (edgeAnno, dist)
 
         #labelEdgeMatches contains each label paired with its best edge
         
         #Have each edge claim a label
         edge2LabelMatching = {}
-        procSet = set(labelEdgeMatches.keys())
-        while len(procSet) > 0:
-            labelAnno = procSet.pop()
-            bestMatchEdge, bestMatchDist = labelEdgeMatches[labelAnno]['bestmatch']
-            if bestMatchDist < labelEdgeMatchingThresh:
-                edge2LabelMatching[bestMatchEdge] = (labelAnno, bestMatchDist)
+        for textAnno, matchDict in labelEdgeMatches.items():
+            if 'bestmatch' in matchDict: # and matchDict['bestmatch'][1] < labelEdgeMatchingThresh:
+                edgeLabelList = edge2LabelMatching.setdefault(matchDict['bestmatch'][0], [])
+                edgeLabelList.append(textAnno)
             else:
-                tm_logger.debug("Edge too far (%s) from best label %s" % (bestMatchDist, labelAnno.text))
-                edge2LabelMatching[bestMatchEdge] = None
+                tm_logger.debug("TextAnno %s not matched to an edge" % (textAnno.text))
 
         #Make the associations and add the turing machine annotation
         for graphAnno, tmAnno in self.graphMap.items():
@@ -334,9 +330,11 @@ class TuringMachineCollector(BoardObserver):
 
             for edgeAnno in graphAnno.edge_set:
                 if edge2LabelMatching.get(edgeAnno, None) is not None:
-                    label, dist = edge2LabelMatching[edgeAnno]
-                    assocSet.add(label)
-                    tmAnno.assocLabel2Edge(label, edgeAnno)
+                    assocLabelsList = edge2LabelMatching[edgeAnno]
+                    for label in assocLabelsList:
+                        assocSet.add(label)
+                        tmAnno.assocLabel2Edge(label, edgeAnno)
+
             if shouldAddAnno:
                 BoardSingleton().AnnotateStrokes(tmAnno.getAssociatedStrokes(), tmAnno)
                 self.tmMap[tmAnno] = assocSet
@@ -365,7 +363,7 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
         edge_label_size = 15
         tape_label_size = 20
         active_color = "#BF5252"
-        active_width = 4.0
+        active_width = 7.0
         state_graph = a.state_graph_anno
         for from_node, connection_list in state_graph.connectMap.items():
             if from_node is not None:
@@ -377,6 +375,10 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
 
             #GeomUtils.strokeSmooth(edge.tailstroke, width = len(edge.tailstroke.Points) / 3).drawMyself()
             for edge, to_node in connection_list:
+                if edge == a.leading_edge['edge']:
+                    edgeColor = active_color
+                else:
+                    edgeColor = "#000000"
                 if to_node is not None:
                     nodeColor = "#000000"
                     nodeWidth = 3.0
@@ -394,24 +396,28 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
                 else:
                     smooth_tail = edge.tailstroke
                 smooth_tail = GeomUtils.strokeSmooth(smooth_tail, width = len(edge.tailstroke.Points) / 3, preserveEnds = True)
-                smooth_tail.drawMyself()
+                smooth_tail.drawMyself(color=edgeColor)
 
                 #Draw the smoothed head
                 ep1, ep2 = ( edge.headstroke.Points[0], edge.headstroke.Points[-1] )
                 smooth_head = Stroke([ep1, edge.tip, ep2])
-                smooth_head.drawMyself()
+                smooth_head.drawMyself(color = edgeColor)
 
                 if edge in a.edge2labels_map:
                     #Determine label offset
                      
                     for label in a.edge2labels_map[edge]:
+                        textColor = "#000000"
+                        if label == a.leading_edge['label']:
+                            tm_logger.debug("Drawing leading label: %s" % (label.text))
+                            textColor = active_color
                         tl, br = GeomUtils.strokelistBoundingBox(label.Strokes)
 
                         label_point = Point ((tl.X + br.X) / 2.0, (tl.Y + br.Y) / 2.0)
                         label_point.X -= edge_label_size
                         label_point.Y += edge_label_size
                         #label_point = smooth_tail.Points[len(smooth_tail.Points)/2]
-                        SketchGUI.drawText (label_point.X, label_point.Y, InText=label.text, size=edge_label_size, color="#000000")
+                        SketchGUI.drawText (label_point.X, label_point.Y, InText=label.text, size=edge_label_size, color=textColor)
                     #endfor
                 #endif
             #end for edge

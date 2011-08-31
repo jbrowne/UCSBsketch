@@ -917,12 +917,8 @@ def linePointsTowards(linept1, linept2, target, radius):
         line1dist = pointDistanceSquared(linept1.X, linept1.Y, tangentPoint.X, tangentPoint.Y)
         line2dist = pointDistanceSquared(linept2.X, linept2.Y, tangentPoint.X, tangentPoint.Y)
         distSqr =  pointDistanceSquared(target.X, target.Y, tangentPoint.X, tangentPoint.Y)
-        print ("Tangent point %s away, %s radius" % (math.sqrt(distSqr), radius))
-        print ("Dist lpt1: %s, dist lpt2: %s" % (line1dist, line2dist))
         if distSqr < radius ** 2 and line2dist < line1dist: #Points close enough and the right direction
             retValue = True
-    else:
-        print "Line %s -> %s does not intersect %s -> %s" %( linept1, linept2, target, pt2)
 
     return retValue
         

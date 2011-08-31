@@ -45,7 +45,7 @@ class TextAnnotation(Annotation):
         self.alternates = [text]
 
 #-------------------------------------
-l_logger = Logger.getLogger('LetterMarker', Logger.DEBUG)
+l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
 class _LetterMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
     def __init__(self):
