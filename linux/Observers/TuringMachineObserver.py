@@ -26,13 +26,6 @@ class TuringMachineAnnotation(Annotation):
         Annotation.__init__(self)
         tm_logger.debug("Creating new turing machine")
 
-        #A DiGraphAnnotation that keeps track of all of the edges and nodes and their connections
-        self.state_graph_anno = state_graph_anno
-        #A dictionary mapping edges to their labels. 
-        self.edge2labels_map = {}
-        self.labels2edge_map = {}
-        for l in edge_labels:
-            self.assocLabel2Edge(l, None)
 
         #Which state we are currently in
         self.active_state = None
@@ -45,6 +38,16 @@ class TuringMachineAnnotation(Annotation):
 
         self.tape_text_anno = None
         self.tape_box = None
+
+        #A dictionary mapping edges to their labels. 
+        self.edge2labels_map = {}
+        self.labels2edge_map = {}
+        for l in edge_labels:
+            self.assocLabel2Edge(l, None)
+
+        #A DiGraphAnnotation that keeps track of all of the edges and nodes and their connections
+        self.state_graph_anno = None
+        self.setDiGraphAnno(state_graph_anno)
 
     def setTapeString(self, string):
         if type(string) == str:
@@ -61,6 +64,7 @@ class TuringMachineAnnotation(Annotation):
 
     def setDiGraphAnno(self, dgAnno):
         self.state_graph_anno = dgAnno
+        self.restartSimulation()
 
     def assocLabel2Edge(self, label, edge):
         tm_logger.debug("Associating label %s with edge of %s" % (label.text, self.state_graph_anno))
@@ -127,18 +131,20 @@ class TuringMachineAnnotation(Annotation):
         if self.tape_idx >= 0 and self.tape_idx < len(self.tape_string):
             cur_tape_val = self.tape_string[self.tape_idx]
         else:
-            cur_tape_val = '_'
+            cur_tape_val = '-'
 
         out_edges = self.state_graph_anno.connectMap.get(self.active_state, [])
         next_state = None
         ops = []
         for edge, to_node in out_edges:
-            for edge_label_anno in self.edge2labels_map.get(edge, None):
+            for edge_label_anno in self.edge2labels_map.get(edge, []):
                 edge_label = edge_label_anno.text
                 if edge_label is not None and len(edge_label) == 3:
                     read_cond, write_back, move_dir = edge_label
                     bin_list = ['1', '0']
-                    if read_cond == cur_tape_val:
+                    if read_cond == cur_tape_val \
+                    and move_dir in bin_list \
+                    and to_node != None:
                         ops.append( (read_cond, write_back, move_dir, to_node) )
 
         if len(ops) > 1:
@@ -150,7 +156,18 @@ class TuringMachineAnnotation(Annotation):
         else:
             read_cond, write_back, move_dir, next_state = ops[0]
             tm_logger.debug("Doing operation: read '%s', write '%s', move %s" % (read_cond, write_back, move_dir))
-            self.tape_string[self.tape_idx] = write_back
+
+            if write_back == '-' and self.tape_idx >= 0 and self.tape_idx < len(self.tape_string):
+                    self.tape_string[self.tape_idx] = write_back #Actually insert the blank character...
+            else:
+                if self.tape_idx < 0:
+                    self.tape_string.insert(0, write_back)
+                    self.tape_idx = 0
+                elif self.tape_idx == len(self.tape_string):
+                    self.tape_string.insert(self.tape_idx, write_back)
+                else:
+                    self.tape_string[self.tape_idx] = write_back
+                    
             if move_dir == '0':
                 self.tape_idx -= 1
             elif move_dir == '1':
@@ -280,18 +297,18 @@ class TuringMachineCollector(BoardObserver):
         for graphAnno in self.graphMap:
             #Match edges to labels
             for edgeAnno in graphAnno.edge_set:
-                edgeLabelPoint = edgeAnno.tailstroke.Points[len(edgeAnno.tailstroke.Points)/ 2] #Midpoint in the arrow-stroke
-
+                edgeLabelPoints = GeomUtils.strokeNormalizeSpacing(edgeAnno.tailstroke, 19).Points #Midpoint in the arrow-stroke
                 for textAnno in self.labelMap:
                     labelTL, labelBR = GeomUtils.strokelistBoundingBox(textAnno.Strokes)
                     #Midpoint of the labe's bounding box
                     labelCenterPt = Point ( (labelTL.X + labelBR.X) / 2.0, (labelTL.Y + labelBR.Y) / 2.0) 
 
-                    dist = GeomUtils.pointDistanceSquared(edgeLabelPoint.X, edgeLabelPoint.Y, labelCenterPt.X, labelCenterPt.Y)
-                    labelMatchDict = labelEdgeMatches.setdefault(textAnno, {'bestmatch': (edgeAnno, dist), 'allmatches': []}) 
-                    labelMatchDict['allmatches'].append({'anno': edgeAnno, 'dist': dist})
-                    if dist < labelMatchDict['bestmatch'][1]:
-                        labelMatchDict['bestmatch'] = (edgeAnno, dist)
+                    for elp in edgeLabelPoints:
+                        dist = GeomUtils.pointDistanceSquared(elp.X, elp.Y, labelCenterPt.X, labelCenterPt.Y)
+                        labelMatchDict = labelEdgeMatches.setdefault(textAnno, {'bestmatch': (edgeAnno, dist), 'allmatches': []}) 
+                        labelMatchDict['allmatches'].append({'anno': edgeAnno, 'dist': dist})
+                        if dist < labelMatchDict['bestmatch'][1]:
+                            labelMatchDict['bestmatch'] = (edgeAnno, dist)
 
         #labelEdgeMatches contains each label paired with its best edge
         
@@ -347,12 +364,14 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
     def drawAnno( self, a ):
         edge_label_size = 15
         tape_label_size = 20
+        active_color = "#BF5252"
+        active_width = 4.0
         state_graph = a.state_graph_anno
         for from_node, connection_list in state_graph.connectMap.items():
             if from_node is not None:
                 nodeColor = "#000000"
                 if from_node == a.active_state:
-                    nodeColor = "#FF00FF"
+                    nodeColor = active_color
                 x, y = ( from_node.center.X, from_node.center.Y )
                 SketchGUI.drawCircle (x, y, radius=from_node.radius, color=nodeColor, width=3.0)
 
@@ -360,13 +379,24 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
             for edge, to_node in connection_list:
                 if to_node is not None:
                     nodeColor = "#000000"
+                    nodeWidth = 3.0
                     if to_node == a.active_state:
-                        nodeColor = "#FF00FF"
+                        nodeColor = active_color
+                        nodeWidth = active_width
                     x, y = ( to_node.center.X, to_node.center.Y )
-                    SketchGUI.drawCircle (x, y, radius=to_node.radius, color=nodeColor, fill="", width=3.0)
-                smooth_tail = GeomUtils.strokeSmooth(edge.tailstroke, width = len(edge.tailstroke.Points) / 3)
+                    SketchGUI.drawCircle (x, y, radius=to_node.radius, color=nodeColor, fill="", width=nodeWidth)
+                #Draw the smoothed tail
+                if from_node is not None:
+                    if edge.direction == "tail2head": #Connect the tail more closely to the edge
+                        smooth_tail = Stroke([from_node.center] + edge.tailstroke.Points + [edge.tip])
+                    else:
+                        smooth_tail = Stroke([edge.tip] + edge.tailstroke.Points + [from_node.center])
+                else:
+                    smooth_tail = edge.tailstroke
+                smooth_tail = GeomUtils.strokeSmooth(smooth_tail, width = len(edge.tailstroke.Points) / 3, preserveEnds = True)
                 smooth_tail.drawMyself()
-                #smooth_head = GeomUtils.strokeSmooth(edge.headstroke, width = len(edge.headstroke.Points) / 3)
+
+                #Draw the smoothed head
                 ep1, ep2 = ( edge.headstroke.Points[0], edge.headstroke.Points[-1] )
                 smooth_head = Stroke([ep1, edge.tip, ep2])
                 smooth_head.drawMyself()
@@ -389,12 +419,15 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
 
         #Draw the tape string
         tl, br = GeomUtils.strokelistBoundingBox(a.Strokes)
-        tape_label_pt = Point( (tl.X + br.X) / 2.0 - len(a.tape_string) / 2.0, br.Y - tape_label_size)
-        for curIdx, tapeChar in enumerate(a.tape_string):
+        tape_label_pt = Point( \
+            ((tl.X + br.X) / 2.0) - (len(a.tape_string) + 2) * tape_label_size / 2.0 , \
+            br.Y - tape_label_size)
+
+        for curIdx, tapeChar in enumerate(['-'] + a.tape_string + ['-']):
             curPt = Point(tape_label_pt.X + curIdx * tape_label_size, tape_label_pt.Y)
             charColor = "#000000"
-            if curIdx == a.tape_idx:
-                charColor = "#ff00ff"
+            if curIdx - 1== a.tape_idx:
+                charColor = active_color
             SketchGUI.drawText (curPt.X, curPt.Y, InText=tapeChar, size=tape_label_size, color=charColor)
             
 

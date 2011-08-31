@@ -44,7 +44,7 @@ from Observers import ObserverBase
 
 
 
-logger = Logger.getLogger('DiGraphObserver', Logger.WARN )
+logger = Logger.getLogger('DiGraphObserver', Logger.DEBUG )
 
 #-------------------------------------
 
@@ -95,15 +95,41 @@ class DiGraphAnnotation(Annotation):
 
     def tipToNode( self, arrow_anno, circle_anno ):
         "return true if the tip of the arrow points to the circle"
-        return GeomUtils.pointDist( arrow_anno.tip,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE
+        lineDist = max(len(arrow_anno.tailstroke.Points) / 20, 1) #Check the last 10th of the stroke points the right way
+        if arrow_anno.direction == "tail2head":
+            lineSeg = ( arrow_anno.tailstroke.Points[-lineDist], arrow_anno.tip )
+        else: #direction == 'head2tail'
+            lineSeg = ( arrow_anno.tailstroke.Points[lineDist], arrow_anno.tip )
+            
+        if GeomUtils.pointDist( arrow_anno.tip,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE:
+            print "Arrow tip near circle"
+            if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius):
+                print "Arrow points to circle"
+                return True
+        return False
 
     def tailToNode( self, arrow_anno, circle_anno ):
         "return true if the tail of the arrow comes from the circle"
-        return GeomUtils.pointDist( arrow_anno.tail, circle_anno.center ) < circle_anno.radius*DiGraphAnnotation.MATCHING_DISTANCE
+        lineDist = max(len(arrow_anno.tailstroke.Points) / 10, 1) #Check the last 10th of the stroke points the right way
+        if arrow_anno.direction == "tail2head":
+            lineSeg = ( arrow_anno.tailstroke.Points[lineDist], arrow_anno.tailstroke.Points[0] )
+        else: #direction == 'head2tail'
+            lineSeg = ( arrow_anno.tailstroke.Points[-lineDist], arrow_anno.tailstroke.Points[-1] )
+            
+        if GeomUtils.pointDist( arrow_anno.tail,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE:
+            print "Arrow end near circle"
+            if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius):
+                print "Arrow points from circle"
+                return True
+        return False
 
     def shouldConnect( self, arrow_anno, circle_anno ):
         "given an arrow and a circle anno, return true if arrow points from/to circle"
+        for circle_stroke in circle_anno.Strokes:
+            if circle_stroke in arrow_anno.Strokes:
+                return False
         return self.tipToNode(arrow_anno, circle_anno) or self.tailToNode(arrow_anno, circle_anno)
+
     def __str__(self):
         listedSet = set(self.node_set)
         node_list = list(self.node_set)
@@ -198,8 +224,8 @@ class DiGraphVisualizer( ObserverBase.Visualizer ):
                     if to_node is not None:
                        SketchGUI.drawLine( edge.tip.X, edge.tip.Y, to_node.center.X, to_node.center.Y, width=2, color="#FA8072")
 
-                    SketchGUI.drawCircle( edge.tail.X, edge.tail.Y, radius=7, width=2, color="#ccffcc")
-                    SketchGUI.drawCircle( edge.tip.X, edge.tip.Y, radius=7, width=2, color="#ccffcc")
+                    SketchGUI.drawCircle( edge.tail.X, edge.tail.Y, radius=2, width=2, color="#ccffcc")
+                    SketchGUI.drawCircle( edge.tip.X, edge.tip.Y, radius=2, width=2, color="#ccffcc")
 
                     #x1,y1 = from_node.center.X, from_node.center.Y
                     #x2,y2 = edge.tail.X, edge.tail.Y

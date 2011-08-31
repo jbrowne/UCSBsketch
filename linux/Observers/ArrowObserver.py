@@ -30,18 +30,19 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
-logger = Logger.getLogger('ArrowObserver', Logger.WARN)
+logger = Logger.getLogger('ArrowObserver', Logger.DEBUG)
 
 #-------------------------------------
 
 class ArrowAnnotation( Annotation ):
-    def __init__(self, tip, tail, headstroke = None, tailstroke = None, linearity=0):
+    def __init__(self, tip, tail, headstroke = None, tailstroke = None, direction = 'tail2head', linearity=0):
         Annotation.__init__(self)
         self.tip = tip  # Point
         self.tail = tail  # Point
         self.linearity = linearity
-        self.headstroke =headstroke
+        self.headstroke = headstroke
         self.tailstroke = tailstroke
+        self.direction = direction # 'tail2head' vs. 'head2tail' for the direction the tail stroke was drawn in
 
 #-------------------------------------
 
@@ -55,8 +56,8 @@ class ArrowMarker( BoardObserver ):
         
         #For multistroke arrows, keep track of arrowheads and line endpoints
         # and match them up into arrows
-        self._arrowHeads = []
-        self._endpoints = []
+        self._arrowHeads = [] #tuples of (arrowhead_tip, arrowhead_stroke)
+        self._endpoints = []  #tuples of (endpoint, tail_stroke), one for each endpoint of a tail
         
         self.arrowHeadMatcher = Template.TemplateDict(filename = "Utils/arrowheads.templ")
         
@@ -65,8 +66,10 @@ class ArrowMarker( BoardObserver ):
     def onStrokeAdded( self, stroke ):
         "Watches for Strokes that look like an arrow to Annotate"
         smoothedStroke = GeomUtils.strokeSmooth(stroke)
-        ep1 = smoothedStroke.Points[0]
-        ep2 = smoothedStroke.Points[-1]
+        ep1 = stroke.Points[0]
+        ep2 = stroke.Points[-1]
+        #ep1 = smoothedStroke.Points[0]
+        #ep2 = smoothedStroke.Points[-1]
         isArrowHead = False
         #GeomUtils.ellipseAxisRatio(stroke)
 
@@ -89,7 +92,8 @@ class ArrowMarker( BoardObserver ):
         else:
             if _isArrowHead(smoothedStroke, self.arrowHeadMatcher):
                 logger.debug("Arrowhead Found")
-                head = smoothedStroke
+                #head = smoothedStroke
+                head = stroke
                 isArrowHead = True
 
                 #                * (tip-point)
@@ -105,26 +109,33 @@ class ArrowMarker( BoardObserver ):
                 tip = strokeNorm.Points[ptIdx] #Middle is the point of max curvature
 
                 #Match it to any tails we have 
-                matchedTails = self._matchHeadtoTail(head = smoothedStroke, point = tip)
+                matchedTails = self._matchHeadtoTail(head = stroke, point = tip)
                 for headpoint, tail in matchedTails:
                     #Orient the tail correctly
                     if tail.Points[0] == headpoint:
                         endpoint = tail.Points[-1]
-                    else:
+                        direction = 'head2tail'
+                    elif tail.Points[-1] == headpoint:
                         endpoint = tail.Points[0]
-                    anno = ArrowAnnotation(tip, endpoint, headstroke = stroke, tailstroke = tail)
+                        direction = 'tail2head'
+
+                    logger.debug("Stroke is head of arrow, drawn %s" % (direction))
+                    anno = ArrowAnnotation(tip, endpoint, headstroke = stroke, tailstroke = tail, direction = direction)
                     BoardSingleton().AnnotateStrokes([head, tail],anno)
         
         #Match it like a tail even if we think it's an arrowhead. Oh ambiguity!
-        matchedHeads = self._matchHeadtoTail(tail = smoothedStroke, point = ep1)
+        matchedHeads = self._matchHeadtoTail(tail = stroke, point = ep1)
+        tail = stroke
         for tip, head in matchedHeads:
-            anno = ArrowAnnotation(tip, ep2, headstroke = head, tailstroke = stroke) #Arrow is from the back endpoint to the tip of the arrowhead
-            BoardSingleton().AnnotateStrokes([head, stroke],anno)
+            logger.debug("Stroke is tail of arrow, drawn head2tail")
+            anno = ArrowAnnotation(tip, ep2, headstroke = head, tailstroke = tail, direction='head2tail') #Arrow is from the back endpoint to the tip of the arrowhead
+            BoardSingleton().AnnotateStrokes([head, tail],anno)
             
-        matchedHeads = self._matchHeadtoTail(tail = smoothedStroke, point = ep2)
+        matchedHeads = self._matchHeadtoTail(tail = stroke, point = ep2)
         for tip, head in matchedHeads:
-            anno = ArrowAnnotation(tip, ep1, headstroke = head, tailstroke = stroke)
-            BoardSingleton().AnnotateStrokes([head, stroke],anno)
+            logger.debug("Stroke is tail of arrow, drawn tail2head")
+            anno = ArrowAnnotation(tip, ep1, headstroke = head, tailstroke =tail, direction='tail2head')
+            BoardSingleton().AnnotateStrokes([head, tail],anno)
         
         #Add this stroke to the pool for future evaluation
         self._endpoints.append( (ep1, stroke) )
@@ -141,20 +152,44 @@ class ArrowMarker( BoardObserver ):
         retlist = []
         if point is None:
             return retlist
+
             
         if head is not None and tail is None: #Head is specified, find the tail
             tip = point
+            ep1, ep2 = head.Points[0], head.Points[-1]
+            headBreadth = GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y)
             for endpoint, tailStroke in self._endpoints:
                 if GeomUtils.strokeLength(head) < GeomUtils.strokeLength(tailStroke) \
                 and _isPointWithHead(endpoint, head, tip): #Make sure the proportions aren't totally off
-                    retlist.append( (endpoint, tailStroke) )
+                    logger.debug("Head stroke has a tail close and within cone")
+                    pointingLength = len(tailStroke.Points) / 5
+                    #headToTail
+                    if endpoint == tailStroke.Points[0]:
+                        linept1, linept2 = tailStroke.Points[pointingLength], endpoint
+                    elif endpoint== tailStroke.Points[-1]:
+                        linept1, linept2 = tailStroke.Points[-pointingLength], endpoint
+                    pointsTo = GeomUtils.linePointsTowards(linept1, linept2, tip, headBreadth)
+                    if pointsTo:
+                        retlist.append( (endpoint, tailStroke) )
 
         elif tail is not None and head is None: #Find the head
             endpoint = point
+            pointingLength = len(tail.Points) / 5
+            #headToTail
+            if endpoint == tail.Points[0]:
+                linept1, linept2 = tail.Points[pointingLength], endpoint
+            elif endpoint== tail.Points[-1]:
+                linept1, linept2 = tail.Points[-pointingLength], endpoint
+
             for tip, headStroke in self._arrowHeads:
+                ep1, ep2 = headStroke.Points[0], headStroke.Points[-1]
+                headBreadth = GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y)
                 if GeomUtils.strokeLength(headStroke) < GeomUtils.strokeLength(tail) \
                 and _isPointWithHead(endpoint, headStroke, tip):
-                    retlist.append( (tip, headStroke) )
+                    logger.debug("Tail stroke is close and within cone of an arrowhead")
+                    pointsTo = GeomUtils.linePointsTowards(linept1, linept2, tip, headBreadth)
+                    if pointsTo:
+                        retlist.append( (tip, headStroke) )
         return retlist
                 
 
@@ -165,9 +200,11 @@ class ArrowMarker( BoardObserver ):
                 self._endpoints.remove(ep_tuple)
         for head_tuple in list( self._arrowHeads ):
             if head_tuple[1] is stroke:
+                logger.debug("Removed arrowhead")
                 self._arrowHeads.remove(head_tuple)
                 
     	for anno in stroke.findAnnotations(ArrowAnnotation, True):
+            logger.debug("Removing annotation")
             BoardSingleton().RemoveAnnotation(anno)
 
 
@@ -236,8 +273,15 @@ def _isArrowHead(stroke, matcher):
     maxCurvIdx = curvatures.index(maxCurv)
     #Make sure the max curvature is roughly in the middle of the stroke before even bothering
     #   with more complicated checks
-    if maxCurvIdx < (numPts / 2.0) + 2 and maxCurvIdx > (numPts / 2.0) - 2: 
-        return _isArrowHead_Template(stroke, matcher) or _isArrowHead_Template(Stroke(list(reversed(stroke.Points))), matcher)
+    if maxCurvIdx > (numPts / 5.0) and maxCurvIdx < ( 4 * numPts / 5.0): 
+        strkLen = GeomUtils.strokeLength(stroke)
+        arrowHeadStroke = GeomUtils.strokeNormalizeSpacing(Stroke([stroke.Points[0], stroke.Points[maxCurvIdx], stroke.Points[-1]]), numpoints = strkLen) #What would the approximated arrowhead look like?
+        origStroke = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = strkLen)
+        approxAcc = GeomUtils.strokeDTWDist(sNorm, arrowHeadStroke)
+        logger.debug("Stroke approximates arrowhead with %s accuracy" % (approxAcc))
+
+        return approxAcc < 500000
+        #_isArrowHead_Template(stroke, matcher) or _isArrowHead_Template(Stroke(list(reversed(stroke.Points))), matcher)
     
     return False
 

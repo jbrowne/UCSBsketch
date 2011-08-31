@@ -40,11 +40,12 @@ def initializeBoard(board):
     board.Reset()
 
     CircleObserver.CircleMarker()
+    CircleObserver.CircleVisualizer()
     ArrowObserver.ArrowMarker()
     ArrowObserver.ArrowVisualizer()
     #LineObserver.LineMarker()
     TextObserver.TextCollector()
-    #TextObserver.TextVisualizer()
+    TextObserver.TextVisualizer()
     DiGraphObserver.DiGraphMarker()
     DiGraphObserver.DiGraphExporter()
     DiGraphObserver.DiGraphVisualizer()
@@ -131,8 +132,8 @@ class TkSketchFrame(Frame):
         self.BoardCanvas.bind("<B3-Motion>", self.CanvasRightMouseDown)          
         self.BoardCanvas.bind("<ButtonRelease-3>", self.CanvasRightMouseUp)      
 
-        self.BoardCanvas.bind("<Enter>", self.CanvasMouseEnter)
-        self.BoardCanvas.bind("<Leave>", self.CanvasMouseLeave)
+        #self.BoardCanvas.bind("<Enter>", self.CanvasMouseEnter)
+        #self.BoardCanvas.bind("<Leave>", self.CanvasMouseLeave)
 
         self.StrokeLoader = StrokeStorage()
         self.MakeMenu()
@@ -141,6 +142,7 @@ class TkSketchFrame(Frame):
         stringLabel.pack(side=LEFT)
         self.StringText = Entry(self, width=20)
         self.StringText.pack(side=LEFT)
+
         self.SimButton = Button(self, text="Step", command = (lambda: self.StepMachines() or self.Redraw()) )
         self.SimButton.pack(side=LEFT)
         self.SimButton = Button(self, text="Restart", command = (lambda: self.RestartMachines() or self.Redraw()))
@@ -153,16 +155,29 @@ class TkSketchFrame(Frame):
         self.shouldDrawStrokes = True
 
        
+        #print "Redraw from Init"
         self.Redraw()
 
+
       
+    def SwitchTuringView(self, showTuring = None):
+        if showTuring == None:
+            self.shouldDrawStrokes = not self.shouldDrawStrokes
+            self.shouldDrawAnnos = not self.shouldDrawAnnos
+        else:
+            self.shouldDrawStrokes = not showTuring
+            self.shouldDrawAnnos = not showTuring
+        self.Redraw()
+        
     def CanvasMouseEnter(self, event):
         self.shouldDrawStrokes = True
         self.shouldDrawAnnos = True
+        #print "Redraw from Mouse Enter"
         self.Redraw()
     def CanvasMouseLeave(self, event):
         self.shouldDrawStrokes = False
         self.shouldDrawAnnos = False
+        #print "Redraw from Mouse Leave"
         self.Redraw()
 
     def SetTapeString(self):
@@ -198,6 +213,7 @@ class TkSketchFrame(Frame):
         top_menu.add_command(label="Save stks.txt", command = (lambda : self.SaveStrokes()), underline=1 )
         top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
         top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
+        top_menu.add_command(label="Toggle View", command = lambda: self.SwitchTuringView(), underline=1 )
 
 
 
@@ -296,6 +312,7 @@ class TkSketchFrame(Frame):
                     self.Board.RemoveStroke(stk)
                     self.StrokeList.remove(stk)
         self.p_x = self.p_y = None
+        #print "Redraw from RightMouseUp"
         self.Redraw()
 
     def CanvasMouseDown(self, event):
@@ -332,11 +349,14 @@ class TkSketchFrame(Frame):
         #start a new stroke
         self.AddCurrentStroke()
         self.p_x = self.p_y = None
+        #print "Redraw from MouseUp"
         self.Redraw()
         
     def Redraw(self):
         "Find all the strokes on the board, draw them, then iterate through every object and have it draw itself"
         global HEIGHT, WIDTH
+        #print "> Redraw Start"
+        sys.stdout.flush()
         self.BoardCanvas.delete(ALL)
         strokes = self.Board.Strokes
         observers = self.Board.BoardObservers
@@ -344,14 +364,23 @@ class TkSketchFrame(Frame):
             for s in strokes:
                #print "Drawing stroke %s" % (s.id)
                s.drawMyself()
+            #print ">   Strokes drawn"
+            sys.stdout.flush()
 
         if self.shouldDrawAnnos:
             for obs in observers:
                #print "Drawing", obj.__class__.__name__
                if type(obs) != TuringMachineObserver.TuringMachineVisualizer:
                    obs.drawMyself()
+            #print ">   Annos drawn"
+            sys.stdout.flush()
         else:
             self.TMVisualizer.drawMyself()
+            for s in strokes:
+               if len(s.findAnnotations(TuringMachineObserver.TuringMachineAnnotation)) == 0:
+                   s.drawMyself(color="#cccccc")
+        #print "< Redraw Done"
+        sys.stdout.flush()
 
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
          "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"

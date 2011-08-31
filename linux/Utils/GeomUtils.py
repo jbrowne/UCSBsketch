@@ -97,6 +97,7 @@ True
 
 import math
 import sys
+import pdb
 
 from Utils import Logger
 from SketchFramework.Point import Point
@@ -506,10 +507,10 @@ def strokeLineSegOrientations( inStroke, normalize=True ):
     norm_orientations = [ angleNormalize(x-offset) for x in orientations ]
     return norm_orientations
 
-def strokeSmooth(inStroke, width = 1):
+def strokeSmooth(inStroke, width = 1, preserveEnds = False):
     "Input: Stroke.  Returns a simmilar stroke with the points smoothed out"
     inPoints = inStroke.Points;
-    outPoints = _smooth(inPoints, width = width)
+    outPoints = _smooth(inPoints, width = width, preserveEnds = preserveEnds)
     return Stroke(outPoints)
 
 def strokeDTWDist( testStroke, refStroke):
@@ -747,7 +748,7 @@ def sliceByLength(inPoints, lengthBegin, lengthEnd):
     
   
 
-def _smooth(inPoints, width = 1):
+def _smooth(inPoints, width = 1, preserveEnds = False):
     "Input: List inPoints.  returns a smoothed set of the same size using Laplacian smoothing...IN 2D!."
 
     if len(inPoints) < 3:
@@ -774,9 +775,14 @@ def _smooth(inPoints, width = 1):
     #new and old point smoothing
     for i in range(len(newPoints)):
         pointRange = range( max(0, i - width), min (len(newPoints), i + 1 + width) )  #Average over a range
-        pointListX = [newPoints[i].X for i in pointRange]
-        pointListY = [newPoints[i].Y for i in pointRange]
-        pointListT = [newPoints[i].T for i in pointRange]
+        pointListX = [newPoints[j].X for j in pointRange]
+        pointListY = [newPoints[j].Y for j in pointRange]
+        pointListT = [newPoints[j].T for j in pointRange]
+        if preserveEnds:
+            while len(pointListX) < (2 * width + 1):
+                pointListX.append(newPoints[i].X)
+                pointListY.append(newPoints[i].Y)
+                pointListT.append(newPoints[i].T)
 
         x = sum(pointListX) / float(len(pointListX))
         y = sum(pointListY) / float(len(pointListY))
@@ -885,6 +891,44 @@ def lineLength(inStroke):
     return max - min
 
 
+def linePointsTowards(linept1, linept2, target, radius):
+    "Tests whether a line points toward a target or not"
+    retValue = False
+    slope = lineSlope(linept1, linept2)
+    dir_mult = 1
+    if (slope != None and linept2.X - linept1.X < 0) or (slope == None and linept2.Y - linept1.Y < 0):
+        dir_mult = -1
+
+    pt1 = target
+    if slope == 0:
+        pt2 = Point(target.X, target.Y + 10 )
+    else:
+        if slope == None:
+            perp_slope = 0.0
+        else:
+            perp_slope = -1 / float(slope)
+        pt2 = Point(target.X + 10, target.Y + (10 * perp_slope))
+    line1 = (linept1, linept2)
+    line2 = (target, pt2)
+    tangentPoint = getLinesIntersection(line1, line2, infinite1 = True, infinite2 = True)
+
+
+    if tangentPoint != None:
+        line1dist = pointDistanceSquared(linept1.X, linept1.Y, tangentPoint.X, tangentPoint.Y)
+        line2dist = pointDistanceSquared(linept2.X, linept2.Y, tangentPoint.X, tangentPoint.Y)
+        distSqr =  pointDistanceSquared(target.X, target.Y, tangentPoint.X, tangentPoint.Y)
+        print ("Tangent point %s away, %s radius" % (math.sqrt(distSqr), radius))
+        print ("Dist lpt1: %s, dist lpt2: %s" % (line1dist, line2dist))
+        if distSqr < radius ** 2 and line2dist < line1dist: #Points close enough and the right direction
+            retValue = True
+    else:
+        print "Line %s -> %s does not intersect %s -> %s" %( linept1, linept2, target, pt2)
+
+    return retValue
+        
+
+
+    
 #With respect to the horizontal.  0 deg == horizontal line
 def angleOfOrientation(inStroke):
     logger.warning("angleOfOrientation is deprecated, use strokeOrientation")

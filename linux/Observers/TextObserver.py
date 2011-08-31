@@ -45,7 +45,7 @@ class TextAnnotation(Annotation):
         self.alternates = [text]
 
 #-------------------------------------
-l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
+l_logger = Logger.getLogger('LetterMarker', Logger.DEBUG)
 class _LetterMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
     def __init__(self):
@@ -54,8 +54,8 @@ class _LetterMarker( BoardObserver ):
         BoardSingleton().RegisterForStroke( self )
     def onStrokeAdded(self, stroke):
         "Tags 1's and 0's as letters (TextAnnotation)"
-        closedDistRatio = 0.12
-        circularityThresh_0 = 0.85
+        closedDistRatio = 0.22
+        circularityThresh_0 = 0.80
         circularityThresh_1 = 0.20
         strokeLen = max(GeomUtils.strokeLength(stroke), 1)
         normDist = max(3, strokeLen / 5)
@@ -82,21 +82,27 @@ class _LetterMarker( BoardObserver ):
 
         elif len(stroke.Points) >= 2 \
             and max(curvatures) < 0.5 \
-            and circularity < circularityThresh_1 \
-            and stroke.Points[0].X < stroke.Points[-1].X + strokeLen / 3 \
-            and stroke.Points[0].X > stroke.Points[-1].X - strokeLen / 3:
-
-                #l_logger.debug("Tag as 1: p0: %s\tp1: %s" % (stroke.Points[0], stroke.Points[-1])) 
-                height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
-                oneAnnotation = TextAnnotation("1", height)
-                l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation))
-                BoardSingleton().AnnotateStrokes( [stroke],  oneAnnotation)
-                l_logger.debug(" Afterward: %s.annotations is %s" % ( stroke, stroke.Annotations))
+            and circularity < circularityThresh_1:
+                if stroke.Points[0].X < stroke.Points[-1].X + strokeLen / 2.0 \
+                and stroke.Points[0].X > stroke.Points[-1].X - strokeLen / 2.0:
+                    height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
+                    oneAnnotation = TextAnnotation("1", height)
+                    l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation.text))
+                    BoardSingleton().AnnotateStrokes( [stroke],  oneAnnotation)
+                    l_logger.debug(" Afterward: %s.annotations is %s" % ( stroke, stroke.Annotations))
+                elif stroke.Points[0].Y < stroke.Points[-1].Y + strokeLen / 2.0 \
+                and stroke.Points[0].Y > stroke.Points[-1].Y - strokeLen / 2.0:
+                    width = stroke.BoundBottomRight.X - stroke.BoundTopLeft.X 
+                    dashAnnotation = TextAnnotation("-", width * 1.5) #Treat the dash's (boosted) width as its scale 
+                    l_logger.debug("Annotating %s with %s" % ( stroke, dashAnnotation.text))
+                    BoardSingleton().AnnotateStrokes( [stroke],  dashAnnotation)
         else:
             if not isClosedShape:
                 l_logger.debug("0: Not a closed shape")
             if not (circularity > circularityThresh_0):
-                l_logger.debug("0: Not circular enough")
+                l_logger.debug("0: Not circular enough: %s" % (circularity))
+            if not len(stroke.Points) >= 2:
+                l_logger.debug("1: Not enough points")
             if not (circularity < circularityThresh_1):
                 l_logger.debug("1: Too circular")
             if not (max(curvatures) < 0.5):
@@ -140,7 +146,16 @@ class TextCollector( ObserverBase.Collector ):
             return False
         # check that they are not overlapping
         bb_from = GeomUtils.strokelistBoundingBox( from_anno.Strokes )
+        center_from = Point( (bb_from[0].X + bb_from[1].X) / 2.0, (bb_from[0].Y + bb_from[1].Y) / 2.0)
+        tl = Point (center_from.X - from_anno.scale/ 2.0, center_from.Y + (from_anno.scale / 2.0) )
+        br = Point (center_from.X + from_anno.scale/ 2.0, center_from.Y - (from_anno.scale / 2.0) )
+        bb_from = (tl, br)
+
         bb_to = GeomUtils.strokelistBoundingBox( to_anno.Strokes )
+        center_to = Point( (bb_to[0].X + bb_to[1].X) / 2.0, (bb_to[0].Y + bb_to[1].Y) / 2.0)
+        tl = Point (center_to.X - to_anno.scale/ 2.0, center_to.Y + (to_anno.scale / 2.0) )
+        br = Point (center_to.X + to_anno.scale/ 2.0, center_to.Y - (to_anno.scale / 2.0) )
+        bb_to = (tl, br)
         """
         if not GeomUtils.boundingboxOverlap( bb_from, bb_to ):
             tc_logger.debug("Not merging Bounding boxes don't overlap")
