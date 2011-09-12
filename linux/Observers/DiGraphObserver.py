@@ -102,9 +102,7 @@ class DiGraphAnnotation(Annotation):
             lineSeg = ( arrow_anno.tailstroke.Points[lineDist], arrow_anno.tip )
             
         if GeomUtils.pointDist( arrow_anno.tip,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE:
-            print "Arrow tip near circle"
             if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius):
-                print "Arrow points to circle"
                 return True
         return False
 
@@ -117,9 +115,7 @@ class DiGraphAnnotation(Annotation):
             lineSeg = ( arrow_anno.tailstroke.Points[-lineDist], arrow_anno.tailstroke.Points[-1] )
             
         if GeomUtils.pointDist( arrow_anno.tail,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE:
-            print "Arrow end near circle"
             if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius):
-                print "Arrow points from circle"
                 return True
         return False
 

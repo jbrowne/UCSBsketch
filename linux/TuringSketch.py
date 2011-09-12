@@ -375,10 +375,10 @@ class TkSketchFrame(Frame):
             #print ">   Annos drawn"
             sys.stdout.flush()
         else:
-            self.TMVisualizer.drawMyself()
             for s in strokes:
                if len(s.findAnnotations(TuringMachineObserver.TuringMachineAnnotation)) == 0:
                    s.drawMyself(color="#cccccc")
+            self.TMVisualizer.drawMyself()
         #print "< Redraw Done"
         sys.stdout.flush()
 

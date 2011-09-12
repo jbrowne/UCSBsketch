@@ -298,6 +298,30 @@ def angleSub( a, b ):
 #--------------------------------------------------------------
 # Functions on Strokes
 
+def strokeContainsStroke(stroke1, stroke2, granularity = None):
+    "Returns whther stroke1 contains stroke2"
+    if granularity == None:
+        granularity = max (len(stroke1.Points), len(stroke2.Points))
+
+    #close stroke1
+    ep1 = stroke1.Points[0]
+    ep2 = stroke1.Points[-1]
+    if pointDistanceSquared(ep1.X, ep1.Y, ep2.X, ep2.Y) > 10:
+        logger.warn("Checking containment within a stroke that's probably not closed")
+
+    sNorm1 = strokeNormalizeSpacing(Stroke(stroke1.Points + [ep2]), numpoints = granularity)
+    #Test first point inside stroke 1
+    if not pointInPolygon(sNorm1.Points, stroke2.Points[0]):
+        return False
+    #Test if stroke2 ever leaves stroke1's containment
+    elif len(getStrokesIntersection(stroke1, stroke2)) > 0:
+        return False
+
+    return True
+        
+
+    
+
 def getStrokesIntersection(stroke1, stroke2):
    "Returns the intersection(s) of two strokes"
    intersections = []

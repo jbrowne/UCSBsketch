@@ -15,8 +15,8 @@ class Stroke(AnnotatableObject):
     Number = 0
     DefaultStrokeColor = "#000000"
 
-    def __str__(self):
-        return str(self.id)
+    def __repr__(self):
+        return "<Stroke %s>" % (str(self.id))
     
     def __init__(self, points=None):#, smoothing=False): DEPRECATED
         # call parent constructor

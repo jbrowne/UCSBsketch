@@ -7,7 +7,7 @@ from SketchFramework.Stroke import Stroke
 from Utils import Logger
 from Utils import GeomUtils
 
-logger = Logger.getLogger('Board', Logger.WARN )
+logger = Logger.getLogger('Board', Logger.DEBUG )
 
 #--------------------------------------------
 class BoardObserver(object):
@@ -99,6 +99,8 @@ class _Board(object):
     def RegisterForStroke( self, strokeObserver ):
         "Input: BoardObserver stroke.  Registers with the board an Observer to be called when strokes are added"
         self.StrokeObservers.append( strokeObserver )
+        if strokeObserver not in self.BoardObservers:
+            self.AddBoardObserver(strokeObserver)
 
     def RegisterForAnnotation( self, annoType, annoObserver, funcToCall = None ):
         "Input: Type annoType, BoardObserver annoObserver, function funcToCall.  Call the observer when the matching annoation is found"
@@ -127,6 +129,9 @@ class _Board(object):
         if annoType in self.AnnoObservers:
             if annoObserver in self.AnnoObservers[annoType]:
 	            self.AnnoObservers[annoType].remove(annoObserver)
+
+        if annoObserver not in self.BoardObservers:
+            self.AddBoardObserver(annoObserver)
 
     def IsRegisteredForAnnotation( self, annoType, annoObserver ):
         "Input: Type annoType, BoardObserver annonObserve.  return true if annoObserver is already listening for annoType"
@@ -230,8 +235,9 @@ class _Board(object):
     def AddBoardObserver ( self, obs ):
         "Input: Observer obs.  Obs is added to the list of Board Observers"
         # FIXME? should we check that the object is one in the list once?
-        logger.debug( "Adding Observer: %s", str(obs.__class__.__name__) )
-        self.BoardObservers.append( obs )
+        if obs not in self.BoardObservers:
+            logger.debug( "Adding Observer: %s", str(obs.__class__.__name__) )
+            self.BoardObservers.append( obs )
 
     def RemoveBoardObserver( self, obs):
         "Input: Observer obs.  Obs is removed from the list of Board Observers"

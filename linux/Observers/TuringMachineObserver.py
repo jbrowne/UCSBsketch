@@ -152,6 +152,7 @@ class TuringMachineAnnotation(Annotation):
         if len(ops) == 0:
             tm_logger.debug("No edges leading from node, moving to fail-state")
             self.active_state = None
+            self.leading_edge = {'edge': None,'label': None}
             return
         else:
             read_cond, write_back, move_dir, next_state, along_edge, edge_label = ops[0]

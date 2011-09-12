@@ -20,6 +20,8 @@ class Point(AnnotatableObject):
     def copy(self):
         return Point(self.X, self.Y, self.T)
 
+    def __repr__(self):
+        return "(%s,%s)" % (self.X, self.Y)
     def __str__(self):
         return "(" + ("%.1f" % self.X) + "," + ("%.1f" % self.Y) + ")"
         #return "(" + str(self.X) + "," + str(self.Y) + ")"

@@ -19,6 +19,7 @@ import sys
 
 
 from Observers import CircleObserver
+from Observers import RaceTrackObserver
 from Observers import LineObserver
 from Observers import ArrowObserver
 from Observers import DiGraphObserver
@@ -34,19 +35,22 @@ def initialize(Board):
     Board.Reset()
 
     
-    CircleObserver.CircleMarker()
+    RaceTrackObserver.SplitStrokeMarker()
+    RaceTrackObserver.RaceTrackMarker()
+    RaceTrackObserver.RaceTrackVisualizer()
+    #CircleObserver.CircleMarker()
     #CircleObserver.CircleVisualizer()
-    ArrowObserver.ArrowMarker()
-    ArrowObserver.ArrowVisualizer()
+    #ArrowObserver.ArrowMarker()
+    #ArrowObserver.ArrowVisualizer()
     #LineObserver.LineMarker()
     #LineObserver.LineVisualizer()
-    TextObserver.TextCollector()
-    TextObserver.TextVisualizer()
-    DiGraphObserver.DiGraphMarker()
-    DiGraphObserver.DiGraphVisualizer()
-    DiGraphObserver.DiGraphExporter()
-    TuringMachineObserver.TuringMachineCollector()
-    TuringMachineObserver.TuringMachineExporter()
+    #TextObserver.TextCollector()
+    #TextObserver.TextVisualizer()
+    #DiGraphObserver.DiGraphMarker()
+    #DiGraphObserver.DiGraphVisualizer()
+    #DiGraphObserver.DiGraphExporter()
+    #TuringMachineObserver.TuringMachineCollector()
+    #TuringMachineObserver.TuringMachineExporter()
     
     #TemplateObserver.TemplateMarker()
     #TemplateObserver.TemplateVisualizer()
@@ -60,6 +64,8 @@ def initialize(Board):
     #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
     #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
     #d.trackAnnotation(CircleObserver.CircleAnnotation)
+    d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
+    d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
     
     #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
     #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)

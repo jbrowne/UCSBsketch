@@ -274,9 +274,11 @@ class TkSketchFrame(Frame):
         for obs in observers:
            #print "Drawing", obj.__class__.__name__
            obs.drawMyself()
+        """
         for s in strokes:
 	   #print "Drawing stroke %s" % (s.id)
            s.drawMyself()
+        """
 
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
          "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"

@@ -275,7 +275,7 @@ def _isArrowHead(stroke, matcher):
     #   with more complicated checks
     if maxCurvIdx > (numPts / 5.0) and maxCurvIdx < ( 4 * numPts / 5.0): 
         strkLen = GeomUtils.strokeLength(stroke)
-        arrowHeadStroke = GeomUtils.strokeNormalizeSpacing(Stroke([stroke.Points[0], stroke.Points[maxCurvIdx], stroke.Points[-1]]), numpoints = strkLen) #What would the approximated arrowhead look like?
+        arrowHeadStroke = GeomUtils.strokeNormalizeSpacing(Stroke([sNorm.Points[0], sNorm.Points[maxCurvIdx], sNorm.Points[-1]]), numpoints = strkLen) #What would the approximated arrowhead look like?
         origStroke = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = strkLen)
         approxAcc = GeomUtils.strokeDTWDist(sNorm, arrowHeadStroke)
         logger.debug("Stroke approximates arrowhead with %s accuracy" % (approxAcc))
