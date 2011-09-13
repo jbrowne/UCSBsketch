@@ -2,6 +2,7 @@
 
 import math
 import sys
+import random
 import pdb
 from SketchFramework import SketchGUI
 
@@ -14,53 +15,91 @@ from SketchFramework.Annotation import Annotation, AnnotatableObject
 from Observers import ObserverBase
 
 
+#-------------------------------------
 
+ssv_logger = Logger.getLogger("SplitStrokekVisualizer", Logger.DEBUG)
+class SplitStrokeVisualizer( ObserverBase.Visualizer ):
+    COLORMAP = {"#00AAAA": None,
+                 "#AA00AA": None,
+                 "#AAAA00": None,
+                 "#AAAAAA": None,
+                 "#AAFFFF": None,
+                 "#FFAAFF": None,
+                 "#FFAAFF": None,
+                 "#22AAAA": None,
+                 "#AA22AA": None,
+                 "#AA22AA": None,
+                }
+    def __init__(self):
+        ObserverBase.Visualizer.__init__( self, SplitStrokeAnnotation )
 
+    def drawAnno( self, a ):
+        random.seed(a)
+        colormap = SplitStrokeVisualizer.COLORMAP
+        color = random.choice(colormap.keys())
+
+        for s in a.getComponentStrokes():
+            SketchGUI.drawStroke(s, width = 2, color = color)
+
+#-------------------------------------
 class SplitStrokeAnnotation(Annotation):
     
     def __init__(self, strokelist = []):
         self.Points = []
+        self._strokeMap = {} #Maps strokes to dict {'range' : (start, stop)}
         for s in strokelist:
             self.mergeStroke(s)
 
     def reverseDirection(self):
         self.Points.reverse()
 
+    def splitAtStroke(self, stroke):
+        "Given a stroke that is part of this multi-line, return the 'left' and 'right' parts of the line and SSAnno's"
+        if stroke in self._strokeMap:
+            leftCmp = self._strokeMap[stroke]['range'][0]
+            rightCmp = self._strokeMap[stroke]['range'][1]
+
+            leftAnno = SplitStrokeAnnotation()
+            rightAnno = SplitStrokeAnnotation()
+
+            leftAnno.Points = self.Points[:leftCmp]
+            rightAnno.Points = self.Points[rightCmp + 1:]
+            for stk, stkDict in self._strokeMap.items():
+                idxRange = stkDict['range']
+                if idxRange[1] < leftCmp:
+                    leftAnno._strokeMap[stk] = {'range' : idxRange}
+                elif idxRange[0] > rightCmp:
+                    rightAnno._strokeMap[stk] = {'range' : (idxRange[0] - rightCmp, idxRange[1] - rightCmp)}
+
+            return leftAnno, rightAnno
+        return None, None
+                
+
+    def getComponentStrokes(self):
+        return self._strokeMap.keys()
     def mergeStroke(self, stroke, mergeBefore = False ):
-        """
-        sp1 = stroke.Points[0]
-        sp2 = stroke.Points[-1]
-        if len(self.Points) > 0:
-            ep2 = self.Points[-1]
-            ep2_sp1dist = GeomUtils.pointDistanceSquared(ep2.X, ep2.Y, sp1.X, sp1.Y)
-            ep2_sp2dist = GeomUtils.pointDistanceSquared(ep2.X, ep2.Y, sp2.X, sp2.Y)
-
-            ep1 = self.Points[0]
-            ep1_sp1dist = GeomUtils.pointDistanceSquared(ep1.X, ep1.Y, sp1.X, sp1.Y)
-            ep1_sp2dist = GeomUtils.pointDistanceSquared(ep1.X, ep1.Y, sp2.X, sp2.Y)
-            mindist = min([ep2_sp1dist, ep2_sp2dist, ep1_sp2dist, ep1_sp1dist])
-
-            if   mindist == ep1_sp1dist: # Head to head
-                newPts = reversed(stroke.Points)
-                newPts.extend(self.Points)
-                self.Points = newPts
-
-            elif mindist == ep1_sp2dist: # head to tail
-                newPts = stroke.Points
-                newPts.extend(self.Points)
-                self.Points = newPts
-            
-            elif mindist == ep2_sp1dist: #tail to head
-                self.Points.extend(stroke.Points)
-
-            elif mindist == ep2_sp2dist: #tail to tail
-                newPts = reversed(stroke.Points)
-                self.Points.extend(newPts)
-        """
         if mergeBefore:
             self.Points = stroke.Points + self.Points
+
+            if type(stroke) == SplitStrokeAnnotation:
+                for stk in self._strokeMap.keys():
+                    prevRange = self._strokeMap[stk]['range']
+                    self._strokeMap[stk] = {'range': (prevRange[0] + len(stroke.Points), prevRange[1] + len(stroke.Points) ) }
+                for stk, rangeDict in stroke._strokeMap.items():
+                    self._strokeMap[stk] = rangeDict
+            #end if
+
         else:
             self.Points.extend(stroke.Points)
+
+            if type(stroke) == SplitStrokeAnnotation:
+                for stk in stroke._strokeMap.keys():
+                    prevRange = stroke._strokeMap[stk]['range']
+                    self._strokeMap[stk] = {'range': (prevRange[0] + len(self.Points), prevRange[1] + len(self.Points) ) }
+            #end if
+
+        if type(stroke) == Stroke:
+            self._strokeMap[stroke] = {'range' : (0, len(stroke.Points) - 1)}
             
         
                 
@@ -89,8 +128,8 @@ class SplitStrokeMarker( ObserverBase.Collector ):
         merged = False
 
         #How far into the strokes do we go to determine their pointing direction?
-        from_offset = min (offsetDist, len(from_anno.Points))
-        to_offset = min (offsetDist, len(to_anno.Points))
+        from_offset = min (offsetDist, len(from_anno.Points) - 1)
+        to_offset = min (offsetDist, len(to_anno.Points) - 1)
 
         #Get the pairs for each "stroke's" head and tail lines
         from_headpair = (from_anno.Points[from_offset], from_anno.Points[0])
@@ -122,16 +161,29 @@ class SplitStrokeMarker( ObserverBase.Collector ):
             merged = True
 
         return merged
+
     def onStrokeRemoved(self, stroke):
-        allStrokes = set([])
+        ssAnnos = stroke.findAnnotations(SplitStrokeAnnotation)
+        addBackAnnos = set([])
+        for anno in ssAnnos:
+            addBackAnnos.update( anno.splitAtStroke(stroke) )
+            ss_logger.debug("Removing annotation %s" % (anno))
+            BoardSingleton().RemoveAnnotation(anno)
+
+        for anno in addBackAnnos:
+            if len(anno.Points) > 0:
+                ss_logger.debug("Adding back split annotation %s" % (anno))
+                BoardSingleton().AnnotateStrokes(anno.getComponentStrokes(), anno)
 
 
 def linesPointAtEachother(linepair1, linepair2):
     ep1 = linepair1[1]
     ep2 = linepair2[1]
-    pointsToRadius = max(5, 0.26 * GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y) ) #Span out the valid radius at about 30 degrees
+    pointsToRadius = max(15, 0.26 * GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y) ) #Span out the valid radius at about 30 degrees
     l1_to_l2 = GeomUtils.linePointsTowards(linepair1[0], linepair1[1], linepair2[1], pointsToRadius)
     l2_to_l1 = GeomUtils.linePointsTowards(linepair2[0], linepair2[1], linepair1[1], pointsToRadius)
+    ss_logger.debug("l1 points to l2: %s" % (l1_to_l2))
+    ss_logger.debug("l2 points to l1: %s" % (l2_to_l1))
     return (l1_to_l2 and l2_to_l1)
     
 

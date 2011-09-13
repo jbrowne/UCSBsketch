@@ -24,6 +24,15 @@ class Annotation(object):
         return self.__class__.__name__ 
 
 #--------------------------------------------
+class AnimateAnnotation(Annotation):
+    "Animatable Annotation Class. Just like a regular annotation, but it progresses through 'step()'."
+
+    def step(self,dt):
+        "Progress the state of the annotation by 'dt' milliseconds"
+        raise NotImplemented
+
+
+#--------------------------------------------
 class AnnotatableObject(object):
     "The fundamental Board Object that can be annotated with information and drawn on the board"
     Name = "Annotatable Object"

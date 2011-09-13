@@ -27,6 +27,7 @@ from Observers import TextObserver
 from Observers import DebugObserver
 from Observers import TemplateObserver
 from Observers import TuringMachineObserver
+from Observers import TestAnimObserver
 
 
 def initialize(Board):
@@ -35,21 +36,25 @@ def initialize(Board):
     Board.Reset()
 
     
-    RaceTrackObserver.SplitStrokeMarker()
-    RaceTrackObserver.RaceTrackMarker()
-    RaceTrackObserver.RaceTrackVisualizer()
-    #CircleObserver.CircleMarker()
+    #TestAnimObserver.TestMarker()
+    #TestAnimObserver.TestAnimator(fps = 1 / float(3))
+    #RaceTrackObserver.SplitStrokeMarker()
+    #RaceTrackObserver.SplitStrokeVisualizer()
+    #RaceTrackObserver.RaceTrackMarker()
+    #RaceTrackObserver.RaceTrackVisualizer()
+    CircleObserver.CircleMarker()
     #CircleObserver.CircleVisualizer()
-    #ArrowObserver.ArrowMarker()
+    ArrowObserver.ArrowMarker()
     #ArrowObserver.ArrowVisualizer()
     #LineObserver.LineMarker()
     #LineObserver.LineVisualizer()
-    #TextObserver.TextCollector()
+    TextObserver.TextCollector()
     #TextObserver.TextVisualizer()
-    #DiGraphObserver.DiGraphMarker()
+    DiGraphObserver.DiGraphMarker()
     #DiGraphObserver.DiGraphVisualizer()
     #DiGraphObserver.DiGraphExporter()
-    #TuringMachineObserver.TuringMachineCollector()
+    TuringMachineObserver.TuringMachineCollector()
+    TuringMachineObserver.TuringMachineAnimator()
     #TuringMachineObserver.TuringMachineExporter()
     
     #TemplateObserver.TemplateMarker()
@@ -57,6 +62,7 @@ def initialize(Board):
     
     
     d = DebugObserver.DebugObserver()
+    #d.trackAnnotation(TestAnimObserver.TestAnnotation)
     #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
     #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
     #d.trackAnnotation(LineObserver.LineAnnotation)
@@ -64,8 +70,8 @@ def initialize(Board):
     #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
     #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
     #d.trackAnnotation(CircleObserver.CircleAnnotation)
-    d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
-    d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
+    #d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
+    #d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
     
     #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
     #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)

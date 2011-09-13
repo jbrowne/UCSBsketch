@@ -53,9 +53,6 @@ def initializeBoard(board):
     TuringMachineObserver.TuringMachineExporter()
     TuringMachineObserver.TuringMachineVisualizer()
     
-    #TemplateObserver.TemplateMarker()
-    #TemplateObserver.TemplateVisualizer()
-    
     
     d = DebugObserver.DebugObserver()
    
@@ -79,8 +76,8 @@ class TkSketchGUI(_SketchGUI):
        self.sketchFrame = TkSketchFrame(master = root)
        try:
            while 1:
-               root.update_idletasks()
                root.update()
+               root.update_idletasks()
        except TclError:
            pass
 
@@ -351,7 +348,7 @@ class TkSketchFrame(Frame):
         self.p_x = self.p_y = None
         #print "Redraw from MouseUp"
         self.Redraw()
-        
+
     def Redraw(self):
         "Find all the strokes on the board, draw them, then iterate through every object and have it draw itself"
         global HEIGHT, WIDTH

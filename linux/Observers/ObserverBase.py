@@ -27,6 +27,7 @@ Doctest Examples:
 
 import pdb
 import math
+import time
 from Utils import Logger
 from Utils import GeomUtils
 from SketchFramework.Point import Point
@@ -35,7 +36,6 @@ from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 logger = Logger.getLogger('ObserverBase', Logger.WARN )
-
 #-------------------------------------
 
 class Visualizer( BoardObserver ):
@@ -62,6 +62,37 @@ class Visualizer( BoardObserver ):
 
     def drawAnno( self, anno ):
         logger.error("failure to implement virtual method 'drawAnno'")
+        raise NotImplementedError
+
+#-------------------------------------
+
+anim_logger = Logger.getLogger('Animator', Logger.WARN )
+class Animator( Visualizer ):
+    "Watches for annotations, animates them at about the specified fps. The annotation must "
+    CALLTIMES = {} #Maps an annotation to the last time it was "stepped"
+
+    def __init__(self, anno_type = None, fps = 1):
+        anim_logger.debug("Initializing: Watch for %s" % (anno_type))
+        if not hasattr(anno_type, "step"):
+            anim_logger.error("%s must implement 'step'" % (anno_type.__name__))
+            raise NotImplementedError
+
+        Visualizer.__init__(self, anno_type)
+
+        self.fps = fps
+
+    def drawMyself( self ):
+        "Calls each observed annotation with a step of however many ms since its last call, and then draws the anno"
+        for a in self.annotation_list:
+            lastcall = Animator.CALLTIMES.get(a, 1000 * time.time())
+            anim_logger.debug("Calling %s anno %s ms later" % (a, 1000 * time.time() - lastcall))
+            a.step( time.time() - lastcall) 
+            anim_logger.debug("Drawing frame for %s" % (a))
+            self.drawAnno( a )
+            Animator.CALLTIMES[a] =  1000 * time.time()
+
+    def drawAnno( self, anno ):
+        anim_logger.error("failure to implement virtual method 'drawAnno'")
         raise NotImplementedError
 
 #-------------------------------------

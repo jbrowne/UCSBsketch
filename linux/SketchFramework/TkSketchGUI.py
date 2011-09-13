@@ -33,6 +33,9 @@ from SketchSystem import initialize, standAloneMain
 from SketchFramework.strokeout import imageToStrokes
 from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection
+from Utils import Logger
+
+from Observers.ObserverBase import Animator
 
 # Constants
 WIDTH = 1000
@@ -41,6 +44,7 @@ MID_W = WIDTH/2
 MID_H = HEIGHT/2
 
    
+logger = Logger.getLogger("TkSketchGUI", Logger.DEBUG)
 
 class TkSketchGUI(_SketchGUI):
 
@@ -58,8 +62,9 @@ class TkSketchGUI(_SketchGUI):
        self.sketchFrame = TkSketchFrame(master = root)
        try:
            while 1:
-               root.update_idletasks()
                root.update()
+               self.sketchFrame.AnimateFrame()
+               root.update_idletasks()
        except TclError:
            pass
 
@@ -105,6 +110,8 @@ class TkSketchFrame(Frame):
         self.CurrentPointList = []
         self.StrokeList = []
 
+        self.AnimatorDrawtimes = {} #A dictionary of Animator subclasses to the deadline for the next frame draw 
+
         self.StrokeLoader = StrokeStorage()
 
         self.ResetBoard()
@@ -145,12 +152,12 @@ class TkSketchFrame(Frame):
            return
 
         try:
-           print "Loading strokes..."
+           logger.debug( "Loading strokes...")
            strokes = imageToStrokes(fname)
         except Exception as e:
-           print "Error importing strokes from image '%s':\n %s" % (fname, e)
+           logger.debug( "Error importing strokes from image '%s':\n %s" % (fname, e))
            return
-        print "Loaded %s strokes from '%s'" % (len(strokes), fname)
+        logger.debug( "Loaded %s strokes from '%s'" % (len(strokes), fname))
 
         for s in strokes:
            newStroke = Stroke()
@@ -191,9 +198,18 @@ class TkSketchFrame(Frame):
 
         self.Board = BoardSingleton(reset = True)
         initialize(self.Board)
+        self.RegisterAnimators()
         self.CurrentPointList = []
         self.StrokeList = []
 
+
+    def RegisterAnimators(self):
+        self.AnimatorDrawtimes = {}
+        for obs in self.Board.BoardObservers:
+            if Animator in type(obs).__mro__: #Check if it inherits from Animator
+                logger.debug( "Registering %s as animator" % (obs))
+                self.AnimatorDrawtimes[obs] = time.time()
+                
                 
     def CanvasRightMouseDown(self, event):
         x = event.x
@@ -220,7 +236,7 @@ class TkSketchFrame(Frame):
             self.CurrentPointList = []
             for stk in list(self.StrokeList):
                 if len(getStrokesIntersection(stroke, stk) ) > 0:
-                    print "Removing Stroke"
+                    logger.debug( "Removing Stroke")
                     self.Board.RemoveStroke(stk)
                     self.StrokeList.remove(stk)
         self.p_x = self.p_y = None
@@ -262,6 +278,13 @@ class TkSketchFrame(Frame):
         self.p_x = self.p_y = None
         self.Redraw()
         
+    def AnimateFrame(self):
+        for obs, deadline in self.AnimatorDrawtimes.items():
+            if deadline <= 1000 * time.time():
+                obs.drawMyself()
+                self.AnimatorDrawtimes[obs] = 1000 *( (1 / float(obs.fps)) + time.time() ) #Time the next frame
+
+        
     def Redraw(self):
         "Find all the strokes on the board, draw them, then iterate through every object and have it draw itself"
         global HEIGHT, WIDTH
@@ -269,16 +292,9 @@ class TkSketchFrame(Frame):
         strokes = self.Board.Strokes
         observers = self.Board.BoardObservers
         for s in strokes:
-	   #print "Drawing stroke %s" % (s.id)
            s.drawMyself()
         for obs in observers:
-           #print "Drawing", obj.__class__.__name__
            obs.drawMyself()
-        """
-        for s in strokes:
-	   #print "Drawing stroke %s" % (s.id)
-           s.drawMyself()
-        """
 
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
          "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"

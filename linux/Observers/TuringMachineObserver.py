@@ -125,6 +125,9 @@ class TuringMachineAnnotation(Annotation):
             
         
 
+    def step(self, dt):
+        self.simulateStep()
+
     def simulateStep(self):
         "Edge label: <read condition> <write character> <move direction 0L, 1R>"
 
@@ -442,7 +445,16 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
 
 
             
+"""
             
+class TuringMachineAnimator(ObserverBase.Animator, TuringMachineVisualizer):
+    def __init__(self, fps=1):
+        ObserverBase.Animator.__init__(self,anno_type = TuringMachineAnnotation, fps = fps)
+    def drawAnno(self, *args, **kargs):
+        TuringMachineVisualizer.drawAnno(self, *args, **kargs)
+        
+"""
+    
 
 
 #-------------------------------------
