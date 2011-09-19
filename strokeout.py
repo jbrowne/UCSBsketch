@@ -6,6 +6,7 @@ import random
 import math
 import pdb
 import time
+import StringIO
 
 
 random.seed("sketchvision")
@@ -1106,7 +1107,7 @@ def removeBackground(cv_img):
    cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
    #Create histogram for single channel (0..255 range), into 255 bins
    bg_img = gray_img
-   while not isForeGroundGone(bg_img):
+   while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows:
       #printHistogramList(getHistogramList(bg_img), granularity = 5)
 
       print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
@@ -1179,12 +1180,23 @@ def blobsToStrokes(img):
    strokelist = pointsToStrokes(pointSet, rawImg)
    return strokelist
 
-def imageToStrokes(filename):
-   in_img = cv.LoadImageM(filename)
+
+
+def cvimgToStrokes(in_img):
    small_img = resizeImage(in_img)
    temp_img = removeBackground(small_img)
    strokelist = blobsToStrokes(temp_img)
    return strokelist
+def imageBufferToStrokes(data):
+   pil_img = Image.open(data)
+   cv_img = cv.CreateImageHeader(pil_img.size, cv.IPL_DEPTH_8U, 3)
+   cv.SetData(cv_img, pil_img.tostring())
+   cv_mat = cv.GetMat(cv_img)
+   return cvimgToStrokes(cv_mat)
+    
+def imageToStrokes(filename):
+   in_img = cv.LoadImageM(filename)
+   return cvimgToStrokes(in_img)
       
 
 
