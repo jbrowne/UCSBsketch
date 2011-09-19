@@ -1,5 +1,6 @@
 import datetime 
 import pdb 
+import threading
 import sys 
 
 from SketchFramework.Stroke import Stroke
@@ -44,12 +45,15 @@ class BoardObserver(object):
 
 class _Board(object):
     BoardSingleton = None
+    Lock =threading.Lock()
     "A singleton Object containing the Board and all of the strokes."
 
     def __init__(self):
         self.Reset()
+        
 
     def Reset(self):
+        self.Lock = _Board.Lock
         self.Strokes = []
         self.StrokeObservers=[]
         self.AnnoObservers={}

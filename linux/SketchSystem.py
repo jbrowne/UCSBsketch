@@ -35,9 +35,10 @@ def initialize(Board):
 
     Board.Reset()
 
+    return
     
     #TestAnimObserver.TestMarker()
-    #TestAnimObserver.TestAnimator(fps = 1 / float(3))
+    #TestAnimObserver.TestAnimator(fps = 1 / 3.0)
     #RaceTrackObserver.SplitStrokeMarker()
     #RaceTrackObserver.SplitStrokeVisualizer()
     #RaceTrackObserver.RaceTrackMarker()
@@ -53,8 +54,8 @@ def initialize(Board):
     DiGraphObserver.DiGraphMarker()
     #DiGraphObserver.DiGraphVisualizer()
     #DiGraphObserver.DiGraphExporter()
-    TuringMachineObserver.TuringMachineCollector()
-    TuringMachineObserver.TuringMachineAnimator()
+    #TuringMachineObserver.TuringMachineCollector()
+    #TuringMachineObserver.TuringMachineAnimator()
     #TuringMachineObserver.TuringMachineExporter()
     
     #TemplateObserver.TemplateMarker()

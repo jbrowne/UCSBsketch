@@ -21,6 +21,10 @@ Todo:
 
 import pdb
 import time
+import threading
+import Queue
+import StringIO
+import Image
 from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkMessageBox import *
@@ -30,7 +34,8 @@ from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
 from SketchSystem import initialize, standAloneMain
-from SketchFramework.strokeout import imageToStrokes
+from SketchFramework.strokeout import imageBufferToStrokes, imageToStrokes
+from SketchFramework.NetworkReceiver import ServerThread
 from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection
 from Utils import Logger
@@ -64,6 +69,7 @@ class TkSketchGUI(_SketchGUI):
            while 1:
                root.update()
                self.sketchFrame.AnimateFrame()
+               self.sketchFrame.AddQueuedStroke()
                root.update_idletasks()
        except TclError:
            pass
@@ -77,6 +83,29 @@ class TkSketchGUI(_SketchGUI):
     def drawText (self, x, y, InText="", size=10, color="#000000"):
         "Draw some text (InText) on the canvas at (x,y). Color as defined by 24 bit RGB string #RRGGBB"
         self.sketchFrame.drawText (x, y, InText=InText, size=size, color=color)
+
+class ImgProcThread (threading.Thread):
+    "A Thread that continually pulls image data from imgQ and puts the resulting strokes in strokeQ"
+    def __init__(self, imgQ, strokeQ):
+        threading.Thread.__init__(self)
+        self.daemon = True
+
+        self.img_queue = imgQ
+        self.stk_queue = strokeQ
+    def run(self):
+        while True:
+            image = StringIO.StringIO(self.img_queue.get())
+            logger.debug("Processing net image")
+            stks = imageBufferToStrokes(image)
+            logger.debug("Processed net image, converting strokes")
+            for stk in stks:
+                newStroke = Stroke()
+                for x,y in stk.points:
+                   scale = WIDTH / float(1280)
+                   newPoint = Point(scale * x,HEIGHT - scale * y)
+                   newStroke.addPoint(newPoint)
+                self.stk_queue.put(newStroke)
+
 
 #TODO: Wrapper for TSketchGUI because This inherits from frame and we can't just switch it to inherit from SketchGUI
 class TkSketchFrame(Frame):
@@ -106,6 +135,7 @@ class TkSketchFrame(Frame):
         self.BoardCanvas.bind("<B3-Motion>", self.CanvasRightMouseDown)          
         self.BoardCanvas.bind("<ButtonRelease-3>", self.CanvasRightMouseUp)      
 
+        self.StrokeQueue = Queue.Queue()
         self.Board = None
         self.CurrentPointList = []
         self.StrokeList = []
@@ -113,6 +143,7 @@ class TkSketchFrame(Frame):
         self.AnimatorDrawtimes = {} #A dictionary of Animator subclasses to the deadline for the next frame draw 
 
         self.StrokeLoader = StrokeStorage()
+        self.SetupImageServer()
 
         self.ResetBoard()
         self.MakeMenu()
@@ -137,6 +168,16 @@ class TkSketchFrame(Frame):
         top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
         top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
 
+
+    def AddQueuedStroke(self):
+        #Only process one stroke per round
+        if not self.StrokeQueue.empty():
+            stk = self.StrokeQueue.get()
+            logger.debug("Adding queued stroke %s" % (stk))
+            self.Board.AddStroke(stk)
+            self.StrokeList.append(stk)
+            self.Redraw()
+            self.StrokeQueue.task_done()
 
     def LoadStrokes(self):
       for stroke in self.StrokeLoader.loadStrokes():
@@ -277,6 +318,17 @@ class TkSketchFrame(Frame):
         self.AddCurrentStroke()
         self.p_x = self.p_y = None
         self.Redraw()
+
+    def SetupImageServer(self):
+        self.serverThread = ServerThread(port = 30000)
+        self.net_queue = self.serverThread.getResponseQueue()
+        self.serverThread.start()
+        self.imgProcThread = ImgProcThread(self.net_queue, self.StrokeQueue)
+        self.imgProcThread.start()
+
+                
+        
+
         
     def AnimateFrame(self):
         for obs, deadline in self.AnimatorDrawtimes.items():
