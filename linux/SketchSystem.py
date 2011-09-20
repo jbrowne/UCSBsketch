@@ -82,7 +82,7 @@ def initialize(Board):
 
 def standAloneMain():
     "Sets up the SketchGUI interface on the local machine"
-    from SketchFramework import TkSketchGUI as GUI
+    from SketchFramework import SketchGUI as GUI
     #GUI.LoadApp()
     GUI.run()
 

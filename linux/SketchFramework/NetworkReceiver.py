@@ -12,11 +12,12 @@ from PIL import ImageFile
 
 
 class NetworkHandler(threading.Thread):
-    def __init__(self, data_q, sock, addr):
+    def __init__(self, data_q, resp_q, sock, addr):
         threading.Thread.__init__(self)
         self.sock = sock
         self.addr = addr
-        self.queue = data_q
+        self.recv_queue = data_q
+        self.resp_queue = resp_q
     def run(self):
         try:
             print "Connected by %s" % (str(self.addr))
@@ -37,11 +38,15 @@ class NetworkHandler(threading.Thread):
                 buf += data
                 data = self.sock.recv(4096)
             """
-            self.queue.put(buf)
+            self.recv_queue.put(buf)
 
+            #self.resp_queue.put("Finished receiving %s" % (time.time()))
+
+            response = self.resp_queue.get()
             print "Sending... on %s" % (str(self.sock))
-            response = "Finished receiving %s" % (time.time())
+            #response = "Finished receiving %s" % (time.time())
             self.sock.sendall(response)
+            self.resp_queue.task_done()
         finally:
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
@@ -73,10 +78,11 @@ class FilePrinter(Printer):
                 print "Saving to %s" % (fname)
                 fp = os.fdopen(fp, 'w+b')
                 fp.write(result)
-                self.queue.task_done()
                 fp.close()
             except Exception as e:
                 print "Error:, file not written. %s" % (e)
+            finally:
+                self.queue.task_done()
 
 
 
@@ -88,11 +94,15 @@ class ServerThread(threading.Thread):
         self.daemon = True
         self.host = host
         self.port = port
-        self.queue = Queue.Queue()
+        self.request_queue = Queue.Queue()
+        self.response_queue = Queue.Queue()
         self.sock = None
 
+    def getRequestQueue(self):
+        return self.request_queue
+
     def getResponseQueue(self):
-        return self.queue
+        return self.response_queue
 
     def run(self):
         #pThread = FilePrinter(self.queue, filename="outfile.dat")
@@ -114,7 +124,7 @@ class ServerThread(threading.Thread):
             while True:
                 conn, addr = sock.accept()
 
-                nThread = NetworkHandler(self.queue, conn, addr)
+                nThread = NetworkHandler(self.request_queue, self.response_queue, conn, addr)
                 nThread.daemon=True
                 nThread.start()
         except Exception as e:
