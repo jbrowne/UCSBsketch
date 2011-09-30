@@ -1,10 +1,16 @@
 import datetime
+from xml.etree import ElementTree as ET
+
+            
 
 #--------------------------------------------
 class Annotation(object):
     "Base Annotation Class, it is a container for data placed on sets of strokes."
-
+    COUNT = 0
     def __init__(self):
+        self.id = Annotation.COUNT
+        Annotation.COUNT += 1
+
         self.Strokes = [] # list of strokes that this annotates
         self.Time = datetime.datetime.utcnow() # time used for debuging replay
 
@@ -22,6 +28,19 @@ class Annotation(object):
     def classname( self ):
         "Returns a string with the name of this type of annotation"
         return self.__class__.__name__ 
+
+    def xml( self ):
+        "Returns an element tree object for the XML serialization of this annotation"
+        root = ET.Element("Annotation")
+        root.attrib['name'] = self.classname()
+        root.attrib['id'] = str(self.id)
+        stks = ET.SubElement(root, "strokes")
+        for s in self.Strokes:
+            stroke = ET.SubElement(stks, "s")
+            stroke.attrib['id'] = str(s.id)
+
+        return root
+
 
 #--------------------------------------------
 class AnimateAnnotation(Annotation):

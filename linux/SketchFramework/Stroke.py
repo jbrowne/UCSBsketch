@@ -62,9 +62,7 @@ class Stroke(AnnotatableObject):
         if color: drawColor = color
         else: drawColor = self.Color 
 
-        if len(self.Points) == 1:
-            GUI.drawCircle( self.Points[0].X, self.Points[0].Y, radius=0,color=drawColor)
-        elif len(self.Points) > 1:
+        if len(self.Points) > 0:
             GUI.drawStroke(self, color=drawColor, erasable = True)
                             
     def length (self, force = False):

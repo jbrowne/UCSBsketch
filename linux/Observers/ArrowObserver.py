@@ -29,6 +29,7 @@ from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
+from xml.etree import ElementTree as ET
 
 logger = Logger.getLogger('ArrowObserver', Logger.WARN)
 
@@ -43,6 +44,24 @@ class ArrowAnnotation( Annotation ):
         self.headstroke = headstroke
         self.tailstroke = tailstroke
         self.direction = direction # 'tail2head' vs. 'head2tail' for the direction the tail stroke was drawn in
+    def xml( self ):
+        "Returns an element tree object for the XML serialization of this annotation"
+        root = Annotation.xml(self)
+
+        root.attrib['headstroke'] = str(self.headstroke.id)
+        root.attrib['tailstroke'] = str(self.tailstroke.id)
+        root.attrib['direction'] = str(self.direction)
+
+        tail  = ET.SubElement(root, "tail")
+        tail.attrib['x'] = str(self.tail.X)
+        tail.attrib['y'] = str(self.tail.Y)
+
+        tip  = ET.SubElement(root, "tip")
+        tip.attrib['x'] = str(self.tip.X)
+        tip.attrib['y'] = str(self.tip.Y)
+
+
+        return root
 
 #-------------------------------------
 

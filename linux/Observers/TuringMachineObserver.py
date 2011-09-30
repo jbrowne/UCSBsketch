@@ -15,6 +15,8 @@ from Observers import DiGraphObserver
 from Observers import TextObserver
 from Observers import ObserverBase
 
+from xml.etree import ElementTree as ET
+
 
 
 tm_logger = Logger.getLogger('TuringCollector', Logger.DEBUG )
@@ -49,6 +51,46 @@ class TuringMachineAnnotation(Annotation):
         self.state_graph_anno = None
         self.setDiGraphAnno(state_graph_anno)
 
+    def xml(self):
+        root = Annotation.xml(self)
+
+        mapEl = ET.SubElement(root, "edge_label_map")
+            
+        for e, labelset in self.edge2labels_map.items():
+            #edgeEl = e.xml()
+            #edgeEl.tag = "edge"
+            #root.append(edgeEl)
+            edgeEl = ET.SubElement(root, "edge")
+            edgeEl.attrib['id'] = str(e.id)
+
+            for  l in labelset:
+                e_label = ET.SubElement(mapEl, "m")
+                e_label.attrib['e'] = str(e.id)
+                e_label.attrib['l'] = str(l.id)
+
+        for l, edgeset in self.labels2edge_map.items():
+            #labelEl = l.xml()
+            #labelEl.tag = "label"
+            #root.append(labelEl)
+            labelEl = ET.SubElement(root, "label")
+            labelEl.attrib['id'] = str(l.id)
+
+        leadEdge = self.leading_edge['edge']
+        if leadEdge is not None:
+            eid = leadEdge.id
+        else:
+            eid = -1
+        root.attrib['leading_edge'] = str(eid)
+
+        #graphEl = self.state_graph_anno.xml()
+        #graphEl.tag = "state_graph"
+        #root.append(graphEl)
+        graphEl = ET.SubElement(root, "state_graph")
+        graphEl.attrib['id'] = str(self.state_graph_anno.id)
+
+        return root
+
+        
     def setTapeString(self, string):
         if type(string) == str:
             self.tape_string = list(string)
@@ -364,6 +406,8 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
         ObserverBase.Visualizer.__init__( self, TuringMachineAnnotation)
 
     def drawAnno( self, a ):
+        tm_logger.debug(ET.tostring(a.xml()))
+
         edge_label_size = 15
         tape_label_size = 20
         active_color = "#BF5252"

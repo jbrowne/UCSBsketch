@@ -36,6 +36,8 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
+from xml.etree import ElementTree as ET
+
 logger = Logger.getLogger('CircleObserver', Logger.WARN )
 
 #-------------------------------------
@@ -46,6 +48,17 @@ class CircleAnnotation(Annotation):
         self.circularity = circ # float
         self.center = cen # Point
         self.radius = avgDist # float
+
+    def xml( self ):
+        "Returns an element tree object for the XML serialization of this annotation"
+        root = Annotation.xml(self)
+
+        root.attrib['circularity'] = str(self.circularity)
+        root.attrib['x'] = str(self.center.X)
+        root.attrib['y'] = str(self.center.Y)
+        root.attrib['radius'] = str(self.radius)
+
+        return root
 
 #-------------------------------------
 

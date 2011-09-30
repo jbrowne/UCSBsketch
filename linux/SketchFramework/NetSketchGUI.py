@@ -33,11 +33,14 @@ from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
 from SketchFramework.NetworkReceiver import ServerThread
-from SketchFramework.strokeout import imageBufferToStrokes
+from SketchFramework.strokeout import imageBufferToStrokes, GETNORMWIDTH
 
 from Observers import CircleObserver
 from Observers import ArrowObserver
 from Observers import DebugObserver
+from Observers import TextObserver
+from Observers import DiGraphObserver
+from Observers import TuringMachineObserver
 
 
 from Utils.StrokeStorage import StrokeStorage
@@ -46,8 +49,9 @@ from Utils import Logger
 from Observers.ObserverBase import Animator
 
 # Constants
-WIDTH = 1000
-HEIGHT = 800
+WIDTH = 1024
+HEIGHT = 3 * WIDTH / 4
+
 MID_W = WIDTH/2
 MID_H = HEIGHT/2
 
@@ -108,6 +112,30 @@ class DrawCircle(DrawAction):
 
         return root
 
+
+class DrawStroke(DrawAction):
+    def __init__(self, stroke, width, color):
+        DrawAction.__init__(self, "Stroke")
+        self.stroke = stroke
+        self.width = width
+        self.color = color
+
+    def xml(self):
+        "Returns an ElementTree of this object"
+        root = ET.Element(self.action_type)
+
+        root.attrib['id'] = str(self.stroke.id)
+        root.attrib['color'] = str(self.color)
+        root.attrib['width'] = str(self.width)
+
+        for i, pt in enumerate(self.stroke.Points):
+            pt_el = ET.SubElement(root, "p")
+            
+            #pt_el.attrib['id'] = str(i)
+            pt_el.attrib['x'] = str(pt.X)
+            pt_el.attrib['y'] = str(pt.Y)
+
+        return root
 
 class DrawLine(DrawAction):
     def __init__(self, x1, y1, x2, y2, width, color):
@@ -216,8 +244,8 @@ class ImgProcThread (threading.Thread):
             for stk in stks:
                 newStroke = Stroke()
                 for x,y in stk.points:
-                   scale = WIDTH / float(1280)
-                   newPoint = Point(scale * x,HEIGHT - scale * y)
+                   scale = WIDTH / GETNORMWIDTH()
+                   newPoint = Point(scale * x, HEIGHT - scale * y)
                    newStroke.addPoint(newPoint)
                 newStrokeList.append(newStroke)
             self.stk_queue.put(newStrokeList)
@@ -257,13 +285,13 @@ class NetSketchGUI(_SketchGUI):
         #ArrowObserver.ArrowVisualizer()
         #LineObserver.LineMarker()
         #LineObserver.LineVisualizer()
-        #TextObserver.TextCollector()
+        TextObserver.TextCollector()
         #TextObserver.TextVisualizer()
-        #DiGraphObserver.DiGraphMarker()
+        DiGraphObserver.DiGraphMarker()
         #DiGraphObserver.DiGraphVisualizer()
         #DiGraphObserver.DiGraphExporter()
-        #TuringMachineObserver.TuringMachineCollector()
-        #TuringMachineObserver.TuringMachineAnimator()
+        TuringMachineObserver.TuringMachineCollector()
+        #TuringMachineObserver.TuringMachineVisualizer()
         #TuringMachineObserver.TuringMachineExporter()
         
         #TemplateObserver.TemplateMarker()
@@ -275,7 +303,7 @@ class NetSketchGUI(_SketchGUI):
         #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
         #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
         #d.trackAnnotation(LineObserver.LineAnnotation)
-        d.trackAnnotation(ArrowObserver.ArrowAnnotation)
+        #d.trackAnnotation(ArrowObserver.ArrowAnnotation)
         #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
         #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
         #d.trackAnnotation(CircleObserver.CircleAnnotation)
@@ -314,11 +342,24 @@ class NetSketchGUI(_SketchGUI):
         drawAction = DrawText(x,y,InText,size,color)
         self._drawQueue.append(drawAction)
 
+    def drawStroke(self, stroke, width = 2, color="#000000", erasable = False):
+        logger.debug("Drawing stroke")
+        drawAction = DrawStroke(stroke, width, color)       
+        self._drawQueue.append(drawAction)
+
+
+    def _serializeAnnotations(self):
+        "Add raw annotations to the draw queue so that they are sent with the strokes"
+        for anno in self._Board.FindAnnotations():
+            self._drawQueue.append(anno)
+
     def run(self):
         while True:
             logger.debug("Waiting on queue")
             try:
-                strokeList = self._strokeQueue.get(True, 30)
+                
+                self.ResetBoard()
+                strokeList = self._strokeQueue.get(True, 300000)
                 for stk in strokeList:
                     self._Board.AddStroke(stk)
                 self._strokeQueue.task_done()
@@ -326,6 +367,8 @@ class NetSketchGUI(_SketchGUI):
                 for stk in self._Board.Strokes:
                     stk.drawMyself()
 
+                self._serializeAnnotations()
+                    
                 for obs in self._Board.GetBoardObservers():
                     obs.drawMyself()
 
@@ -335,11 +378,21 @@ class NetSketchGUI(_SketchGUI):
     def _processDrawQueue(self):
         "Go through the draw queue and draw what needs to be drawn"
         drawXML = ET.Element("Board")
+        drawXML.attrib['height'] = str(HEIGHT)
+        drawXML.attrib['width'] = str(WIDTH)
+        count = 0
         for action in self._drawQueue:
             drawXML.append(action.xml())
+            count+= 1
+
+        fp = open("xmlout.xml", "w")
+        print >> fp, ET.tostring(drawXML)
+        fp.close()
+
         self._xmlResponseQueue.put(ET.tostring(drawXML))
-        #logger.debug("Drawing\n%s" % (ET.tostring(drawXML)))
+        logger.debug("Drawing\n%s" % (ET.tostring(drawXML)[:5000]))
         logger.debug("Done drawing")
+        self._drawQueue = []
 
             
 

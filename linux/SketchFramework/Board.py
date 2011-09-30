@@ -266,10 +266,8 @@ class _Board(object):
         else:
             stroke_list = strokelist
         for s in stroke_list:
-            anno_list = s.findAnnotations(annoType = anno_type)
+            anno_set.update(s.findAnnotations(annoType = anno_type))
             # keep a set to avoid adding annotations redundantly
-            for a in anno_list:
-                anno_set.add( a )
         return list(anno_set)
 
     #FIXME: I think FindStrokes would be better if it returned any stroke that had any points

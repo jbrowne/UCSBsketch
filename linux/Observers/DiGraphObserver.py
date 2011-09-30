@@ -42,6 +42,7 @@ from Observers import CircleObserver
 from Observers import ArrowObserver
 from Observers import ObserverBase
 
+from xml.etree import ElementTree as ET
 
 
 logger = Logger.getLogger('DiGraphObserver', Logger.DEBUG )
@@ -71,6 +72,39 @@ class DiGraphAnnotation(Annotation):
 
         # set the map of connections
         self.connectMap = {}
+
+    def xml(self):
+        root = Annotation.xml(self)
+
+        for node_anno in self.node_set:
+            nodeEl = ET.SubElement(root, "node")
+            nodeEl.attrib['id'] = str(node_anno.id)
+
+        for edge_anno in self.edge_set:
+            edgeEl = ET.SubElement(root, "edge")
+            edgeEl.attrib['id'] = str(edge_anno.id)
+
+        for from_node, connList in self.connectMap.items():
+            for connEdge, to_node in connList:
+                connEl = ET.SubElement(root, "conn")
+                fid = tid = eid = -1
+                if from_node is not None:
+                    fid = from_node.id
+                if to_node is not None:
+                    tid = to_node.id
+                if connEdge is not None:
+                    eid = connEdge.id
+
+                connEl.attrib['from'] = str(fid)
+                connEl.attrib['to'] = str(tid)
+                connEl.attrib['e'] = str(eid)
+
+        return root
+
+
+            
+
+
 
     def updateConnectMap(self):
         "walk the set of edges and nodes, build a map of which nodes point to which edges and nodes"

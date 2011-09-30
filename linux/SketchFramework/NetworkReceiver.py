@@ -43,9 +43,12 @@ class NetworkHandler(threading.Thread):
             #self.resp_queue.put("Finished receiving %s" % (time.time()))
 
             response = self.resp_queue.get()
+            response = str(len(response)) + "\n" + response
             print "Sending... on %s" % (str(self.sock))
             #response = "Finished receiving %s" % (time.time())
-            self.sock.sendall(response)
+            print "NetworkHandler: sending %s" % (response[:300])
+            sent = self.sock.send(response)
+            print "NetworkHandler: successfully sent %s bytes" % (sent)
             self.resp_queue.task_done()
         finally:
             self.sock.shutdown(socket.SHUT_RDWR)

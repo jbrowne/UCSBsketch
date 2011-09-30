@@ -32,6 +32,8 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
+from xml.etree import ElementTree as ET
+
 logger = Logger.getLogger('TextObserver', Logger.WARN )
 
 #-------------------------------------
@@ -43,6 +45,16 @@ class TextAnnotation(Annotation):
         self.text = text # a string for the text
         self.scale = scale # an approximate "size" for the text
         self.alternates = [text]
+    def xml(self):
+        root = Annotation.xml(self)
+        root.attrib["text"] = self.text
+        root.attrib['scale'] = str(self.scale)
+        for i, a in enumerate(self.alternates):
+            textEl = ET.SubElement(root, "alt")
+            textEl.attrib['priority'] = str(i)
+            textEl.attrib['text'] = str(a)
+            root.append(textEl)
+        return root
 
 #-------------------------------------
 l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
