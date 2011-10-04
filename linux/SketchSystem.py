@@ -34,8 +34,6 @@ def initialize(Board):
     " This function calls the board and board observer initialization code. Interface code should import this function"
 
     Board.Reset()
-
-    return
     
     #TestAnimObserver.TestMarker()
     #TestAnimObserver.TestAnimator(fps = 1 / 3.0)
@@ -44,13 +42,13 @@ def initialize(Board):
     #RaceTrackObserver.RaceTrackMarker()
     #RaceTrackObserver.RaceTrackVisualizer()
     CircleObserver.CircleMarker()
-    #CircleObserver.CircleVisualizer()
+    CircleObserver.CircleVisualizer()
     ArrowObserver.ArrowMarker()
-    #ArrowObserver.ArrowVisualizer()
+    ArrowObserver.ArrowVisualizer()
     #LineObserver.LineMarker()
     #LineObserver.LineVisualizer()
     TextObserver.TextCollector()
-    #TextObserver.TextVisualizer()
+    TextObserver.TextVisualizer()
     DiGraphObserver.DiGraphMarker()
     #DiGraphObserver.DiGraphVisualizer()
     #DiGraphObserver.DiGraphExporter()
