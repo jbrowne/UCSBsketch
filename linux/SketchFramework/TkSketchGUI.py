@@ -34,8 +34,8 @@ from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
 from SketchSystem import initialize, standAloneMain
-from SketchFramework.strokeout import imageBufferToStrokes, imageToStrokes
-from SketchFramework.NetworkReceiver import ServerThread
+#from SketchFramework.strokeout import imageBufferToStrokes, imageToStrokes
+#from SketchFramework.NetworkReceiver import ServerThread
 from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection
 from Utils import Logger
@@ -143,7 +143,7 @@ class TkSketchFrame(Frame):
         self.AnimatorDrawtimes = {} #A dictionary of Animator subclasses to the deadline for the next frame draw 
 
         self.StrokeLoader = StrokeStorage()
-        self.SetupImageServer()
+        #self.SetupImageServer()
 
         self.ResetBoard()
         self.MakeMenu()
@@ -163,10 +163,10 @@ class TkSketchFrame(Frame):
         top_menu.add_cascade(label="ObjectMenu", menu=self.object_menu)
 
         top_menu.add_command(label="Reset Board", command = (lambda :self.ResetBoard() or self.Redraw()), underline=1 )
-        top_menu.add_command(label="Load stks.txt", command = (lambda : self.LoadStrokes() or self.Redraw()), underline=1 )
-        top_menu.add_command(label="Save stks.txt", command = (lambda : self.SaveStrokes()), underline=1 )
+        top_menu.add_command(label="Load strokes.dat", command = (lambda : self.LoadStrokes() or self.Redraw()), underline=1 )
+        top_menu.add_command(label="Save strokes.dat", command = (lambda : self.SaveStrokes()), underline=1 )
         top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
-        top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
+        #top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
 
 
     def AddQueuedStroke(self):
@@ -187,6 +187,7 @@ class TkSketchFrame(Frame):
     def SaveStrokes(self):
       self.StrokeLoader.saveStrokes(self.StrokeList)
         
+    """
     def LoadStrokesFromImage(self):
         fname = askopenfilename(initialdir='/home/jbrowne/src/sketchvision/images/')
         if fname == "":
@@ -208,6 +209,7 @@ class TkSketchFrame(Frame):
               newStroke.addPoint(newPoint)
            self.Board.AddStroke(newStroke)
            self.StrokeList.append(newStroke)
+    """
 
     def RemoveLatestStroke(self):
         if len (self.StrokeList) > 0:
@@ -319,12 +321,14 @@ class TkSketchFrame(Frame):
         self.p_x = self.p_y = None
         self.Redraw()
 
+    """
     def SetupImageServer(self):
         self.serverThread = ServerThread(port = 30000)
         self.net_queue = self.serverThread.getResponseQueue()
         self.serverThread.start()
         self.imgProcThread = ImgProcThread(self.net_queue, self.StrokeQueue)
         self.imgProcThread.start()
+    """
 
                 
         
@@ -365,7 +369,7 @@ class TkSketchFrame(Frame):
         text_font = ("times", size, "")
         self.BoardCanvas.create_text(x,y,text = InText, fill = color, font = text_font, anchor=NW) 
 
-def TkSketchGUISingleton():
+def SketchGUISingleton():
     "Returns the GUI instance we're currently working with."
     if TkSketchGUI.Singleton == None:
        TkSketchGUI.Singleton = TkSketchGUI()

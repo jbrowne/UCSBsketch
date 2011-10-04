@@ -105,6 +105,7 @@ from SketchFramework.Stroke import Stroke
 
 logger = Logger.getLogger('GeomUtils', Logger.WARN )
 
+
 #--------------------------------------------------------------
 # Functions on Points
 
