@@ -361,9 +361,9 @@ class NetSketchGUI(_SketchGUI):
             self._drawQueue.append(anno)
 
     def run(self):
-        "Reset the board and wait for some entity to add strokes to the strokeQueue. 
+        """Reset the board and wait for some entity to add strokes to the strokeQueue. 
         Add these strokes to the board, and build the xml view of the board, then queue the
-        response to send back"
+        response to send back"""
         while True:
             logger.debug("Waiting on queue")
             try:
