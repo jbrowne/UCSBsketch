@@ -50,7 +50,8 @@ logger = Logger.getLogger('DiGraphObserver', Logger.DEBUG )
 #-------------------------------------
 
 class DiGraphAnnotation(Annotation):
-    MATCHING_DISTANCE = 2.0 # Multiplier for how far outside the circle radius to check
+    MATCHING_DISTANCE = 3.0 # Multiplier for how far outside the circle radius to check
+    POINTSTO_DISTANCE = 1.2
     def __init__(self, node_set=None, edge_set=None):
         Annotation.__init__(self)
         # DiGraph annotations maintain 3 things:
@@ -129,7 +130,7 @@ class DiGraphAnnotation(Annotation):
 
     def tipToNode( self, arrow_anno, circle_anno ):
         "return true if the tip of the arrow points to the circle"
-        lineDist = max(len(arrow_anno.tailstroke.Points) / 20, 1) #Check the last 10th of the stroke points the right way
+        lineDist = max(len(arrow_anno.tailstroke.Points) / 10, 1) #Check the last 10th of the stroke points the right way
         if arrow_anno.direction == "tail2head":
             lineSeg = ( arrow_anno.tailstroke.Points[-lineDist], arrow_anno.tip )
         else: #direction == 'head2tail'
@@ -149,7 +150,7 @@ class DiGraphAnnotation(Annotation):
             lineSeg = ( arrow_anno.tailstroke.Points[-lineDist], arrow_anno.tailstroke.Points[-1] )
             
         if GeomUtils.pointDist( arrow_anno.tail,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE:
-            if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius):
+            if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius * DiGraphAnnotation.POINTSTO_DISTANCE):
                 return True
         return False
 

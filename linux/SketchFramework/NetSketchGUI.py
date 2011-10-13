@@ -10,12 +10,10 @@ Description:
           drawCircle
           drawText
    All other functions and interface behavior is up to the GUI designer.
-   This implementation listens for MouseDown events and builds strokes to hand off
-      to the board system. Upon any event, Redraw is called globally to fetch all 
-      board paint objects and display them.
-Todo:
-   It would be nice if the interface weren't so directly tied to the Tkinter underpinnings.
-   I.e., TkSketchGUI is essentially a Tkinter frame object, and must be manipulated similarly.
+
+   This implementation hosts a server on port 30000 to listen for incoming picture data.
+   The photo is then processed to extract the strokes, strokes are added to the board, and
+   the system responds to the client with an xml description of the board's state.
 """
 
 
@@ -60,12 +58,14 @@ logger = Logger.getLogger("NetSketchGUI", Logger.DEBUG)
 
 
 class DrawAction(object):
+    "Base class for a draw action"
     def __init__(self, action_type):
         self.action_type = action_type
     def xml(self):
         raise NotImplemented
 
 class DrawCircle(DrawAction):
+    "An object that defines parameters for drawing a circle"
     def __init__(self, x, y, radius, color, fill, width):
         DrawAction.__init__(self, "Circle")
         self.x = x
@@ -114,6 +114,7 @@ class DrawCircle(DrawAction):
 
 
 class DrawStroke(DrawAction):
+    "An object defining the parameters to draw a stroke"
     def __init__(self, stroke, width, color):
         DrawAction.__init__(self, "Stroke")
         self.stroke = stroke
@@ -138,6 +139,7 @@ class DrawStroke(DrawAction):
         return root
 
 class DrawLine(DrawAction):
+    "An object defining the parameters to draw a Line"
     def __init__(self, x1, y1, x2, y2, width, color):
         DrawAction.__init__(self, "Line")
         self.x1 = x1
@@ -185,6 +187,7 @@ class DrawLine(DrawAction):
         return root
 
 class DrawText(DrawAction):
+    "An object defining parameters to draw a string of text"
     def __init__(self, x, y, text, size, color):
         DrawAction.__init__(self, "Text")
         self.x = x
@@ -229,12 +232,15 @@ class DrawText(DrawAction):
 class ImgProcThread (threading.Thread):
     "A Thread that continually pulls image data from imgQ and puts the resulting stroke list in strokeQ"
     def __init__(self, imgQ, strokeQ):
+        "Initialize the thread as a daemon thread"
         threading.Thread.__init__(self)
         self.daemon = True
 
         self.img_queue = imgQ
         self.stk_queue = strokeQ
+
     def run(self):
+        "Continually monitor img_queue for images, process the image, and add the strokes to stk_queue"
         while True:
             image = StringIO.StringIO(self.img_queue.get())
             logger.debug("Processing net image")
@@ -252,6 +258,7 @@ class ImgProcThread (threading.Thread):
     
 
 class NetSketchGUI(_SketchGUI):
+    "A _SketchGUI subclass that handles network communication and image processing."
 
     Singleton = None
     def __init__(self):
@@ -354,6 +361,9 @@ class NetSketchGUI(_SketchGUI):
             self._drawQueue.append(anno)
 
     def run(self):
+        "Reset the board and wait for some entity to add strokes to the strokeQueue. 
+        Add these strokes to the board, and build the xml view of the board, then queue the
+        response to send back"
         while True:
             logger.debug("Waiting on queue")
             try:
