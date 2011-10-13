@@ -1,4 +1,20 @@
 #!/usr/bin/env python
+"""
+filename: strokeout.py
+
+Description:
+This module handles the extraction of strokes (ordered path of points) from a photo of a whiteboard.
+First, the photo is processed to separate the background from the strokes.
+Then the strokes are thresholded, and thinned to reduce each stroke to a single pixel-wide blob of points.
+Then the points are grouped and ordered into strokes. Currently, strokes are separated at intersections.
+
+Todo:
+* Better thinning (maybe guided by stroke thickness)
+* Faster Thinning
+* Handle blackboards as well as whiteboards
+* Isolate the board area from a wide photo.
+
+"""
 import cv
 import Image
 import pickle
@@ -9,7 +25,9 @@ import time
 import StringIO
 
 
+#Random, but consistent
 random.seed("sketchvision")
+
 BLACK = 0
 WHITE = 255
 GRAY = 200
@@ -31,8 +49,41 @@ PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
 NORMWIDTH = 1000
 DEBUGSCALE = 1
+#***************************************************
+# Intended module interface functions 
+#***************************************************
+
+def cvimgToStrokes(in_img):
+   "External interface to take in an OpenCV image object and return a list of the strokes."
+   saveimg(in_img)
+   small_img = resizeImage(in_img)
+   temp_img = removeBackground(small_img)
+   strokelist = blobsToStrokes(temp_img)
+   return strokelist
+def imageBufferToStrokes(data):
+   "External interface to take in a PIL image buffer object and return a list of the strokes."
+   pil_img = Image.open(data)
+   cv_img = cv.CreateImageHeader(pil_img.size, cv.IPL_DEPTH_8U, 3)
+   cv.SetData(cv_img, pil_img.tostring())
+   cv_mat = cv.GetMat(cv_img)
+   return cvimgToStrokes(cv_mat)
+    
+def imageToStrokes(filename):
+   "External interface to take in a filename for an image and return a list of the strokes."
+   in_img = cv.LoadImageM(filename)
+   return cvimgToStrokes(in_img)
+
+#***************************************************
+# Random Utility Functions
+#***************************************************
+
+def GETNORMWIDTH():
+    "Return the module's NORMWIDTH attribute"
+    global NORMWIDTH
+    return int(NORMWIDTH)
 
 class Timer (object):
+   "A handler that allows for timing of functionality."
    def __init__(self, desc = "Timer"):
       self.start = time.time()
       self.desc = desc
@@ -45,6 +96,7 @@ class Timer (object):
 
 
 def fname_iter():
+   "Used to generate a list of filenames"
    imgnum = 0
    while True:
       fname = "%06.0d.jpg" % (imgnum)
@@ -52,10 +104,8 @@ def fname_iter():
       yield fname 
 
 FNAMEITER = fname_iter()
-#***************************************************
-# Random Utility Functions
-#***************************************************
 def printPoint(pt, img):
+   "Prints the 8-neighborhood around a point in a pretty fashion"
    global CENTERVAL
    px, py = pt
 
@@ -81,6 +131,8 @@ def printPoint(pt, img):
    print "--------------------------"
 
 def thicknessAtPoint(point, img):
+   """Determines the thickness of a blob at a point by growing lines in 8 cardinal directions.
+   Returns the minimum thickness"""
    global BGVAL, FILLEDVAL, CENTERVAL
    px, py = point
 
@@ -312,132 +364,6 @@ def pointsToGraph(pointSet, rawImg):
 
    return graphDict
 
-   
-def getKeyPoints(graph):
-   """Takes in a graph of points and returns a list of keypoint dictionaries.
-   {'endpoints', 'crosspoints', 'edges'}"""
-   retList = []
-   graphCpy = dict(graph)
-   while len(graphCpy) > 0:
-      seed = graphCpy.keys()[0]
-      procStack = [{'pt':seed, 'dist':0}]
-      seen = set([])
-
-      endPoints = set([])
-      crossPoints = set([])
-      while len(procStack) > 0:
-         ptDict = procStack.pop()
-         pt = ptDict['pt']
-         dist = ptDict['dist']
-
-         if pt in seen:
-            continue
-
-
-         if len(graphCpy[pt]['kids']) > 2:
-            crossPoints.add(pt)
-         elif len(graphCpy[pt]['kids']) <= 1:
-            endPoints.add(pt)
-         seen.add(pt)
-         for nPt in graphCpy[pt]['kids']:
-            if nPt in graphCpy and nPt not in seen:
-               procStack.append({'pt':nPt, 'dist': dist + 1})
-         del(graphCpy[pt])
-      retList.append({'seed': seed, 'endpoints' : endPoints, 'crosspoints' : crossPoints})
-
-   _getGraphEdges(graph, retList) #Add the 'edges' field
-   
-   return retList
-
-def strokesFromSeed(seed, graph):
-   """Create a dumb list of strokes from any blob in a graph"""
-   retStrokes = []
-   retStrokes.append( Stroke() )
-   procStack = [{'pt': seed, 'stroke': retStrokes[0]}]
-   seen = set([])
-   while len(procStack) > 0:
-      procDict = procStack.pop()
-      pt = procDict['pt']
-      stroke = procDict['stroke']
-
-      if pt in seen:
-         continue
-
-      seen.add(pt)
-      stroke.addPoint(pt)
-
-      finishStroke = True
-
-      branchesTaken = 0
-      for nPt in graph[pt]['kids']:
-         if nPt not in seen:
-            if branchesTaken > 0: #Create a new stroke for each branch
-               stroke = Stroke()
-               stroke.addPoint(pt)
-               retStrokes.append(stroke)
-            procStack.append({'pt':nPt, 'stroke':stroke})
-            branchesTaken += 1
-
-   return retStrokes 
-   
-def _getGraphEdges(graph, keyPointsList):
-   """Modifies keyPointsList, adding the edge information to each keypoint entry.
-   * DOES NOT RETURN ANYTHING *"""
-   for kpDict in keyPointsList:
-      endPoints = kpDict['endpoints']
-      crossPoints = kpDict['crosspoints']
-      seedPoint = kpDict['seed']
-      edges = kpDict['edges'] = [] #Create a new tag
-
-      #Special case of single point stroke
-      if len(graph[seedPoint]['kids']) == 0:
-         edges.append([seedPoint])
-         continue
-
-      allKeyPts = set(list(endPoints) + list(crossPoints))
-      if len(allKeyPts) == 0:
-         #Just start the edge at the seed
-         allKeyPts.add(seedPoint)
-
-      #Walk the tree linking consecutive points via the edge.
-      #  KeyPoints are used to determine start/end points of each edge
-      procStack = [{'pt' : list(allKeyPts)[0], 'par' : None, 'edge' : []}]
-      seen = set([])
-      while len(procStack) > 0:
-         ptDict = procStack.pop()
-         pt = ptDict['pt']
-         par = ptDict['par']
-         curEdge = ptDict['edge']
-
-         if pt in seen:
-            continue
-
-         #Keypoint is starting an edge
-         if par == None:
-            assert pt in allKeyPts, "Point with no parent, not in keypoint list"
-            for k in graph[pt]['kids']:
-               if k not in seen and k not in allKeyPts:
-                  procStack.append( {'pt' : k, 'par' : pt, 'edge' : [pt]} )
-         #All other keypoints should end an edge and might start a new one
-         elif pt in allKeyPts:
-            curEdge.append(pt)
-            edges.append(curEdge)
-            procStack.append( {'pt' : pt, 'par' : None, 'edge' : None} )
-         #Otherwise just add it to the current edge and move down the line
-         else:
-            seen.add(pt)
-            curEdge.append(pt)
-            numKids = 0
-            for k in graph[pt]['kids']:
-               if k != par:
-                  procStack.append( {'pt': k, 'par' : pt, 'edge': curEdge} )
-                  numKids += 1
-            if numKids != 1:
-               print "Non-keypoint %s added too many/few kids: \n ptDict: %s\n graph[pt]: %s" % (str(pt), ptDict, graph[pt])
-      #END while len(procStack) ...
-   #END for keyPointList ...
-
-
 def _collapseIntersections(graph, rawImg):
    """Given a graph dictionary and a keypoints list (with edge info),
    Collapse overlapping crossing points into one intersection. """
@@ -526,7 +452,132 @@ def _collapseIntersections(graph, rawImg):
          #cv.Circle(DEBUGIMG, avgPt, 2, 0, thickness=-1)
       #saveimg(DEBUGIMG)
 
+   
+def getKeyPoints(graph):
+   """Takes in a graph of points and returns a list of keypoint dictionaries.
+   {'endpoints', 'crosspoints', 'edges'}"""
+   retList = []
+   graphCpy = dict(graph)
+   while len(graphCpy) > 0:
+      seed = graphCpy.keys()[0]
+      procStack = [{'pt':seed, 'dist':0}]
+      seen = set([])
 
+      endPoints = set([])
+      crossPoints = set([])
+      while len(procStack) > 0:
+         ptDict = procStack.pop()
+         pt = ptDict['pt']
+         dist = ptDict['dist']
+
+         if pt in seen:
+            continue
+
+
+         if len(graphCpy[pt]['kids']) > 2:
+            crossPoints.add(pt)
+         elif len(graphCpy[pt]['kids']) <= 1:
+            endPoints.add(pt)
+         seen.add(pt)
+         for nPt in graphCpy[pt]['kids']:
+            if nPt in graphCpy and nPt not in seen:
+               procStack.append({'pt':nPt, 'dist': dist + 1})
+         del(graphCpy[pt])
+      retList.append({'seed': seed, 'endpoints' : endPoints, 'crosspoints' : crossPoints})
+
+   _getGraphEdges(graph, retList) #Add the 'edges' field
+   
+   return retList
+
+def _getGraphEdges(graph, keyPointsList):
+   """Modifies keyPointsList, adding the edge information to each keypoint entry.
+   * DOES NOT RETURN ANYTHING *"""
+   for kpDict in keyPointsList:
+      endPoints = kpDict['endpoints']
+      crossPoints = kpDict['crosspoints']
+      seedPoint = kpDict['seed']
+      edges = kpDict['edges'] = [] #Create a new tag
+
+      #Special case of single point stroke
+      if len(graph[seedPoint]['kids']) == 0:
+         edges.append([seedPoint])
+         continue
+
+      allKeyPts = set(list(endPoints) + list(crossPoints))
+      if len(allKeyPts) == 0:
+         #Just start the edge at the seed
+         allKeyPts.add(seedPoint)
+
+      #Walk the tree linking consecutive points via the edge.
+      #  KeyPoints are used to determine start/end points of each edge
+      procStack = [{'pt' : list(allKeyPts)[0], 'par' : None, 'edge' : []}]
+      seen = set([])
+      while len(procStack) > 0:
+         ptDict = procStack.pop()
+         pt = ptDict['pt']
+         par = ptDict['par']
+         curEdge = ptDict['edge']
+
+         if pt in seen:
+            continue
+
+         #Keypoint is starting an edge
+         if par == None:
+            assert pt in allKeyPts, "Point with no parent, not in keypoint list"
+            for k in graph[pt]['kids']:
+               if k not in seen and k not in allKeyPts:
+                  procStack.append( {'pt' : k, 'par' : pt, 'edge' : [pt]} )
+         #All other keypoints should end an edge and might start a new one
+         elif pt in allKeyPts:
+            curEdge.append(pt)
+            edges.append(curEdge)
+            procStack.append( {'pt' : pt, 'par' : None, 'edge' : None} )
+         #Otherwise just add it to the current edge and move down the line
+         else:
+            seen.add(pt)
+            curEdge.append(pt)
+            numKids = 0
+            for k in graph[pt]['kids']:
+               if k != par:
+                  procStack.append( {'pt': k, 'par' : pt, 'edge': curEdge} )
+                  numKids += 1
+            if numKids != 1:
+               print "Non-keypoint %s added too many/few kids: \n ptDict: %s\n graph[pt]: %s" % (str(pt), ptDict, graph[pt])
+      #END while len(procStack) ...
+   #END for keyPointList ...
+
+
+def strokesFromSeed(seed, graph):
+   """Create a dumb list of strokes from any blob in a graph"""
+   retStrokes = []
+   retStrokes.append( Stroke() )
+   procStack = [{'pt': seed, 'stroke': retStrokes[0]}]
+   seen = set([])
+   while len(procStack) > 0:
+      procDict = procStack.pop()
+      pt = procDict['pt']
+      stroke = procDict['stroke']
+
+      if pt in seen:
+         continue
+
+      seen.add(pt)
+      stroke.addPoint(pt)
+
+      finishStroke = True
+
+      branchesTaken = 0
+      for nPt in graph[pt]['kids']:
+         if nPt not in seen:
+            if branchesTaken > 0: #Create a new stroke for each branch
+               stroke = Stroke()
+               stroke.addPoint(pt)
+               retStrokes.append(stroke)
+            procStack.append({'pt':nPt, 'stroke':stroke})
+            branchesTaken += 1
+
+   return retStrokes 
+   
 def graphToStrokes(graph, rawImg):
    """Takes in a graph of points and generates a list of strokes that covers them"""
    retStrokes = []
@@ -601,6 +652,7 @@ def drawGraph(graph, img):
          setImgVal(k[0], k[1], 128, img)
    
 def pointsToStrokes(pointSet, rawImg):
+   "Converts a set() of point tuples into a list of strokes making up those points"
    global DEBUGIMG
    DEBUGIMG = cv.CloneMat(rawImg)
    cv.Set(DEBUGIMG, 255)
@@ -705,6 +757,8 @@ def filledAndCrossingVals(point, img, skipCorners = False):
 
 
 def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPass = False):
+   """Implements a single step of thinning over the whole image. 
+   Returns the number of pixels changed, the total set of all remaining points, and the thinned image"""
    global DEBUGIMG, FILLEDVAL, BGVAL
    minFill = 4
    maxFill = 6
@@ -808,12 +862,14 @@ class Stroke(object):
       """Return a list of points"""
       return self.points
    def getThickness(self):
+      "Return the median thickness of the points as the thickness of this stroke"
       sortedList = list(self.thicknesses)
       sortedList.sort()
       if len(self.thicknesses) > 0:
          return sortedList[(len(sortedList) / 2) ]
       else:
          return 0
+
    def getThicknesses(self):
       return self.thicknesses
 
@@ -883,6 +939,7 @@ def getHoughLines(img, numlines = 4, method = 1):
 
 
 def resizeImage(img, scale = None):
+   "Take in an image and size it according to scale"
    global NORMWIDTH
    if scale is None:
       targetWidth = NORMWIDTH
@@ -895,7 +952,7 @@ def resizeImage(img, scale = None):
    return retImg
 
 def smooth(img, ksize = 9, t='median'):
-   """Do a median smoothing with kernel size ksize"""
+   """Do a median or gaussian smoothing with kernel size ksize"""
    retimg = cv.CloneMat(img)
    if t == 'gauss':
       smoothtype = cv.CV_GAUSSIAN
@@ -917,6 +974,7 @@ def invert (cv_img):
    return retimg
 
 def printHistogramList(hist, granularity = 1):
+   "Take in a list of values, and print each number prettily, with its index being the bucket"
    accum = 0
    for idx, val in enumerate(hist):
       accum += val
@@ -952,6 +1010,7 @@ def getHistogramList(img, normFactor = 1000):
    return retVector
 
 def isForeGroundGone(img):
+   "Figure out whether the strokes of an image have been smoothed away or still remain"
    debug = False
    hist = getHistogramList(img)
    histNorm = 1000
@@ -1001,8 +1060,12 @@ def isForeGroundGone(img):
    
       
    
+"""
+# ---------------------------------------------
+# Unused object oriented style
+# ---------------------------------------------
    
-class ImageStrokeCoverter(object):
+class ImageStrokeConverter(object):
    DEBUGIMG = None
    WIDTH = 1000 #Normalized width of an image
    #****************************
@@ -1017,31 +1080,31 @@ class ImageStrokeCoverter(object):
    BGVAL = 255 #Background color
    DENOISE_K = 5 / 1000.0
    SMOOTH_K  = 3 / 100.0
-   INK_THRESH = 240
+   INK_THRESH = 250
    def __init__(self, width = WIDTH):
       self._rawImg = None
       self._width = width
-      self._state = ImageStrokeCoverter.EMPTY
+      self._state = ImageStrokeConverter.EMPTY
 
    def loadImage(self, fname):
-      self._state = ImageStrokeCoverter.EMPTY
+      self._state = ImageStrokeConverter.EMPTY
       self._rawImg = cv.LoadImageM(fname)
       self._removeImageBackground()
-      self._state = ImageStrokeCoverter.IMAGELOADED
+      self._state = ImageStrokeConverter.IMAGELOADED
 
    def getStrokes(self):
-      if self._state >= ImageStrokeCoverter.IMAGELOADED:
+      if self._state >= ImageStrokeConverter.IMAGELOADED:
          strokelist = blobsToStrokes(temp_img)
       else:
          return []
 
    def _removeImageBackground(self):
-      """Take in a color image and convert it to a binary image of just ink"""
+      "Take in a color image and convert it to a binary image of just ink"
       #Hardcoded for resolution/phone/distance
       #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
-      denoise_k = ImageStrokeCoverter.DENOISE_K
-      smooth_k  = ImageStrokeCoverter.SMOOTH_K
-      ink_thresh = ImageStrokeCoverter.INK_THRESH
+      denoise_k = ImageStrokeConverter.DENOISE_K
+      smooth_k  = ImageStrokeConverter.SMOOTH_K
+      ink_thresh = ImageStrokeConverter.INK_THRESH
       width = self._rawImg.cols
 
       denoise_k = max (1, int(denoise_k * width))
@@ -1080,6 +1143,7 @@ class ImageStrokeCoverter(object):
       saveimg(gray_img)
       self._rawImg = gray_img
       #gray_img = smooth(gray_img, ksize=denoise_k)
+"""
 
       
 def removeBackground(cv_img):
@@ -1089,7 +1153,7 @@ def removeBackground(cv_img):
    #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
    denoise_k = 5 / 1000.0
    smooth_k  = 3 / 100.0
-   ink_thresh = 230
+   ink_thresh = 248
    width = cv_img.cols
 
    denoise_k = max (1, int(denoise_k * width))
@@ -1140,6 +1204,7 @@ def removeBackground(cv_img):
 
 
 def blobsToStrokes(img):
+   "Take in a black and white image of a whiteboard, thin the ink, and convert the points to strokes."
    global DEBUGIMG, BGVAL
    print "Thinning blobs:"
    rawImg = cv.CloneMat(img)
@@ -1182,21 +1247,6 @@ def blobsToStrokes(img):
 
 
 
-def cvimgToStrokes(in_img):
-   small_img = resizeImage(in_img)
-   temp_img = removeBackground(small_img)
-   strokelist = blobsToStrokes(temp_img)
-   return strokelist
-def imageBufferToStrokes(data):
-   pil_img = Image.open(data)
-   cv_img = cv.CreateImageHeader(pil_img.size, cv.IPL_DEPTH_8U, 3)
-   cv.SetData(cv_img, pil_img.tostring())
-   cv_mat = cv.GetMat(cv_img)
-   return cvimgToStrokes(cv_mat)
-    
-def imageToStrokes(filename):
-   in_img = cv.LoadImageM(filename)
-   return cvimgToStrokes(in_img)
       
 
 
@@ -1269,12 +1319,14 @@ def processStrokes(cv_img):
    return temp_img
 
 def pointDist(p1, p2):
+   "Find the squared distance between two points"
    p1x, p1y = p1
    p2x, p2y = p2
 
    return (p2x-p1x) ** 2 + (p2y-p1y) ** 2
 
 def show(cv_img):
+   "Save and display a cv_Image"
    if cv_img.type == cv.CV_8UC1:
       Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
    elif cv_img.type == cv.CV_8UC3:
@@ -1283,6 +1335,7 @@ def show(cv_img):
    
 
 def saveimg(cv_img, outdir = "./temp/", title=""):
+   "save a cv Image"
    global FNAMEITER
 
    outfname = outdir + FNAMEITER.next()
