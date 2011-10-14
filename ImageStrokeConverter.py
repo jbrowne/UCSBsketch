@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-filename: strokeout.py
+filename: ImageStrokeConverter.py
 
 Description:
 This module handles the extraction of strokes (ordered path of points) from a photo of a whiteboard.
