@@ -13,6 +13,7 @@ Todo:
 * Faster Thinning
 * Handle blackboards as well as whiteboards
 * Isolate the board area from a wide photo.
+* Make it more object oriented
 
 """
 import cv
@@ -77,6 +78,40 @@ def imageToStrokes(filename):
 # Random Utility Functions
 #***************************************************
 
+def interiorAngle(P1, P2, P3):
+    "Input: three points. Returns the interior angle (radians) of the three points with P2 at the center"
+    X1 = P1[0]
+    Y1 = P1[1]
+    X2 = P2[0]
+    Y2 = P2[1]
+    X3 = P3[0]
+    Y3 = P3[1]
+    a_len = pointDist(P1, P2)
+    b_len = pointDist(P2, P3)
+    c_len = pointDist(P1, P3)
+    a = math.sqrt(a_len)
+    b = math.sqrt(b_len)
+    c = math.sqrt(c_len)
+    #make more explicit
+    try:
+        angle = a_len + b_len - c_len
+        angle = angle / (2 * a * b)
+        angle = math.acos(angle)
+    except (ZeroDivisionError, ValueError):
+        #print "A, B, C:", angle, "=", a_len, b_len, c_len, a, b
+        angle = math.pi
+    return angle * 180 / math.pi
+
+def fname_iter():
+   "Used to generate a list of filenames"
+   imgnum = 0
+   while True:
+      fname = "%06.0d.jpg" % (imgnum)
+      imgnum += 1
+      yield fname 
+
+FNAMEITER = fname_iter()
+
 def GETNORMWIDTH():
     "Return the module's NORMWIDTH attribute"
     global NORMWIDTH
@@ -95,15 +130,6 @@ class Timer (object):
       self.laptime = now
 
 
-def fname_iter():
-   "Used to generate a list of filenames"
-   imgnum = 0
-   while True:
-      fname = "%06.0d.jpg" % (imgnum)
-      imgnum += 1
-      yield fname 
-
-FNAMEITER = fname_iter()
 def printPoint(pt, img):
    "Prints the 8-neighborhood around a point in a pretty fashion"
    global CENTERVAL
@@ -254,119 +280,12 @@ def pointsDistSquared (pt1, pt2):
 #***************************************************
 
    
-def pointsToGraph(pointSet, rawImg):
-   """From a raw, binary image and approximate thinned points associated with it, 
-   turn the thinned points into a bunch of trees.
-   * Thinned strokes are trimmed according to line thickness for better results.
-   * The graphs returned are trees, so closed cycles are split."""
-   graphDict = {}
-   while len(pointSet) > 0:
-      seed = pointSet.pop()
-      pointSet.add(seed)
-      path = []
-      unusedPaths = [path]
-      procStack = [{'pt': seed, 'path': path}]
-      ptsInStack = set([seed])
-      endPoints = set([])
-      while len(procStack) > 0:
-         #Set up the variables for the next point
-         procDict = procStack.pop(0) #Breadth first
-         pt = procDict['pt']
-         ptsInStack.remove(pt)
-
-         if pt not in pointSet:
-            continue
-
-         path = procDict['path']
-         path.append(pt)
-
-         #Which neighbors should we add?
-         addNbors = []
-         for nPt in getEightNeighbors(pt, shuffle = True):
-            if nPt in pointSet and nPt not in ptsInStack:
-               addNbors.append(nPt)
-
-         #Add this point as a "pivot" if it's the first, out of range of the last pivot, 
-         #    or if it is an intersection point. Add all intermediate pixels that got here
-         #    from the last pivot node
-         if len(path) == 1:
-            ptDict = graphDict.setdefault(pt, {'kids': set([]), 'thickness':thicknessAtPoint(pt,rawImg)})
-
-         elif not pointsOverlap(path[0], pt, rawImg) or (len(addNbors) > 1):
-            unusedPaths.remove(path)
-            for idx in xrange(1,len(path)):
-               par = path[idx-1]
-               kid = path[idx]
-               parDict = graphDict.setdefault(par, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
-               kidDict = graphDict.setdefault(kid, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
-               parDict['kids'].add(kid)
-               kidDict['kids'].add(par)
-            path = [pt]
-            unusedPaths.append(path)
-
-         #Add the proper neighbors to the stack with the correct path
-         for i, nPt in enumerate(addNbors):
-            if i > 0:
-               path = list(path)
-               unusedPaths.append(path)
-            procStack.append({'pt':nPt, 'path': path})
-            ptsInStack.add(nPt)
-
-         #Cleanup the node as processed
-         pointSet.remove(pt)
-      #endWhile len(procStack)   Done processing this blob.
-      
-      #*******************************************************
-      #Thickness based pruning has trimmed off the endpoints. Add the pruned
-      #  paths if they extend a current endpoint.
-      #  Start by marking paths to be added in.
-      #*******************************************************
-      usedEndpoints = set([])
-      for upath in list(unusedPaths):
-         head = upath[0]
-         if len(upath) == 1 or head in usedEndpoints or len(graphDict[head]['kids']) != 1: #Add it back in if it connects to an endpoint
-            unusedPaths.remove(upath)
-         usedEndpoints.add(head)
-
-      #Actually add in the extending paths
-      for upath in unusedPaths:
-         head = upath[0]
-         for idx in xrange(1,len(upath)):
-            par = upath[idx-1]
-            kid = upath[idx]
-            parDict = graphDict.setdefault(par, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
-            kidDict = graphDict.setdefault(kid, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
-            parDict['kids'].add(kid)
-            kidDict['kids'].add(par)
-
-      for ep in list(endPoints):
-         for nPt in getEightNeighbors(nPt):
-            if nPt in endPoints:
-               graphDict[ep]['kids'].add(nPt)
-               graphDict[nPt]['kids'].add(ep)
-
-
-   #endWhile len(pointSet)    Done processing all blobs in the image
-
-   #Link back together broken cycles
-   endPoints = set([])
-   for pt, pdict in graphDict.items():
-      if len(pdict['kids']) == 1:
-         endPoints.add(pt)
-
-   for ep in endPoints:
-      for nPt in getEightNeighbors(ep):
-         if nPt in endPoints:
-            graphDict[ep]['kids'].add(nPt)
-            graphDict[nPt]['kids'].add(ep)
-
-   _collapseIntersections(graphDict, rawImg)
-
-   return graphDict
 
 def _collapseIntersections(graph, rawImg):
    """Given a graph dictionary and a keypoints list (with edge info),
    Collapse overlapping crossing points into one intersection. """
+
+   print "Calling from _collapseIntersections"
    keyPointsList = getKeyPoints(graph)
    for kpDict in keyPointsList:
       mergeDict = {}
@@ -403,6 +322,7 @@ def _collapseIntersections(graph, rawImg):
             continue
          alreadyMerged.update(mergeSet)
          #/HACK
+         print "Found %s crossPoints to collapse" % (len(mergeSet))
 
          #Compute the point that will take their place
          xList = [pt[0] for pt in mergeSet]
@@ -410,6 +330,8 @@ def _collapseIntersections(graph, rawImg):
          assert len(xList) > 0 and len(yList) > 0, "Merging an empty set of crossing Points"
          avgPt = ( sum(xList) / len(xList), sum(yList) / len(yList) )
          
+         if avgPt == (525, 469):
+            pdb.set_trace()
          #Gather all of the points to be merged/replaced by the avg point
          mergedPts = set([])
          for edge in kpDict['edges']:
@@ -445,7 +367,10 @@ def _collapseIntersections(graph, rawImg):
             del(graph[mPt])
 
          #Add in the new, merged point and link it to its kids
-         graph[avgPt] = {'kids': kidSet, 'thickness' : thicknessAtPoint(avgPt, rawImg)}
+         #Merge the avgPoint with existing if necessary
+         avgPtDict = graph.setdefault(avgPt, {'kids': set(), 'thickness': 0.0})
+         avgPtDict['kids'].update(kidSet)
+         avgPtDict['thickness'] =  thicknessAtPoint(avgPt, rawImg)
          for k in kidSet:
             graph[k]['kids'].add(avgPt)
 
@@ -578,21 +503,225 @@ def strokesFromSeed(seed, graph):
 
    return retStrokes 
    
+
+def drawGraph(graph, img):
+   for p, pdict in graph.items():
+      setImgVal(p[0], p[1], 128, img)
+      for k in pdict['kids']:
+         drawLine(p,k,220,img)
+         #cv.Line(img, p, k, 220, thickness = 1)
+         #setImgVal(p[0], p[1], 128, img)
+         setImgVal(k[0], k[1], 128, img)
+   
+def pointsToStrokes(pointSet, rawImg):
+   "Converts a set() of point tuples into a list of strokes making up those points"
+   global DEBUGIMG
+   DEBUGIMG = cv.CloneMat(rawImg)
+   cv.Set(DEBUGIMG, 255)
+   graph = pointsToGraph(pointSet, rawImg)
+   drawGraph(graph, DEBUGIMG)
+   saveimg(DEBUGIMG)
+
+   retStrokes = graphToStrokes(graph, rawImg)
+   return retStrokes
+
+def pointsToGraph(pointSet, rawImg):
+   """From a raw, binary image and approximate thinned points associated with it, 
+   turn the thinned points into a bunch of trees.
+   * Thinned strokes are trimmed according to line thickness for better results.
+   * The graphs returned are trees, so closed cycles are split."""
+   graphDict = {}
+   while len(pointSet) > 0:
+      seed = pointSet.pop()
+      pointSet.add(seed)
+      path = []
+      unusedPaths = [path]
+      procStack = [{'pt': seed, 'path': path}]
+      ptsInStack = set([seed])
+      endPoints = set([])
+      while len(procStack) > 0:
+         #Set up the variables for the next point
+         procDict = procStack.pop(0) #Breadth first
+         pt = procDict['pt']
+         ptsInStack.remove(pt)
+
+         if pt not in pointSet:
+            continue
+
+         path = procDict['path']
+         path.append(pt)
+
+         #Which neighbors should we add?
+         addNbors = []
+         for nPt in getEightNeighbors(pt, shuffle = True):
+            if nPt in pointSet and nPt not in ptsInStack:
+               addNbors.append(nPt)
+
+         #Add this point as a "pivot" if it's the first, out of range of the last pivot, 
+         #    or if it is an intersection point. Add all intermediate pixels that got here
+         #    from the last pivot node
+         if len(path) == 1:
+            ptDict = graphDict.setdefault(pt, {'kids': set([]), 'thickness':thicknessAtPoint(pt,rawImg)})
+
+         elif not pointsOverlap(path[0], pt, rawImg) or (len(addNbors) > 1):
+            unusedPaths.remove(path)
+            for idx in xrange(1,len(path)):
+               par = path[idx-1]
+               kid = path[idx]
+               parDict = graphDict.setdefault(par, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
+               kidDict = graphDict.setdefault(kid, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
+               parDict['kids'].add(kid)
+               kidDict['kids'].add(par)
+            path = [pt]
+            unusedPaths.append(path)
+
+         #Add the proper neighbors to the stack with the correct path
+         for i, nPt in enumerate(addNbors):
+            if i > 0:
+               path = list(path)
+               unusedPaths.append(path)
+            procStack.append({'pt':nPt, 'path': path})
+            ptsInStack.add(nPt)
+
+         #Cleanup the node as processed
+         pointSet.remove(pt)
+      #endWhile len(procStack)   Done processing this blob.
+      
+      #*******************************************************
+      #Thickness based pruning has trimmed off the endpoints. Add the pruned
+      #  paths if they extend a current endpoint.
+      #  Start by marking paths to be added in.
+      #*******************************************************
+      usedEndpoints = set([])
+      for upath in list(unusedPaths):
+         head = upath[0]
+         if len(upath) == 1 or head in usedEndpoints or len(graphDict[head]['kids']) != 1: #Add it back in if it connects to an endpoint
+            unusedPaths.remove(upath)
+         usedEndpoints.add(head)
+
+      #Actually add in the extending paths
+      for upath in unusedPaths:
+         head = upath[0]
+         for idx in xrange(1,len(upath)):
+            par = upath[idx-1]
+            kid = upath[idx]
+            parDict = graphDict.setdefault(par, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
+            kidDict = graphDict.setdefault(kid, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
+            parDict['kids'].add(kid)
+            kidDict['kids'].add(par)
+
+      for ep in list(endPoints):
+         for nPt in getEightNeighbors(nPt):
+            if nPt in endPoints:
+               graphDict[ep]['kids'].add(nPt)
+               graphDict[nPt]['kids'].add(ep)
+
+
+   #endWhile len(pointSet)    Done processing all blobs in the image
+
+   #Link back together broken cycles
+   endPoints = set([])
+   for pt, pdict in graphDict.items():
+      if len(pdict['kids']) == 1:
+         endPoints.add(pt)
+
+   for ep in endPoints:
+      for nPt in getEightNeighbors(ep):
+         if nPt in endPoints:
+            graphDict[ep]['kids'].add(nPt)
+            graphDict[nPt]['kids'].add(ep)
+
+   _collapseIntersections(graphDict, rawImg)
+
+   return graphDict
+
+def scoreConcatSmoothness(ptList1, ptList2):
+   "Scores the smoothness of the angle from 0 to 1, 1 being perfectly smooth"
+
+   angleDepth = 5 #A factor of the shortest stroke, how far into each stroke to go for a candidate point
+
+   assert ptList1[-1] == ptList2[0] # They are joined by a point
+   step = max([1, min([angleDepth, len(ptList1) / 10, len(ptList2) / 10]) ]) #Step at least 1, at most 1/10 of the shorter stroke
+
+   p1 = ptList1[-step]
+   p2 = ptList1[-1] # = ptList2[0]
+   p3 = ptList2[step]
+   
+   return interiorAngle(p1, p2, p3) / 180.0
+
+
+
+
+
 def graphToStrokes(graph, rawImg):
    """Takes in a graph of points and generates a list of strokes that covers them"""
    retStrokes = []
 
 
+   print "Calling from graphToStrokes"
    keyPointsList = getKeyPoints(graph)
+
    allEdgeList = [kp['edges'] for kp in keyPointsList]
 
-   for edgeList in allEdgeList:
-      for edge in edgeList:
+   endPointMap = {} #Will map { <endPoint> : [ strokes with that ep ] }
+      
+
+   for kpDict in keyPointsList:
+      if len(kpDict['edges']) == 1:
          stroke = Stroke()
-         for pt in edge:
+         for pt in kpDict['edges'][0]:
             stroke.addPoint(pt)
          retStrokes.append(stroke)
+      elif len(kpDict['edges']) > 1:
+         print "%s Edges to cover" % (len(kpDict['edges']))
+         edgeList = list(kpDict['edges'])
+         print "%s Crossing points to cover" % (len(kpDict['crosspoints']))
+         for cp in kpDict['crosspoints']:
+            print "Processing cross Point"
+            #Build crossingEdges to contain point lists with cp at index 0
+            crossingEdges = []
+            for edge in list(edgeList):
+               if edge[0] == cp:
+                  crossingEdges.append(edge)
+                  edgeList.remove(edge)
+               elif edge[-1] == cp:
+                  crossingEdges.append(list(reversed(edge)))
+                  edgeList.remove(edge)
+
+            #Match the best strokes at this CP
+            while len(crossingEdges) > 1:
+               print "  %s crossing edges to process" % (len(crossingEdges))
+               #Get the smoothest pair intersecting at this point
+               bestPair = (0, 1)
+               bestSmoothness = 0
+               for i in xrange(len(crossingEdges)):
+                  for j in xrange(i + 1, len(crossingEdges)):
+                     curSmoothness = scoreConcatSmoothness(list(reversed(crossingEdges[i])), crossingEdges[j])
+                     if curSmoothness > bestSmoothness:
+                        bestSmoothness = curSmoothness
+                        bestPair = (i, j)
+               e1 = crossingEdges[bestPair[0]]
+               e2 = crossingEdges[bestPair[1]]
+               newEdge = list(reversed(e1)) + e2[1:]
+               print "    Covering 2 edges by merging into 1"
+               edgeList.append(newEdge)
+               crossingEdges.remove(e1)
+               crossingEdges.remove(e2)
+
+            if len(crossingEdges) > 0:
+               edgeList.extend(crossingEdges)
+               print "    Covering %s edges by adding each alone" % (len(crossingEdges))
+         #end for cp in kpDict[...]
+
+         for edge in edgeList:
+            stroke = Stroke()
+            for pt in edge:
+               stroke.addPoint(pt)
+            retStrokes.append(stroke)
+      #end elif len(kpDict ... )
+            
    return retStrokes
+
    """
    keyPoints = getKeyPoints(graph)
    edgeList = getGraphEdges(graph)
@@ -641,28 +770,6 @@ def graphToStrokes(graph, rawImg):
       retStrokes.extend(strokes)
    return retStrokes
    """
-
-def drawGraph(graph, img):
-   for p, pdict in graph.items():
-      setImgVal(p[0], p[1], 128, img)
-      for k in pdict['kids']:
-         drawLine(p,k,220,img)
-         #cv.Line(img, p, k, 220, thickness = 1)
-         #setImgVal(p[0], p[1], 128, img)
-         setImgVal(k[0], k[1], 128, img)
-   
-def pointsToStrokes(pointSet, rawImg):
-   "Converts a set() of point tuples into a list of strokes making up those points"
-   global DEBUGIMG
-   DEBUGIMG = cv.CloneMat(rawImg)
-   cv.Set(DEBUGIMG, 255)
-   graph = pointsToGraph(pointSet, rawImg)
-   drawGraph(graph, DEBUGIMG)
-   saveimg(DEBUGIMG)
-
-   retStrokes = graphToStrokes(graph, rawImg)
-   return retStrokes
-
 def filledAndCrossingVals(point, img, skipCorners = False):
    """
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
