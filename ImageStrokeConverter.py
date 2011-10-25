@@ -330,8 +330,6 @@ def _collapseIntersections(graph, rawImg):
          assert len(xList) > 0 and len(yList) > 0, "Merging an empty set of crossing Points"
          avgPt = ( sum(xList) / len(xList), sum(yList) / len(yList) )
          
-         if avgPt == (525, 469):
-            pdb.set_trace()
          #Gather all of the points to be merged/replaced by the avg point
          mergedPts = set([])
          for edge in kpDict['edges']:
@@ -1298,7 +1296,7 @@ def removeBackground(cv_img):
    cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
    saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
-   gray_img = smooth(gray_img, ksize=3, t='gauss')
+   gray_img = smooth(gray_img, ksize=3, t='median')
    saveimg(gray_img)
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
    saveimg(gray_img)
@@ -1310,9 +1308,12 @@ def removeBackground(cv_img):
 
 
 
+
+
+
 def blobsToStrokes(img):
    "Take in a black and white image of a whiteboard, thin the ink, and convert the points to strokes."
-   global DEBUGIMG, BGVAL
+   global DEBUGIMG, BGVAL, FILLEDVAL
    print "Thinning blobs:"
    rawImg = cv.CloneMat(img)
 
@@ -1331,12 +1332,28 @@ def blobsToStrokes(img):
    changed1 = True
    changed2 = True
    evenIter = True 
+   FILLEDVAL = 240
+   psetSize = None
+
+   chartFile = open("pointsData.txt", "w")
    while changed1 or changed2:
       print "Pass %s" % (passnum)
       saveimg(img)
       evenIter = (passnum %2 == 0)
       t1 = time.time()
       numChanged, pointSet, img = thinBlobsPoints(pointSet, img, cleanNoise = (passnum <= 2), evenIter = evenIter)
+      print >> chartFile, numChanged
+
+      if psetSize == None:
+         psetSize = len(pointSet)
+
+      """
+      if len(pointSet) <= psetSize / 2.0:
+         if FILLEDVAL == 240:
+            FILLEDVAL = 2
+         else:
+            FILLEDVAL = 241
+      """
       t2 = time.time()
       print "Num changes = %s in %s ms" % (numChanged, (t2-t1) * 1000 )
       if passnum % 2 == 0:
@@ -1346,6 +1363,8 @@ def blobsToStrokes(img):
       passnum += 1
    print ""
    numChanged, pointSet, img = thinBlobsPoints(pointSet, img, finalPass = True)
+   print >> chartFile, numChanged 
+   chartFile.close()
 
    saveimg(img)
    print "Tracing strokes"
