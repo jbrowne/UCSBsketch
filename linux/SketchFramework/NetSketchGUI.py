@@ -31,7 +31,7 @@ from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
 from SketchFramework.NetworkReceiver import ServerThread
-from SketchFramework.strokeout import imageBufferToStrokes, GETNORMWIDTH
+from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 
 from Observers import CircleObserver
 from Observers import ArrowObserver
