@@ -67,6 +67,7 @@ def imageBufferToStrokes(data):
    cv_img = cv.CreateImageHeader(pil_img.size, cv.IPL_DEPTH_8U, 3)
    cv.SetData(cv_img, pil_img.tostring())
    cv_mat = cv.GetMat(cv_img)
+   cv.CvtColor(cv_img, cv_img, cv.CV_RGB2BGR)
    return cvimgToStrokes(cv_mat)
     
 def imageToStrokes(filename):
@@ -78,6 +79,11 @@ def imageToStrokes(filename):
 # Random Utility Functions
 #***************************************************
 
+def AllPtsIter(w,h):
+  "An iterator to generate pairs of points (x, y) where  0 <= x < w, and 0 <= y < h"
+  for i in xrange(w):
+     for j in xrange(h):
+        yield (i, j)
 def interiorAngle(P1, P2, P3):
     "Input: three points. Returns the interior angle (radians) of the three points with P2 at the center"
     X1 = P1[0]
@@ -636,14 +642,25 @@ def pointsToGraph(pointSet, rawImg):
 def scoreConcatSmoothness(ptList1, ptList2):
    "Scores the smoothness of the angle from 0 to 1, 1 being perfectly smooth"
 
-   angleDepth = 5 #A factor of the shortest stroke, how far into each stroke to go for a candidate point
+   angleDepth = 3 #A factor of the shortest stroke, how far into each stroke to go for a candidate point
 
    assert ptList1[-1] == ptList2[0] # They are joined by a point
-   step = max([1, min([angleDepth, len(ptList1) / 10, len(ptList2) / 10]) ]) #Step at least 1, at most 1/10 of the shorter stroke
+   step = max([1, min([angleDepth, len(ptList1) / 10, len(ptList2) / 10]) ]) #Step at least 1, at most 5 points or 1/10 of the shorter stroke
+
+   #If there are enough points, skip the shared point and get a more representative point
+   if len(ptList1) > 1 and step > 2:
+      p2a = ptList1[-2]
+   else:
+      p2a = ptList1[-1]
+
+   if len(ptList2) > 1 and step > 2:
+      p2b = ptList2[1]
+   else:
+      p2b = ptList2[0]
 
    p1 = ptList1[-step]
-   p2 = ptList1[-1] # = ptList2[0]
-   p3 = ptList2[step]
+   p2 = ( (p2a[0] + p2b[0]) / 2.0, (p2a[1] + p2b[1]) / 2.0 )
+   p3 = ptList2[step - 1]
    
    return interiorAngle(p1, p2, p3) / 180.0
 
@@ -898,10 +915,25 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
          #saveimg(outImg)
       elif filled > 2: #No need to process otherwise
          retPoints.add(p)
-   saveimg(outImg)
 
    return ( numChanged, retPoints, outImg )
 
+def erodeBlobsPoints (pointSet, img):
+   numChanged = 0
+   retPoints = set()
+   outImg = cv.CloneMat(img)
+   for p in pointSet:
+      (i,j) = p
+      valDict = filledAndCrossingVals(p, img, skipCorners = False)
+
+      if valDict['filled'] > 1:
+         if valDict['filled'] < 8:
+            numChanged += 1
+            setImgVal(i, j, FILLEDVAL, outImg)
+         else:
+            retPoints.add(p)
+
+   return ( numChanged, retPoints, outImg )
 
 def getImgVal(x,y,img, errorVal = -1):
    """Returns the image value for pixel x,y in img or -1 as error."""
@@ -1116,7 +1148,17 @@ def getHistogramList(img, normFactor = 1000):
 
 def isForeGroundGone(img):
    "Figure out whether the strokes of an image have been smoothed away or still remain"
+   borderThresh = 0.10 #How much of the border to ignore in figuring whether the foreground is gone
    debug = False
+   left = int( borderThresh * img.cols)
+   right = int( (1 - borderThresh) * img.cols)
+   top = int( borderThresh * img.rows)
+   bottom = int( (1 - borderThresh) * img.rows)
+
+   activeROI = ( left, top, right, bottom)
+   print "Checking foreground of %s" % (str(activeROI))
+   img = cv.GetSubRect(img, activeROI)
+   
    hist = getHistogramList(img)
    histNorm = 1000
    foreGroundThresh = 80
@@ -1258,7 +1300,7 @@ def removeBackground(cv_img):
    #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
    denoise_k = 5 / 1000.0
    smooth_k  = 3 / 100.0
-   ink_thresh = 248
+   ink_thresh = 90
    width = cv_img.cols
 
    denoise_k = max (1, int(denoise_k * width))
@@ -1276,6 +1318,7 @@ def removeBackground(cv_img):
    cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
    #Create histogram for single channel (0..255 range), into 255 bins
    bg_img = gray_img
+   emph_img = bg_img
    while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows:
       #printHistogramList(getHistogramList(bg_img), granularity = 5)
 
@@ -1285,24 +1328,35 @@ def removeBackground(cv_img):
       if smooth_k % 2 == 0:
          smooth_k += 1
 
-      saveimg(bg_img)
-   #cv.EqualizeHist(bg_img, bg_img)
-   #cv.EqualizeHist(gray_img, gray_img)
    bg_img = invert(bg_img)
-   #gray_img = smooth(gray_img, ksize=denoise_k)
 
    saveimg(gray_img)
   
-   cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
+   cv.AddWeighted(gray_img, 0.5, bg_img, 0.5, 0.0, gray_img )
    saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
-   gray_img = smooth(gray_img, ksize=3, t='median')
+   gray_img = invert(gray_img)
+
+   #gray_img = smooth(gray_img, ksize=3, t='median')
+   saveimg(gray_img)
+   for i in [3]: #xrange(3):
+      gray_img2 = smooth(gray_img, ksize=i, t='median')
+      gamma = (i * 2 - 2)* -128 - 100
+      cv.AddWeighted(gray_img, i, gray_img2, i, gamma, gray_img )
+      saveimg(gray_img)
+   gray_img = invert(gray_img)
+   saveimg(gray_img)
+   #gray_img = smooth(gray_img, ksize=denoise_k)
+   #saveimg(gray_img)
+   gray_img = smooth(gray_img, ksize=3, t='gauss')
    saveimg(gray_img)
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
    saveimg(gray_img)
+   #_, _, gray_img = erodeBlobsPoints(AllPtsIter(gray_img.cols, gray_img.rows), gray_img)
    #show(gray_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
 
+   #exit(1)
    return gray_img
 
 
@@ -1317,10 +1371,6 @@ def blobsToStrokes(img):
    print "Thinning blobs:"
    rawImg = cv.CloneMat(img)
 
-   def AllPtsIter(w,h):
-      for i in xrange(w):
-         for j in xrange(h):
-            yield (i, j)
 
    t1 = time.time()
    pointSet = AllPtsIter(img.cols, img.rows)
@@ -1328,26 +1378,38 @@ def blobsToStrokes(img):
    print "Candidate Points generated %s ms" % (1000 * (t2 - t1))
          
 
-   passnum = 1
+   passnum = 0
    changed1 = True
    changed2 = True
    evenIter = True 
    FILLEDVAL = 240
    psetSize = None
+   isHollowed = False
 
    chartFile = open("pointsData.txt", "w")
+   numChanged, pointSet, img = erodeBlobsPoints(pointSet, img)
    while changed1 or changed2:
+      passnum += 1
       print "Pass %s" % (passnum)
       saveimg(img)
       evenIter = (passnum %2 == 0)
       t1 = time.time()
-      numChanged, pointSet, img = thinBlobsPoints(pointSet, img, cleanNoise = (passnum <= 2), evenIter = evenIter)
-      print >> chartFile, numChanged
 
+      numChanged, pointSet, img = thinBlobsPoints(pointSet, img, cleanNoise = (passnum <= 2), evenIter = evenIter)
       if psetSize == None:
          psetSize = len(pointSet)
 
+      print >> chartFile, numChanged, len(pointSet), numChanged / float(len(pointSet)), numChanged / float(psetSize)
       """
+      if numChanged / float(psetSize) < 0.04 and not isHollowed:
+         numChanged, pointSet, img = erodeBlobsPoints(pointSet, img)
+         isHollowed = True
+         continue
+
+      """
+      """
+
+
       if len(pointSet) <= psetSize / 2.0:
          if FILLEDVAL == 240:
             FILLEDVAL = 2
@@ -1360,10 +1422,11 @@ def blobsToStrokes(img):
          changed1 = numChanged > 0
       else:
          changed2 = numChanged > 0
-      passnum += 1
+
    print ""
    numChanged, pointSet, img = thinBlobsPoints(pointSet, img, finalPass = True)
-   print >> chartFile, numChanged 
+   print >> chartFile, numChanged, len(pointSet), numChanged / float(len(pointSet)), numChanged / float(psetSize)
+
    chartFile.close()
 
    saveimg(img)
