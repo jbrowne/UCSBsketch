@@ -374,6 +374,14 @@ class NetSketchGUI(_SketchGUI):
                     self._Board.AddStroke(stk)
                 self._strokeQueue.task_done()
 
+                respXML = self.boardXML()
+                self._xmlResponseQueue.put(ET.tostring(respXML))
+
+                fp = open("xmlout.xml", "w")
+                print >> fp, ET.tostring(respXML)
+                fp.close()
+
+                """
                 for stk in self._Board.Strokes:
                     stk.drawMyself()
 
@@ -383,8 +391,24 @@ class NetSketchGUI(_SketchGUI):
                     obs.drawMyself()
 
                 self._processDrawQueue()
+                """
             except Queue.Empty as e:
                 logger.debug("No strokes yet...")
+    def boardXML(self):
+        root = ET.Element("Board")
+        root.attrib['height'] = str(HEIGHT)
+        root.attrib['width'] = str(WIDTH)
+
+        strokes_el = ET.SubElement(root, "Strokes")
+        for s in self._Board.Strokes:
+            strokes_el.append(s.xml())
+
+        annos_el = ET.SubElement(root, "Annotations")
+        for a in self._Board.FindAnnotations():
+            annos_el.append(a.xml())
+
+        return root
+ 
     def _processDrawQueue(self):
         "Go through the draw queue and draw what needs to be drawn"
         drawXML = ET.Element("Board")

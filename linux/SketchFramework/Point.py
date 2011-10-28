@@ -1,5 +1,6 @@
 import sys
 from SketchFramework.Annotation import Annotation, AnnotatableObject
+from xml.etree import ElementTree as ET
 
 class Point(AnnotatableObject):   
     "Point defined by X, Y, T.  X,Y Cartesian Coords, T as Time"
@@ -12,6 +13,14 @@ class Point(AnnotatableObject):
         self.Y = float(yLoc)
         self.T = float(drawTime)
 
+    def xml(self):
+        root = ET.Element("p")
+        root.attrib['x'] = str(self.X)
+        root.attrib['y'] = str(self.Y)
+        root.attrib['t'] = str(self.T)
+
+        return root
+ 
     def distance(self, point2):
          "Returns the distance from this point to the point in argument 1"
          from Utils import GeomUtils

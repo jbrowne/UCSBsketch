@@ -102,11 +102,6 @@ class DiGraphAnnotation(Annotation):
 
         return root
 
-
-            
-
-
-
     def updateConnectMap(self):
         "walk the set of edges and nodes, build a map of which nodes point to which edges and nodes"
         self.connectMap = {}

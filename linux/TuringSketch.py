@@ -26,6 +26,7 @@ from Observers import DiGraphObserver
 from Observers import TextObserver
 from Observers import DebugObserver
 from Observers import TuringMachineObserver
+from xml.etree import ElementTree as ET
 
 
 # Constants
@@ -355,6 +356,7 @@ class TkSketchFrame(Frame):
         #print "> Redraw Start"
         sys.stdout.flush()
         self.BoardCanvas.delete(ALL)
+        print ET.tostring(self.Board.xml())
         strokes = self.Board.Strokes
         observers = self.Board.BoardObservers
         if self.shouldDrawStrokes:
