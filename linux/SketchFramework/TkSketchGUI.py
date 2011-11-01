@@ -42,6 +42,9 @@ from Utils import Logger
 
 from Observers.ObserverBase import Animator
 
+
+from Observers import RubineObserver
+
 # Constants
 WIDTH = 1000
 HEIGHT = 800
@@ -131,9 +134,9 @@ class TkSketchFrame(Frame):
         self.BoardCanvas.bind("<ButtonRelease-1>", self.CanvasMouseUp)      
 
         #Right click bindings
-        self.BoardCanvas.bind("<ButtonPress-3>", self.CanvasRightMouseDown)
-        self.BoardCanvas.bind("<B3-Motion>", self.CanvasRightMouseDown)          
-        self.BoardCanvas.bind("<ButtonRelease-3>", self.CanvasRightMouseUp)      
+        self.BoardCanvas.bind("<ButtonPress-2>", self.CanvasRightMouseDown)
+        self.BoardCanvas.bind("<B2-Motion>", self.CanvasRightMouseDown)          
+        self.BoardCanvas.bind("<ButtonRelease-2>", self.CanvasRightMouseUp)      
 
         self.StrokeQueue = Queue.Queue()
         self.Board = None
@@ -162,11 +165,18 @@ class TkSketchFrame(Frame):
         self.RebuildObjectMenu()
         top_menu.add_cascade(label="ObjectMenu", menu=self.object_menu)
 
-        top_menu.add_command(label="Reset Board", command = (lambda :self.ResetBoard() or self.Redraw()), underline=1 )
-        top_menu.add_command(label="Load strokes.dat", command = (lambda : self.LoadStrokes() or self.Redraw()), underline=1 )
-        top_menu.add_command(label="Save strokes.dat", command = (lambda : self.SaveStrokes()), underline=1 )
-        top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
+        self.object_menu.add_command(label="Reset Board", command = (lambda :self.ResetBoard() or self.Redraw()), underline=1 )
+        self.object_menu.add_command(label="Load strokes.dat", command = (lambda : self.LoadStrokes() or self.Redraw()), underline=1 )
+        self.object_menu.add_command(label="Save strokes.dat", command = (lambda : self.SaveStrokes()), underline=1 )
+        self.object_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
         #top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
+
+        self.rubine_menu = Menu(top_menu)
+        trainer = RubineObserver.RubineTrainer()
+        top_menu.add_cascade(label="Rubine", menu=self.rubine_menu)
+        self.rubine_menu.add_command(label="Start Training", command = (lambda :trainer.startTraining() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="Finish Training", command = (lambda :trainer.finishTraining() or self.Redraw()), underline=1 )
+
 
 
     def AddQueuedStroke(self):
@@ -273,6 +283,7 @@ class TkSketchFrame(Frame):
         self.p_y = HEIGHT - y
 
     def CanvasRightMouseUp(self, event):
+        print "right mouse!"
         delStrokes = set([])
         if len(self.CurrentPointList) > 0:
             stroke = Stroke( self.CurrentPointList )#, smoothing=True )
