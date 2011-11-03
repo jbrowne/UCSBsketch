@@ -57,25 +57,42 @@ class RubineAnnotation(Annotation):
 
 #-------------------------------------
 
+def scaleToSquare()
+
 def getRubineVector(stroke):
+    # normalize the stroke
     p = GeomUtils.strokeNormalizeSpacing(stroke).Points
+
+    # scale the stroke to a known length
+
     # The first feature is the cosine of the inital angle
-    f1 = (p[2].X - p[0].X) / GeomUtils.pointDist(p[0], p[2])
     # The second feature is the sine of the inital angle
-    f2 = (p[2].Y - p[0].Y) / GeomUtils.pointDist(p[0], p[2])
+    if GeomUtils.pointDist(p[0], p[2]) != 0:
+        f1 = (p[2].X - p[0].X) / GeomUtils.pointDist(p[0], p[2])
+        f2 = (p[2].Y - p[0].Y) / GeomUtils.pointDist(p[0], p[2])
+    else:
+        f1 = 0
+        f2 = 0
 
     ul,br = GeomUtils.strokelistBoundingBox( [stroke] )
     # the third is the length of the diagonal of the bb
     f3 = GeomUtils.pointDist(ul, br)
     # 4th is the angle of the bounding box diagonal
-    f4 = math.atan((ul.Y - br.Y)/ (br.X - ul.X))
+    if (br.X - ul.X) != 0:
+        f4 = math.atan((ul.Y - br.Y)/ (br.X - ul.X))
+    else:
+        f4 = 0
 
     last = len(p) - 1
     # 5th is the length between the first and last point
     f5 = GeomUtils.pointDist(p[0], p[last])
     # the 6th and 7th are the cosine and sine of the angle between the first and last point
-    f6 = (p[last].X - p[0].X) / GeomUtils.pointDist(p[0], p[last])
-    f7 = (p[last].Y - p[0].Y) / GeomUtils.pointDist(p[0], p[last])
+    if GeomUtils.pointDist(p[0], p[last]) != 0:
+        f6 = (p[last].X - p[0].X) / GeomUtils.pointDist(p[0], p[last])
+        f7 = (p[last].Y - p[0].Y) / GeomUtils.pointDist(p[0], p[last])
+    else:
+        f6 = 0
+        f7 = 0
 
     # 8th and 9th are the sum of the lengths and angles
     # 10th and 11th are the sum of the absolute value of the angels and to sum of the angles squared
@@ -85,10 +102,11 @@ def getRubineVector(stroke):
     f11 = 0 # sum of the angle squared
     for i in range(len(p) -1):
         f8 += GeomUtils.pointDist(p[i], p[i+1])
-        angle = math.atan((p[i+1].X * p[i].Y - p[i].X * p[i+1].Y) / (p[i].X*p[i+1].X + p[i].Y*p[i+1].Y))
-        f9 += angle
-        f10 += math.fabs(angle)
-        f11 += angle*angle
+        if (p[i].X*p[i+1].X + p[i].Y*p[i+1].Y) != 0:
+            angle = math.atan((p[i+1].X * p[i].Y - p[i].X * p[i+1].Y) / (p[i].X*p[i+1].X + p[i].Y*p[i+1].Y))
+            f9 += angle
+            f10 += math.fabs(angle)
+            f11 += angle*angle
 
     return [f1, f2, f3, f4, f5, f6, f7, f8, f9, f10 ,f11]
 
@@ -98,33 +116,54 @@ class RubineTrainer( BoardObserver ):
     """Class initialized by the TextCollector object"""
 
     _isTraining = 0
-    count = 0
+    count = -1
 
     features = []
-
     testCasesNeeded = 5
+
+    weights = []
+    names = []
+    weight0 = []
 
     def __init__(self):
         BoardObserver.__init__(self)
-        self.marker = RubineMarker()
+        self.marker = RubineMarker(self.weights, self.weight0)
+        BoardSingleton().AddBoardObserver( self.marker )
+        BoardSingleton().RegisterForStroke( self.marker )
         print "Trainer"
     def onStrokeAdded(self, stroke):
         print "Trainer"
 
-        if mod(self.count, self.testCasesNeeded) == 0:
-            self.features.append([])
-        
-        cur = self.features[len(self.features)-1]
-
+        #we need at least three points
+        if len(stroke.Points) < 3:
+            return
 
         feature = getRubineVector(stroke)
-        cur.append(feature)
-        self.count += 1
+        self.features[self.count].append(feature)
         print feature
+
+    def newClass(self):
+        if not self._isTraining:
+            return
+
+        self.count += 1;
+        self.features.append([])
+        self.names.append(str(self.count))
+        print "Starting class " + str(self.count)
+
+
+    def getCovMatrixForClass(self, c, averages):
+        cmc = mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
+        for i in range(len(self.features[c][0])):
+            for j in range(len(self.features[c][0])):
+                for e in self.features[c]:
+                    cmc[i,j] += (e[i] - averages[c][i]) * ( e[j] - averages[c][j])
+        return cmc
 
     def calculateWeights(self):
         averages = []
         cm =  mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
+        cmc = []
         for c in range(len(self.features)): # the gesture classes
             averages.append(zeros(len(self.features[c][0])))
             for j in self.features[c]: # individual test caeses in a class
@@ -133,42 +172,36 @@ class RubineTrainer( BoardObserver ):
                 #print j
             for j in range(len(averages[c])):
                 averages[c][j] /= len(self.features[c])
-            print averages[c]
+            #print averages[c]
+      
+        dividor = -len(self.features)
+        for c in range(len(self.features)):
+            dividor += len(self.features[c])
 
-            #compute the sample covariance matrix
-            for i in range(len(self.features[c][0])):
-                for j in range(len(self.features[c][0])):
-                    val = 0
-                    for e in self.features[c]:
-                        val += (e[i] - averages[c][i]) * ( e[j] - averages[c][j])
-                    cm[i,j] += val / (len(self.features[c]) - 1)
-        
         for i in range(len(self.features[0][0])):
             for j in range(len(self.features[0][0])):
-                cm[i,j] /= len(self.features)*len(self.features[0]) - len(self.features)
+                for c in range(len(self.features)):
+                    cm[i,j] += (self.getCovMatrixForClass(c, averages))[i,j] / (len(self.features[0]) - 1)
+                cm[i,j] /= dividor
 
-        print cm
-        print linalg.det(cm)
+        #print cm
+        #print linalg.det(cm)
         cm = cm.I
 
-        weights = []
-        weight0 = zeros(len(self.features))
+        self.weight0 = zeros(len(self.features))
 
         for c in range(len(self.features)):
-            weights.append(zeros(len(self.features[c][0])))
+            self.weights.append(zeros(len(self.features[c][0])))
             for j in range(len(self.features[0][0])):
                 for i in range(len(self.features[0][0])):
-                    weights[c][j] += cm[i,j] * averages[c][i]
-                weight0[c] +=  weights[c][j] * averages[c][j]
-            weight0[c] /= -2
+                    self.weights[c][j] += cm[i,j] * averages[c][i]
+                self.weight0[c] +=  self.weights[c][j] * averages[c][j]
+            self.weight0[c] /= -2
 
 
 
-        print weights
-        print weight0
-
-
-                
+        print self.weights
+        print self.weight0
 
     def finishTraining(self):
         if not self._isTraining:
@@ -183,7 +216,7 @@ class RubineTrainer( BoardObserver ):
         self.calculateWeights()
 
         #self.featureCount += 1
-
+        self.marker.setWeights(self.weights, self.weight0, self.names)
         BoardSingleton().AddBoardObserver( self.marker )
         BoardSingleton().RegisterForStroke( self.marker )
 
@@ -199,21 +232,117 @@ class RubineTrainer( BoardObserver ):
 
         BoardSingleton().AddBoardObserver( self )
         BoardSingleton().RegisterForStroke( self )
-        
+        self.newClass()
+       
+    def saveWeights(self):
+        TB = ET.TreeBuilder()
+        TB.start("rubine", {})
+        for i in range(self.count + 1):
+            TB.start("class", {'name':self.names[i]})
+            TB.start("weight0", {})
+            TB.data(str(self.weight0[i]))
+            TB.end("weight0") # weight0
+            for j in self.weights[i]:
+                TB.start("weight", {})
+                TB.data(str(j))
+                TB.end("weight")
+            TB.end("class") # class
+
+        TB.end("rubine") # rubine
+
+        elem = TB.close()
+
+        ET.dump(elem)
+        fd = open("rubine.dat", "w")
+        print >> fd, ET.tostring(elem)
+        fd.close()
+
+    def loadWeights(self):
+        et = ET.parse("rubine.dat")
+        classes = et.findall("class")
+        self.count = -1
+
+        for i in classes:
+            self.names.append(i.get("name"))
+            self.weight0.append(float(i.find("weight0").text))
+            self.count += 1
+            self.weights.append([])
+            for j in i.findall("weight"):
+                self.weights[self.count].append(float(j.text))
+                
+        print self.names
+        print self.weight0
+        print self.weights
+        self.marker.setWeights(self.weights, self.weight0, self.names)
+            
 
 #-------------------------------------
+
 
 l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
 class RubineMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
-    def __init__(self):
+
+    weights = []
+    names = []
+    weight0 = 0
+
+    def __init__(self, weights, weight0):
         BoardObserver.__init__(self)
         #BoardSingleton().AddBoardObserver( self )
         #BoardSingleton().RegisterForStroke( self )
         #print "marker"
+
+    def sortByFeatureWeight(self, item):
+        return item[0]
+
     def onStrokeAdded(self, stroke):
         print "marker"
-        print getRubineVector(stroke)
+
+        #we need at least three points
+        if len(stroke.Points) < 3:
+            return
+
+        rubineVector =  getRubineVector(stroke)
+
+        max = 0
+        maxIndex = 0
+        featureWeights = []
+        for i in range(len(self.weight0)):
+            val = self.weight0[i]
+            for j in range(len(self.weights[i])):
+                val += rubineVector[j]*self.weights[i][j]
+            featureWeights.append([val, i])
+            if (val > max):
+                max = val
+                maxIndex = i
+
+        featureWeights.sort(key = self.sortByFeatureWeight)
+        #print featureWeights[len(featureWeights)-1][1]
+        sum = 0
+
+        l = len(featureWeights) - 1
+        for i in range(l+1):
+            print (featureWeights[i][0] / max) - (featureWeights[l][0] / max)
+            print  math.exp((featureWeights[i][0] / max) - (featureWeights[l][0] / max))
+            sum += math.exp((featureWeights[i][0] / max) - (featureWeights[l][0] / max))
+
+        print sum
+        if sum != 0:
+            print 1/sum
+        else:
+            print 0
+
+        print self.names[maxIndex]
+
+    def setWeights(self, weights, weight0, names):
+        self.weights = weights
+        self.weight0 = weight0
+        self.names = names
+        
+#-------------------------------------
+
+    
 
 #-------------------------------------
 

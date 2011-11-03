@@ -176,6 +176,9 @@ class TkSketchFrame(Frame):
         top_menu.add_cascade(label="Rubine", menu=self.rubine_menu)
         self.rubine_menu.add_command(label="Start Training", command = (lambda :trainer.startTraining() or self.Redraw()), underline=1 )
         self.rubine_menu.add_command(label="Finish Training", command = (lambda :trainer.finishTraining() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="New Class", command = (lambda :trainer.newClass() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="Save Weights", command = (lambda :trainer.saveWeights() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="Load Weights", command = (lambda :trainer.loadWeights() or self.Redraw()), underline=1 )
 
 
 
