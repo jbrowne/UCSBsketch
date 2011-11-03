@@ -115,7 +115,10 @@ class CircleVisualizer( BoardObserver ):
         "Watches for annotations to be removed" 
         logger.debug( "A circle annotation was removed with Circularity, Center and Radius = %f, (%f,%f), %f", \
 	 	annotation.circularity, annotation.center.X, annotation.center.Y, annotation.radius )
-        self.annotation_list.remove(annotation)
+        if annotation in self.annotation_list:
+            self.annotation_list.remove(annotation)
+        else:
+            logger.warn("Removing annotation not already tracked")
 
     def drawMyself( self ):
 	for a in self.annotation_list:
