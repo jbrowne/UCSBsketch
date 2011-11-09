@@ -57,19 +57,42 @@ class RubineAnnotation(Annotation):
 
 #-------------------------------------
 
-def scaleToSquare()
+def scalePointsToSquare(points, size):
+    "Input: A list of points. Outputs the list of points transformed to a square"
+    ul,br = GeomUtils.pointlistBoundingBox( points )
+    if (ul.Y - br.Y) == 0:
+        h = 1
+    else:
+        h = size / (ul.Y - br.Y)
+    if (br.X - ul.X) == 0:
+        w = 1
+    else:
+        w = size / (br.X - ul.X)
+
+    bl = br.copy()
+    bl.X = ul.X
+    returnPoints = []
+    for p in points:
+        returnPoints.append(Point( w*(p.X - bl.X), h*(p.Y - bl.Y) ))
+
+    return returnPoints
+
 
 def getRubineVector(stroke):
     # normalize the stroke
+    
     p = GeomUtils.strokeNormalizeSpacing(stroke).Points
 
     # scale the stroke to a known length
 
+    sp = p
+    #sp = scalePointsToSquare(p, 100)
+
     # The first feature is the cosine of the inital angle
     # The second feature is the sine of the inital angle
-    if GeomUtils.pointDist(p[0], p[2]) != 0:
-        f1 = (p[2].X - p[0].X) / GeomUtils.pointDist(p[0], p[2])
-        f2 = (p[2].Y - p[0].Y) / GeomUtils.pointDist(p[0], p[2])
+    if GeomUtils.pointDist(sp[0], sp[2]) != 0:
+        f1 = (sp[2].X - sp[0].X) / GeomUtils.pointDist(sp[0], sp[2])
+        f2 = (sp[2].Y - sp[0].Y) / GeomUtils.pointDist(sp[0], sp[2])
     else:
         f1 = 0
         f2 = 0
@@ -85,11 +108,11 @@ def getRubineVector(stroke):
 
     last = len(p) - 1
     # 5th is the length between the first and last point
-    f5 = GeomUtils.pointDist(p[0], p[last])
+    f5 = GeomUtils.pointDist(sp[0], sp[last])
     # the 6th and 7th are the cosine and sine of the angle between the first and last point
-    if GeomUtils.pointDist(p[0], p[last]) != 0:
-        f6 = (p[last].X - p[0].X) / GeomUtils.pointDist(p[0], p[last])
-        f7 = (p[last].Y - p[0].Y) / GeomUtils.pointDist(p[0], p[last])
+    if GeomUtils.pointDist(sp[0], sp[last]) != 0:
+        f6 = (sp[last].X - sp[0].X) / GeomUtils.pointDist(sp[0], sp[last])
+        f7 = (sp[last].Y - sp[0].Y) / GeomUtils.pointDist(sp[0], sp[last])
     else:
         f6 = 0
         f7 = 0
@@ -100,10 +123,10 @@ def getRubineVector(stroke):
     f9 = 0 # angle sum
     f10 = 0 # sum of the absolute value of the angle
     f11 = 0 # sum of the angle squared
-    for i in range(len(p) -1):
-        f8 += GeomUtils.pointDist(p[i], p[i+1])
-        if (p[i].X*p[i+1].X + p[i].Y*p[i+1].Y) != 0:
-            angle = math.atan((p[i+1].X * p[i].Y - p[i].X * p[i+1].Y) / (p[i].X*p[i+1].X + p[i].Y*p[i+1].Y))
+    for i in range(len(sp) -1):
+        f8 += GeomUtils.pointDist(sp[i], sp[i+1])
+        if (sp[i].X*sp[i+1].X + sp[i].Y*sp[i+1].Y) != 0:
+            angle = math.atan((sp[i+1].X * sp[i].Y - sp[i].X * sp[i+1].Y) / (sp[i].X*sp[i+1].X + sp[i].Y*sp[i+1].Y))
             f9 += angle
             f10 += math.fabs(angle)
             f11 += angle*angle
@@ -111,6 +134,9 @@ def getRubineVector(stroke):
     return [f1, f2, f3, f4, f5, f6, f7, f8, f9, f10 ,f11]
 
 #-------------------------------------
+
+covarianceMatrixInverse = []
+averages = []
 
 class RubineTrainer( BoardObserver ):
     """Class initialized by the TextCollector object"""
@@ -124,6 +150,7 @@ class RubineTrainer( BoardObserver ):
     weights = []
     names = []
     weight0 = []
+    
 
     def __init__(self):
         BoardObserver.__init__(self)
@@ -160,20 +187,27 @@ class RubineTrainer( BoardObserver ):
                     cmc[i,j] += (e[i] - averages[c][i]) * ( e[j] - averages[c][j])
         return cmc
 
+    def getAverageForClass(self, examples):
+        averages = zeros(len(examples[0]))
+        for e in examples: 
+            for i in range(len(e)):
+                averages[i] += e[i]
+        
+        for i in range(len(averages)):
+            averages[i] /= len(examples)
+
+        return averages
+
     def calculateWeights(self):
+        global covarianceMatrixInverse
+        global averages
+
         averages = []
         cm =  mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
         cmc = []
-        for c in range(len(self.features)): # the gesture classes
-            averages.append(zeros(len(self.features[c][0])))
-            for j in self.features[c]: # individual test caeses in a class
-                for k in range(len(j)): # individual fatures in a test
-                    averages[c][k] += j[k]
-                #print j
-            for j in range(len(averages[c])):
-                averages[c][j] /= len(self.features[c])
-            #print averages[c]
-      
+        for c in self.features: # the gesture classes
+            averages.append(self.getAverageForClass(c))
+            
         dividor = -len(self.features)
         for c in range(len(self.features)):
             dividor += len(self.features[c])
@@ -187,9 +221,9 @@ class RubineTrainer( BoardObserver ):
         #print cm
         #print linalg.det(cm)
         cm = cm.I
+        covarianceMatrixInverse = cm
 
         self.weight0 = zeros(len(self.features))
-
         for c in range(len(self.features)):
             self.weights.append(zeros(len(self.features[c][0])))
             for j in range(len(self.features[0][0])):
@@ -197,6 +231,21 @@ class RubineTrainer( BoardObserver ):
                     self.weights[c][j] += cm[i,j] * averages[c][i]
                 self.weight0[c] +=  self.weights[c][j] * averages[c][j]
             self.weight0[c] /= -2
+
+        # normalize the weights
+        maxWeight = 0.0
+
+        for c in self.weights:
+            for weight in c:
+                if math.fabs(weight) > maxWeight:
+                    maxWeight = math.fabs(weight)
+
+        for c in self.weights:
+            for i in range(len(c)):
+                c[i] /= maxWeight
+
+        for i in range(len(self.weight0)):
+            self.weight0[i] /= maxWeight
 
 
 
@@ -297,6 +346,10 @@ class RubineMarker( BoardObserver ):
         return item[0]
 
     def onStrokeAdded(self, stroke):
+
+        global covarianceMatrixInverse
+        global averages
+
         print "marker"
 
         #we need at least three points
@@ -305,7 +358,7 @@ class RubineMarker( BoardObserver ):
 
         rubineVector =  getRubineVector(stroke)
 
-        max = 0
+        max = 0.00000001
         maxIndex = 0
         featureWeights = []
         for i in range(len(self.weight0)):
@@ -320,10 +373,10 @@ class RubineMarker( BoardObserver ):
         featureWeights.sort(key = self.sortByFeatureWeight)
         #print featureWeights[len(featureWeights)-1][1]
         sum = 0
-
+        
         l = len(featureWeights) - 1
         for i in range(l+1):
-            print (featureWeights[i][0] / max) - (featureWeights[l][0] / max)
+            print (featureWeights[i][0] ) - (featureWeights[l][0] )
             print  math.exp((featureWeights[i][0] / max) - (featureWeights[l][0] / max))
             sum += math.exp((featureWeights[i][0] / max) - (featureWeights[l][0] / max))
 
@@ -332,6 +385,19 @@ class RubineMarker( BoardObserver ):
             print 1/sum
         else:
             print 0
+        
+        '''
+        # Mahalanobis distance
+        delta = 0
+        for j in range(len(self.weights[0])):
+            for k in range(len(self.weights[0])):
+                delta += covarianceMatrixInverse[j,k] * (rubineVector[j] - averages[maxIndex][j]) * (rubineVector[k] - averages[maxIndex][k])
+
+        print str(delta) + " : " + str(len(self.weights[0]) * len(self.weights[0]) * 0.5)
+
+        if delta > len(self.weights[0]) * len(self.weights[0]) * 0.5:
+            print "DON'T RECOGNISE!"
+        '''
 
         print self.names[maxIndex]
 

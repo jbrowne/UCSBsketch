@@ -687,7 +687,21 @@ def boundingboxOverlap( bb1, bb2 ):
     return True # there is a collision
 
 #--------------------------------------------------------------
-# Functions on Lists of Points 
+# Functions on Lists of Points
+
+def pointlistBoundingBox( pointlist ):
+    "Input: a list of points. Return the bounding box as a tuple of points, (topleft,bottomright)"
+    if len(pointlist) < 1:
+        return
+    topleft = pointlist[0].copy()
+    bottomright = pointlist[0].copy()
+    for p in pointlist:
+        topleft.X = min( topleft.X, p.X )
+        topleft.Y = max( topleft.Y, p.Y)
+        bottomright.X = max( bottomright.X, p.X )
+        bottomright.Y = min( bottomright.Y, p.Y )    
+    return (topleft,bottomright)
+        
 
 def momentOfOrder(center, inPoints, p, q):
     "Input: Point center, List inPoints, int p, q.  Returns the Mathematical moment of a set of points or orders p, q"
