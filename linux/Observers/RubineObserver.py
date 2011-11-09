@@ -204,18 +204,19 @@ class RubineTrainer( BoardObserver ):
 
         averages = []
         cm =  mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
-        cmc = []
+        cmc = [] # covariance matrix for each class
         for c in self.features: # the gesture classes
             averages.append(self.getAverageForClass(c))
             
         dividor = -len(self.features)
         for c in range(len(self.features)):
             dividor += len(self.features[c])
+            cmc.append(self.getCovMatrixForClass(c, averages))
 
         for i in range(len(self.features[0][0])):
             for j in range(len(self.features[0][0])):
                 for c in range(len(self.features)):
-                    cm[i,j] += (self.getCovMatrixForClass(c, averages))[i,j] / (len(self.features[0]) - 1)
+                    cm[i,j] += (cmc[c])[i,j] / (len(self.features[0]) - 1)
                 cm[i,j] /= dividor
 
         #print cm
