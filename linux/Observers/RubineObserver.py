@@ -57,6 +57,7 @@ class RubineAnnotation(Annotation):
 
 #-------------------------------------
 
+
 def scalePointsToSquare(points, size):
     "Input: A list of points. Outputs the list of points transformed to a square"
     ul,br = GeomUtils.pointlistBoundingBox( points )
@@ -77,14 +78,16 @@ def scalePointsToSquare(points, size):
 
     return returnPoints
 
-
 def getRubineVector(stroke):
     # normalize the stroke
     
-    p = GeomUtils.strokeNormalizeSpacing(stroke).Points
+    p = GeomUtils.strokeNormalizeSpacing(GeomUtils.strokeSmooth(stroke)).Points
+    ul,br = GeomUtils.strokelistBoundingBox( [stroke] )
+    for point in p:
+        point.X -= ul.X
+        point.Y -= br.Y
 
     # scale the stroke to a known length
-
     sp = p
     #sp = scalePointsToSquare(p, 100)
 
@@ -96,8 +99,7 @@ def getRubineVector(stroke):
     else:
         f1 = 0
         f2 = 0
-
-    ul,br = GeomUtils.strokelistBoundingBox( [stroke] )
+    
     # the third is the length of the diagonal of the bb
     f3 = GeomUtils.pointDist(ul, br)
     # 4th is the angle of the bounding box diagonal
@@ -123,13 +125,20 @@ def getRubineVector(stroke):
     f9 = 0 # angle sum
     f10 = 0 # sum of the absolute value of the angle
     f11 = 0 # sum of the angle squared
-    for i in range(len(sp) -1):
-        f8 += GeomUtils.pointDist(sp[i], sp[i+1])
-        if (sp[i].X*sp[i+1].X + sp[i].Y*sp[i+1].Y) != 0:
-            angle = math.atan((sp[i+1].X * sp[i].Y - sp[i].X * sp[i+1].Y) / (sp[i].X*sp[i+1].X + sp[i].Y*sp[i+1].Y))
-            f9 += angle
-            f10 += math.fabs(angle)
-            f11 += angle*angle
+    for i in range(len(sp) -2):
+        dxp = sp[i+1].X - sp[i].X   # delta x sub p
+        dyp = sp[i+1].Y - sp[i].Y   # delta y sub p
+
+        f8 += math.sqrt(dxp**2 + dyp**2)
+
+        if i != 0:
+            dxpOld = sp[i].X - sp[i-1].X   # delta x sub (p-1)
+            dypOld = sp[i].Y - sp[i-1].Y   # delta y sub (p-1)
+            if (dxp * dxpOld) + (dxp * dxpOld) != 0:
+                angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
+                f9 += angle
+                f10 += math.fabs(angle)
+                f11 += angle*angle
 
     return [f1, f2, f3, f4, f5, f6, f7, f8, f9, f10 ,f11]
 
@@ -240,14 +249,14 @@ class RubineTrainer( BoardObserver ):
             for weight in c:
                 if math.fabs(weight) > maxWeight:
                     maxWeight = math.fabs(weight)
-
+        
         for c in self.weights:
             for i in range(len(c)):
                 c[i] /= maxWeight
 
         for i in range(len(self.weight0)):
             self.weight0[i] /= maxWeight
-
+        
 
 
         print self.weights
@@ -377,7 +386,7 @@ class RubineMarker( BoardObserver ):
         
         l = len(featureWeights) - 1
         for i in range(l+1):
-            print (featureWeights[i][0] ) - (featureWeights[l][0] )
+            print (featureWeights[i][0] / max ) - (featureWeights[l][0] / max )
             print  math.exp((featureWeights[i][0] / max) - (featureWeights[l][0] / max))
             sum += math.exp((featureWeights[i][0] / max) - (featureWeights[l][0] / max))
 
