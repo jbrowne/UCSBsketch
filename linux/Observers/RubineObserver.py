@@ -81,6 +81,7 @@ def scalePointsToSquare(points, size):
 def getRubineVector(stroke):
     # normalize the stroke
     
+    #p = GeomUtils.strokeNormalizeSpacing(GeomUtils.strokeSmooth(stroke)).Points
     p = GeomUtils.strokeNormalizeSpacing(GeomUtils.strokeSmooth(stroke)).Points
     ul,br = GeomUtils.strokelistBoundingBox( [stroke] )
     for point in p:
@@ -225,7 +226,7 @@ class RubineTrainer( BoardObserver ):
         for i in range(len(self.features[0][0])):
             for j in range(len(self.features[0][0])):
                 for c in range(len(self.features)):
-                    cm[i,j] += (cmc[c])[i,j] / (len(self.features[0]) - 1)
+                    cm[i,j] += (cmc[c])[i,j] # / (len(self.features[0]) - 1)
                 cm[i,j] /= dividor
 
         #print cm
@@ -244,7 +245,7 @@ class RubineTrainer( BoardObserver ):
 
         # normalize the weights
         maxWeight = 0.0
-
+        '''
         for c in self.weights:
             for weight in c:
                 if math.fabs(weight) > maxWeight:
@@ -256,11 +257,11 @@ class RubineTrainer( BoardObserver ):
 
         for i in range(len(self.weight0)):
             self.weight0[i] /= maxWeight
-        
+        '''
 
 
-        print self.weights
-        print self.weight0
+        #print self.weights
+        #print self.weight0
 
     def finishTraining(self):
         if not self._isTraining:
@@ -294,19 +295,40 @@ class RubineTrainer( BoardObserver ):
         self.newClass()
        
     def saveWeights(self):
+        global covarianceMatrixInverse
+        global averages
+
         TB = ET.TreeBuilder()
         TB.start("rubine", {})
+
         for i in range(self.count + 1):
             TB.start("class", {'name':self.names[i]})
             TB.start("weight0", {})
             TB.data(str(self.weight0[i]))
             TB.end("weight0") # weight0
+
             for j in self.weights[i]:
                 TB.start("weight", {})
                 TB.data(str(j))
                 TB.end("weight")
+
+            for j in averages[i]:
+                TB.start("average", {})
+                TB.data(str(j))
+                TB.end("average")
             TB.end("class") # class
 
+        TB.start("covariance", {})
+        for i in range(len(averages[0])):
+            TB.start("row", {})
+            for j in range(len(averages[0])):
+                TB.start("col", {})
+                TB.data(str(covarianceMatrixInverse[i,j]))
+                TB.end("col")
+
+            TB.end("row")
+
+        TB.end("covariance")
         TB.end("rubine") # rubine
 
         elem = TB.close()
@@ -317,6 +339,9 @@ class RubineTrainer( BoardObserver ):
         fd.close()
 
     def loadWeights(self):
+        global covarianceMatrixInverse
+        global averages
+
         et = ET.parse("rubine.dat")
         classes = et.findall("class")
         self.count = -1
@@ -328,10 +353,19 @@ class RubineTrainer( BoardObserver ):
             self.weights.append([])
             for j in i.findall("weight"):
                 self.weights[self.count].append(float(j.text))
+            averages.append([])
+            for j in i.findall("average"):
+                averages[self.count].append(float(j.text))
+
+        covarianceMatrixInverse = mat(zeros((len(averages[0]),len(averages[0]))))
+        covariance = et.find("covariance")
+        rows = covariance.findall("row")
+        for i in range(len(rows)):
+            cols = rows[i].findall("col")
+            print cols
+            for j in range(len(cols)):
+                covarianceMatrixInverse[i,j] = float(cols[j].text)
                 
-        print self.names
-        print self.weight0
-        print self.weights
         self.marker.setWeights(self.weights, self.weight0, self.names)
             
 
@@ -360,15 +394,13 @@ class RubineMarker( BoardObserver ):
         global covarianceMatrixInverse
         global averages
 
-        print "marker"
-
         #we need at least three points
         if len(stroke.Points) < 3:
             return
 
         rubineVector =  getRubineVector(stroke)
 
-        max = 0.00000001
+        max = -100000.0
         maxIndex = 0
         featureWeights = []
         for i in range(len(self.weight0)):
@@ -380,24 +412,30 @@ class RubineMarker( BoardObserver ):
                 max = val
                 maxIndex = i
 
+        max = math.fabs(max)
+
         featureWeights.sort(key = self.sortByFeatureWeight)
         #print featureWeights[len(featureWeights)-1][1]
         sum = 0
-        
+        '''
         l = len(featureWeights) - 1
         for i in range(l+1):
+            print "\n"
+            print featureWeights[i][0] / max
             print (featureWeights[i][0] / max ) - (featureWeights[l][0] / max )
             print  math.exp((featureWeights[i][0] / max) - (featureWeights[l][0] / max))
             sum += math.exp((featureWeights[i][0] / max) - (featureWeights[l][0] / max))
 
+        print "probability"
         print sum
         if sum != 0:
             print 1/sum
         else:
             print 0
-        
         '''
+        
         # Mahalanobis distance
+        print "Mahalanobis distance"
         delta = 0
         for j in range(len(self.weights[0])):
             for k in range(len(self.weights[0])):
@@ -406,8 +444,8 @@ class RubineMarker( BoardObserver ):
         print str(delta) + " : " + str(len(self.weights[0]) * len(self.weights[0]) * 0.5)
 
         if delta > len(self.weights[0]) * len(self.weights[0]) * 0.5:
-            print "DON'T RECOGNISE!"
-        '''
+            pass#print "DON'T RECOGNISE!"
+        
 
         print self.names[maxIndex]
 

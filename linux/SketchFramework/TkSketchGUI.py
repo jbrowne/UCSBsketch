@@ -170,7 +170,7 @@ class TkSketchFrame(Frame):
         self.object_menu.add_command(label="Save strokes.dat", command = (lambda : self.SaveStrokes()), underline=1 )
         self.object_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
         #top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
-
+        
         self.rubine_menu = Menu(top_menu)
         trainer = RubineObserver.RubineTrainer()
         top_menu.add_cascade(label="Rubine", menu=self.rubine_menu)
@@ -179,7 +179,7 @@ class TkSketchFrame(Frame):
         self.rubine_menu.add_command(label="New Class", command = (lambda :trainer.newClass() or self.Redraw()), underline=1 )
         self.rubine_menu.add_command(label="Save Weights", command = (lambda :trainer.saveWeights() or self.Redraw()), underline=1 )
         self.rubine_menu.add_command(label="Load Weights", command = (lambda :trainer.loadWeights() or self.Redraw()), underline=1 )
-
+        
 
 
     def AddQueuedStroke(self):

@@ -72,7 +72,7 @@ def initialize(Board):
     #RubineObserver.RubineMarker()
     #RubineObserver.RubineVisualizer()
     
-    d = DebugObserver.DebugObserver()
+    #d = DebugObserver.DebugObserver()
     #d.trackAnnotation(TestAnimObserver.TestAnnotation)
     #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
     #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
