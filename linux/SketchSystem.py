@@ -50,7 +50,7 @@ def initialize(Board):
     TextObserver.TextCollector()
     TextObserver.TextVisualizer()
     DiGraphObserver.DiGraphMarker()
-    #DiGraphObserver.DiGraphVisualizer()
+    DiGraphObserver.DiGraphVisualizer()
     #DiGraphObserver.DiGraphExporter()
     #TuringMachineObserver.TuringMachineCollector()
     #TuringMachineObserver.TuringMachineAnimator()
@@ -61,6 +61,7 @@ def initialize(Board):
     
     
     d = DebugObserver.DebugObserver()
+    #d.trackAnnotation(DiGraphObserver.DiGraphNodeAnnotation)
     #d.trackAnnotation(TestAnimObserver.TestAnnotation)
     #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
     #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
