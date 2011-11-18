@@ -39,10 +39,14 @@ logger = Logger.getLogger('TextObserver', Logger.WARN )
 #-------------------------------------
 
 class TextAnnotation(Annotation):
-    def __init__(self, text, scale):
-        "Create a Text annotation. text is the string, and scale is an appropriate size"
+    def __init__(self, text, stroke_letter_map, scale):
+        """Create a Text annotation. text is the string, stroke_letter_map bins 
+        strokes according to the letter they're associated with, 
+        e.g. "Hi" : [ [<strokes for 'H'>], [<strokes for 'i'>] ]. 
+        scale is an appropriate size"""
         Annotation.__init__(self)
         self.text = text # a string for the text
+        self.letter2strokesMap = stroke_letter_map
         self.scale = scale # an approximate "size" for the text
         self.alternates = [text]
     def xml(self):
@@ -88,7 +92,7 @@ class _LetterMarker( BoardObserver ):
 
         if isClosedShape and circularity > circularityThresh_0:
             height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
-            oAnnotation = TextAnnotation("0", height)
+            oAnnotation = TextAnnotation("0", [[stroke]], height)
             l_logger.debug("Annotating %s with %s" % ( stroke, oAnnotation))
             BoardSingleton().AnnotateStrokes( [stroke],  oAnnotation)
             l_logger.debug(" Afterward: %s.annotations is %s" % ( stroke, stroke.Annotations))
@@ -99,14 +103,14 @@ class _LetterMarker( BoardObserver ):
                 if stroke.Points[0].X < stroke.Points[-1].X + strokeLen / 2.0 \
                 and stroke.Points[0].X > stroke.Points[-1].X - strokeLen / 2.0:
                     height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
-                    oneAnnotation = TextAnnotation("1", height)
+                    oneAnnotation = TextAnnotation("1", [[stroke]], height)
                     l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation.text))
                     BoardSingleton().AnnotateStrokes( [stroke],  oneAnnotation)
                     l_logger.debug(" Afterward: %s.annotations is %s" % ( stroke, stroke.Annotations))
                 elif stroke.Points[0].Y < stroke.Points[-1].Y + strokeLen / 2.0 \
                 and stroke.Points[0].Y > stroke.Points[-1].Y - strokeLen / 2.0:
                     width = stroke.BoundBottomRight.X - stroke.BoundTopLeft.X 
-                    dashAnnotation = TextAnnotation("-", width * 1.2) #Treat the dash's (boosted) width as its scale 
+                    dashAnnotation = TextAnnotation("-", [[stroke]], width * 1.2) #Treat the dash's (boosted) width as its scale 
                     l_logger.debug("Annotating %s with %s" % ( stroke, dashAnnotation.text))
                     BoardSingleton().AnnotateStrokes( [stroke],  dashAnnotation)
         else:
@@ -148,7 +152,6 @@ class TextCollector( ObserverBase.Collector ):
 
     def mergeCollections( self, from_anno, to_anno ):
         "merge from_anno into to_anno if possible"
-        #FIXME: New annotation assumed to be to the right. (Does not handle inserting text in the middle)
         # check that they have compatable scales
         vertOverlapRatio = 0
         horizDistRatio = 2.0
@@ -194,17 +197,42 @@ class TextCollector( ObserverBase.Collector ):
             tc_logger.debug("Not merging %s and %s: vertical overlap too small" % (from_anno.text, to_anno.text))
             return False
 
-        # now we know that we want to merge these text annotations
-        if bb_from[0].X - bb_to[0].X > 0 :
-            outText = to_anno.text + from_anno.text 
-        else :
-            outText = from_anno.text + to_anno.text 
+        # Order the letters properly from left to right
+        out_letter_stroke_map = []
+        outText = ""
+        from_idx = 0
+        to_idx = 0
+        while len(outText) < len(from_anno.text) + len(to_anno.text):
+            if from_idx < len(from_anno.letter2strokesMap) and from_idx < len(from_anno.text):
+                letter_bb_from = GeomUtils.strokelistBoundingBox(from_anno.letter2strokesMap[from_idx])
+            else:
+                letter_bb_from = None
+                
+            if to_idx < len(to_anno.letter2strokesMap) and to_idx < len(to_anno.text):
+                letter_bb_to = GeomUtils.strokelistBoundingBox(to_anno.letter2strokesMap[to_idx])
+            else:
+                letter_bb_to = None
+
+            if letter_bb_to is None and letter_bb_from is None:
+                logger.warn("Trying to merge beyond available letters")
+                break
+            elif letter_bb_to is None or \
+                   (letter_bb_from is not None and letter_bb_from[0].X < letter_bb_to[0].X ):
+                outText += from_anno.text[from_idx]
+                out_letter_stroke_map.append(from_anno.letter2strokesMap[from_idx])
+                from_idx += 1
+            elif letter_bb_from is None or \
+                   (letter_bb_to is not None and letter_bb_to[0].X <= letter_bb_from[0].X):
+                outText += to_anno.text[to_idx]
+                out_letter_stroke_map.append(to_anno.letter2strokesMap[to_idx])
+                to_idx += 1
 
         #Weight the scale per letter
         to_anno.scale = ( to_anno.scale * len(to_anno.text) + from_anno.scale * len(from_anno.text) )\
                         / float(len(to_anno.text) + len(from_anno.text))
         tc_logger.debug("MERGED: %s and %s to %s" % (to_anno.text, from_anno.text, outText))
         to_anno.text = outText
+        to_anno.letter2strokesMap = out_letter_stroke_map
         to_anno.alternates = []
         return True
 
