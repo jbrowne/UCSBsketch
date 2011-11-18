@@ -7,6 +7,7 @@ from SketchFramework.Stroke import Stroke
 
 from Utils import Logger
 from Utils import GeomUtils
+from xml.etree import ElementTree as ET
 
 logger = Logger.getLogger('Board', Logger.DEBUG )
 
@@ -64,6 +65,19 @@ class _Board(object):
         self._removed_strokes = {}
         
 
+    def xml(self):
+        root = ET.Element("Board")
+
+        strokes_el = ET.SubElement(root, "Strokes")
+        for s in self.Strokes:
+            strokes_el.append(s.xml())
+
+        annos_el = ET.SubElement(root, "Annotations")
+        for a in self.FindAnnotations():
+            annos_el.append(a.xml())
+
+        return root
+        
     def AddStroke( self, newStroke ):
         "Input: Stroke newStroke.  Adds a Stroke to the board and calls any Stroke Observers as needed"
         logger.debug( "Adding Stroke: %d", newStroke.id )

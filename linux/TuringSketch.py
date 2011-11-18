@@ -16,7 +16,7 @@ from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
-from SketchFramework.strokeout import imageToStrokes
+from SketchFramework.ImageStrokeConverter import imageToStrokes
 from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection
 
@@ -26,6 +26,7 @@ from Observers import DiGraphObserver
 from Observers import TextObserver
 from Observers import DebugObserver
 from Observers import TuringMachineObserver
+from xml.etree import ElementTree as ET
 
 
 # Constants
@@ -238,12 +239,13 @@ class TkSketchFrame(Frame):
 
         for s in strokes:
            newStroke = Stroke()
-           for x,y in s.points:
-              scale = WIDTH / float(1280)
-              newPoint = Point(scale * x,HEIGHT - scale * y)
-              newStroke.addPoint(newPoint)
-           self.Board.AddStroke(newStroke)
-           self.StrokeList.append(newStroke)
+           if len(s.points) > 1:
+               for x,y in s.points:
+                  scale = 1 #WIDTH / float(1280)
+                  newPoint = Point(scale * x,HEIGHT - scale * y)
+                  newStroke.addPoint(newPoint)
+               self.Board.AddStroke(newStroke)
+               self.StrokeList.append(newStroke)
 
     def RemoveLatestStroke(self):
         if len (self.StrokeList) > 0:
@@ -355,6 +357,7 @@ class TkSketchFrame(Frame):
         #print "> Redraw Start"
         sys.stdout.flush()
         self.BoardCanvas.delete(ALL)
+        #print ET.tostring(self.Board.xml())
         strokes = self.Board.Strokes
         observers = self.Board.BoardObservers
         if self.shouldDrawStrokes:

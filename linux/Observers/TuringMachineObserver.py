@@ -291,6 +291,7 @@ class BoxMarker(BoardObserver):
 
 #-------------------------------------
 class TuringMachineCollector(BoardObserver):
+    LABELMATCH_DISTANCE = (0.5, 2.0)
     def __init__( self ):
         # this will register everything with the board, and we will get the proper notifications
         BoardSingleton().RegisterForAnnotation(TextObserver.TextAnnotation, self)
@@ -357,10 +358,20 @@ class TuringMachineCollector(BoardObserver):
 
         #labelEdgeMatches contains each label paired with its best edge
         
+        #Get the median size
+        sizes = sorted([anno.scale for anno in self.labelMap.keys()])
+
+        if len(sizes) > 0:
+            medianSize = sizes[len(sizes) / 2]
+        else:
+            medianSize = 0
+
         #Have each edge claim a label
         edge2LabelMatching = {}
         for textAnno, matchDict in labelEdgeMatches.items():
-            if 'bestmatch' in matchDict: # and matchDict['bestmatch'][1] < labelEdgeMatchingThresh:
+            if 'bestmatch' in matchDict \
+                and textAnno.scale < medianSize * TuringMachineCollector.LABELMATCH_DISTANCE[1] \
+                and textAnno.scale > medianSize * TuringMachineCollector.LABELMATCH_DISTANCE[0]: # and matchDict['bestmatch'][1] < labelEdgeMatchingThresh:
                 edgeLabelList = edge2LabelMatching.setdefault(matchDict['bestmatch'][0], [])
                 edgeLabelList.append(textAnno)
             else:

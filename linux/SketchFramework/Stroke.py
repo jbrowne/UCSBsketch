@@ -2,6 +2,7 @@ import sys
 from Utils import Logger
 from SketchFramework.Point import Point
 from SketchFramework.Annotation import Annotation, AnnotatableObject
+from xml.etree import ElementTree as ET
 
 logger = Logger.getLogger('DiGraphObserver', Logger.WARN )
 
@@ -55,6 +56,30 @@ class Stroke(AnnotatableObject):
             """
             for p in points:
                 self.addPoint(p)
+
+    def xml(self):
+        root = ET.Element("Stroke")
+
+        root.attrib['id'] = str(self.id)
+        root.attrib['length'] = str(self.length())
+
+        pts_el = ET.SubElement(root, "Points")
+        for i, pt in enumerate(self.Points):
+            pts_el.append(pt.xml())
+
+        topleft = self.BoundTopLeft.xml()
+        topleft.tag = "topleft"
+        root.append(topleft)
+
+        bottomright = self.BoundBottomRight.xml()
+        bottomright.tag = "bottomright"
+        root.append(bottomright)
+
+        center = self.Center.xml()
+        center.tag = "center"
+        root.append(center)
+        return root
+ 
     
     def drawMyself(self, color=None):
         from SketchFramework import SketchGUI as GUI
