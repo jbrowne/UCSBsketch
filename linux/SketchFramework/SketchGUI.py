@@ -69,7 +69,8 @@ class _SketchGUI(object):
     
 def SketchGUISingleton():
     "Returns the GUI instance we're currently working with."
-    from SketchFramework import WpfSketchGUI as GuiInstance
+    #from SketchFramework import WpfSketchGUI as GuiInstance
+    from SketchFramework import TkSketchGUI as GuiInstance
     #from SketchFramework import NetSketchGUI as GuiInstance
     
     
