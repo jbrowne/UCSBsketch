@@ -45,10 +45,55 @@ from Observers import ObserverBase
 from xml.etree import ElementTree as ET
 
 
-logger = Logger.getLogger('DiGraphObserver', Logger.DEBUG )
+logger = Logger.getLogger('DiGraphObserver', Logger.WARN)
+node_log = Logger.getLogger('DiGraphNode', Logger.DEBUG)
+
+#-------------------------------------
+class DiGraphNodeAnnotation(CircleObserver.CircleAnnotation):
+    
+    def __init__(self, circularity, center, radius):
+        #Reminder, CircleAnno has fields:
+        #   center
+        CircleObserver.CircleAnnotation.__init__(self, circularity, center, radius)
+        node_log.debug("Creating new Node")
 
 #-------------------------------------
 
+class NodeMarker( BoardObserver ):
+    "Watches for Circle, and annotates them with the circularity, center and the radius"
+    CLOSED_DIST_THRESH = 0.1 #Stroke endpoints are % away from each other means closed
+    def __init__(self):
+        # TODO: we may wish to add the ability to expose/centralize these thresholds
+        # so that they can be tuned differently for various enviornments
+        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().RegisterForStroke( self )
+
+    def onStrokeAdded( self, stroke ):
+        "Watches for Strokes with Circularity > threshold to Annotate"
+        # need at least 6 points to be a circle
+	if stroke.length()<6:
+            return
+        strokeLen = GeomUtils.strokeLength(stroke)
+        distCutoff = NodeMarker.CLOSED_DIST_THRESH * (strokeLen ** 2)
+	#s_norm = GeomUtils.strokeNormalizeSpacing( stroke, 20 ) 
+        ep1 = stroke.Points[0]
+        ep2 = stroke.Points[-1]
+
+        epDist = GeomUtils.pointDistanceSquared(ep1.X, ep1.Y, ep2.X, ep2.Y)
+        if epDist <= distCutoff:
+            avgDist = GeomUtils.averageDistance( stroke.Center, stroke.Points )
+            BoardSingleton().AnnotateStrokes([stroke], DiGraphNodeAnnotation(0, stroke.Center, avgDist))
+        else:
+            node_log.debug("Not a node: distance %s > %s" % (epDist, distCutoff))
+
+
+    def onStrokeRemoved(self, stroke):
+	"When a stroke is removed, remove circle annotation if found"
+    	for anno in stroke.findAnnotations(DiGraphNodeAnnotation, True):
+            BoardSingleton().RemoveAnnotation(anno)
+
+
+#-------------------------------------
 class DiGraphAnnotation(Annotation):
     MATCHING_DISTANCE = 3.0 # Multiplier for how far outside the circle radius to check
     POINTSTO_DISTANCE = 2.0 # Multiplier for how big to treat the circle in calculating "points-to" 
@@ -208,18 +253,19 @@ class DiGraphMarker( ObserverBase.Collector ):
     def __init__( self ):
         # this will register everything with the board, and we will get the proper notifications
         ObserverBase.Collector.__init__( self, \
-            [CircleObserver.CircleAnnotation, ArrowObserver.ArrowAnnotation], DiGraphAnnotation )
+            [DiGraphNodeAnnotation, ArrowObserver.ArrowAnnotation], DiGraphAnnotation )
+        NodeMarker()
 
     def collectionFromItem( self, strokes, anno ):
         "turn the circle/arrow annotation given into a digraph"          
         #Prefer adding strokes as arrows over nodes
-        if anno.isType( CircleObserver.CircleAnnotation ):
+        if anno.isType( DiGraphNodeAnnotation ):
             if len(BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=ArrowObserver.ArrowAnnotation) ) == 0:
                 digraph_anno = DiGraphAnnotation( node_set=set([anno]) )
         if anno.isType( ArrowObserver.ArrowAnnotation ):
             digraph_anno = DiGraphAnnotation( edge_set=set([anno]) )
 
-            circleAnnos = BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=CircleObserver.CircleAnnotation)
+            circleAnnos = BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=DiGraphNodeAnnotation)
             for circle_anno in circleAnnos:
                 BoardSingleton().RemoveAnnotation(circle_anno)
                 BoardSingleton().AnnotateStrokes(circle_anno.Strokes, circle_anno)
