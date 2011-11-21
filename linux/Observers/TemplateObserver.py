@@ -39,7 +39,7 @@ class TemplateMarker( BoardObserver ):
     "Compares all strokes with templates and annotates strokes with any template within some threshold."
     def __init__(self):
         
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self , [TemplateAnnotation])
         BoardSingleton().RegisterForStroke( self )
         self.templateRecognizers = list()
         for filename in os.listdir('./'):
@@ -84,7 +84,7 @@ def scoreStroke(stroke, template, sample_size):
 class TemplateVisualizer( BoardObserver ):
     "Watches for Template annotations, draws them"
     def __init__(self):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self, [] )
         BoardSingleton().RegisterForAnnotation( TemplateAnnotation, self )
         self.annotation_list = []
 

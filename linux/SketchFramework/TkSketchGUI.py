@@ -29,6 +29,7 @@ from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkMessageBox import *
 
+from Observers.ArrowObserver import ArrowAnnotation
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
@@ -37,7 +38,7 @@ from SketchSystem import initialize, standAloneMain
 #from SketchFramework.strokeout import imageBufferToStrokes, imageToStrokes
 #from SketchFramework.NetworkReceiver import ServerThread
 from Utils.StrokeStorage import StrokeStorage
-from Utils.GeomUtils import getStrokesIntersection
+from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke
 from Utils import Logger
 
 from Observers.ObserverBase import Animator
@@ -134,6 +135,11 @@ class TkSketchFrame(Frame):
         self.BoardCanvas.bind("<ButtonPress-3>", self.CanvasRightMouseDown)
         self.BoardCanvas.bind("<B3-Motion>", self.CanvasRightMouseDown)          
         self.BoardCanvas.bind("<ButtonRelease-3>", self.CanvasRightMouseUp)      
+
+        #Middle click bindings
+        self.BoardCanvas.bind("<ButtonPress-2>", self.CanvasMiddleMouseDown)
+        self.BoardCanvas.bind("<B2-Motion>", self.CanvasMiddleMouseDown)          
+        self.BoardCanvas.bind("<ButtonRelease-2>", self.CanvasMiddleMouseUp)      
 
         self.StrokeQueue = Queue.Queue()
         self.Board = None
@@ -254,6 +260,37 @@ class TkSketchFrame(Frame):
                 self.AnimatorDrawtimes[obs] = time.time()
                 
                 
+    def CanvasMiddleMouseDown(self, event):
+        x = event.x
+        y = event.y
+        #self.BoardCanvas.create_oval(x,y,x,y,activewidth="1", fill="black", outline = "black")
+        
+        if self.p_x != None and self.p_y != None:
+            p_x = self.p_x
+            p_y = self.p_y
+            self.BoardCanvas.create_line(p_x, p_y, x ,y, fill = "blue", width=2)
+
+        x = event.x
+        y = HEIGHT - event.y
+        t = time.time()
+        self.CurrentPointList.append(Point(x,y,t))
+
+        self.p_x = x
+        self.p_y = HEIGHT - y
+
+    def CanvasMiddleMouseUp(self, event):
+        suggestStrokes = set()
+        if len(self.CurrentPointList) > 0:
+            containerStroke = Stroke( self.CurrentPointList )#, smoothing=True )
+            for testStroke in self.Board.Strokes:
+                if strokeContainsStroke(containerStroke, testStroke):
+                    suggestStrokes.add(testStroke)
+            self.Board.SuggestAnnotation(ArrowAnnotation, list(suggestStrokes))
+
+        self.CurrentPointList = []
+        self.p_x = self.p_y = None
+        self.Redraw()
+
     def CanvasRightMouseDown(self, event):
         x = event.x
         y = event.y

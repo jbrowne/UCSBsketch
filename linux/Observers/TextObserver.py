@@ -66,7 +66,7 @@ class _LetterMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
     def __init__(self):
         BoardObserver.__init__(self)
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self , [TextAnnotation])
         BoardSingleton().RegisterForStroke( self )
     def onStrokeAdded(self, stroke):
         "Tags 1's and 0's as letters (TextAnnotation)"

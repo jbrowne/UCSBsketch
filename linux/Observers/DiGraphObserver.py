@@ -65,7 +65,7 @@ class NodeMarker( BoardObserver ):
     def __init__(self):
         # TODO: we may wish to add the ability to expose/centralize these thresholds
         # so that they can be tuned differently for various enviornments
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self, [DiGraphNodeAnnotation] )
         BoardSingleton().RegisterForStroke( self )
 
     def onStrokeAdded( self, stroke ):

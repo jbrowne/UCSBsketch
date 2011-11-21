@@ -28,7 +28,7 @@ class DebugObserver( BoardObserver ):
     "Watches for all annotations, and draws them"
 
     def __init__(self):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self, [] )
 	self.watchSet = set([]) # set of annotation types to track
 	self.seenBefore = {} # set of particular annotation that we have already drawn
 

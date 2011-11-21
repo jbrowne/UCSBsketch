@@ -70,7 +70,7 @@ class ArrowAnnotation( Annotation ):
 class ArrowMarker( BoardObserver ):
 
     def __init__(self):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self , [ArrowAnnotation])
         BoardSingleton().RegisterForStroke( self )
         
         #For multistroke arrows, keep track of arrowheads and line endpoints
@@ -82,6 +82,34 @@ class ArrowMarker( BoardObserver ):
         
         
 
+    def onAnnotationSuggested(self, anno_type, strokelist):
+        """Called when the a list of strokes are suggested to yield an annotation of type anno_type."""
+
+        #First pass, assume we were just too strict with the distance/size thresholds
+        knownHeads = []
+        knownTails = []
+        for tip, stk in self._arrowHeads:
+            if stk in strokelist:
+                knownHeads.append( (tip, stk) )
+        for ep, tail_stk in self._endpoints:
+            if tail_stk in strokelist:
+                for tip, head_stk in knownHeads:
+                    if head_stk == tail_stk:
+                        continue
+                    headEnds = ( head_stk.Points[0], head_stk.Points[-1] )
+                    if GeomUtils.pointInAngleCone(ep, headEnds[0], tip, headEnds[1]):
+                        anno = ArrowAnnotation( tip, ep, headstroke= head_stk, tailstroke = tail_stk )
+                        BoardSingleton().AnnotateStrokes([head_stk, tail_stk],anno)
+                        return
+
+        #Second pass, we missed the arrowhead to begin with
+
+                        
+                        
+                
+
+
+ 
     def onStrokeAdded( self, stroke ):
         "Watches for Strokes that look like an arrow to Annotate"
         smoothedStroke = GeomUtils.strokeSmooth(stroke)
@@ -288,7 +316,7 @@ def _isPointWithHead(point, head, tip):
 class ArrowVisualizer( BoardObserver ):
     "Watches for Arrow annotations, draws them"
     def __init__(self):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self ,[])
         BoardSingleton().RegisterForAnnotation( ArrowAnnotation, self )
         self.annotation_list = []
 
