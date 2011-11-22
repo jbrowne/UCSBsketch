@@ -103,7 +103,7 @@ from Utils import Logger
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 
-logger = Logger.getLogger('GeomUtils', Logger.DEBUG )
+logger = Logger.getLogger('GeomUtils', Logger.WARN )
 
 
 #--------------------------------------------------------------

@@ -100,9 +100,13 @@ class ArrowMarker( BoardObserver ):
                     if GeomUtils.pointInAngleCone(ep, headEnds[0], tip, headEnds[1]):
                         anno = ArrowAnnotation( tip, ep, headstroke= head_stk, tailstroke = tail_stk )
                         BoardSingleton().AnnotateStrokes([head_stk, tail_stk],anno)
+                        logger.debug("Suggestion Response: Matched arrow with looser constraints")
                         return
 
         #Second pass, we missed the arrowhead to begin with
+
+        logger.warn("Not able to generate Arrow!")
+        return
 
                         
                         

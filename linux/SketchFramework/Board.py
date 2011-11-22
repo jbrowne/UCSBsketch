@@ -17,7 +17,7 @@ class BoardException (Exception):
     def __init__(self, message):
         """input: message for the error"""
         self.message = message
-    def __repr__(self):
+    def __str__(self):
         return repr(self.message)
 
 #--------------------------------------------

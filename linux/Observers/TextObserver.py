@@ -65,69 +65,46 @@ l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
 class _LetterMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
     def __init__(self):
-        BoardObserver.__init__(self)
+        BoardObserver.__init__(self) 
         BoardSingleton().AddBoardObserver( self , [TextAnnotation])
         BoardSingleton().RegisterForStroke( self )
+
+    def _makeZeroAnnotation(self, strokelist):
+        """Take in a list of strokes and return a TextAnnotation with them marked as "0"""
+        bb = GeomUtils.strokelistBoundingBox(strokelist)
+        height = bb[0].Y - bb[1].Y
+        oAnnotation = TextAnnotation("0", [strokelist], height)
+        return oAnnotation
+
+    def _makeOneAnnotation(self, strokelist):
+        bb = GeomUtils.strokelistBoundingBox(strokelist)
+        height = bb[0].Y - bb[1].Y
+        oneAnnotation = TextAnnotation("1", [strokelist], height)
+        return oneAnnotation
+    
+    def _makeDashAnnotation(self, strokelist):
+        bb = GeomUtils.strokelistBoundingBox(strokelist)
+        width = bb[1].X - bb[0].X 
+        dashAnnotation = TextAnnotation("-", [strokelist], width * 1.2) #Treat the dash's (boosted) width as its scale 
+        return dashAnnotation
+        
     def onStrokeAdded(self, stroke):
-        "Tags 1's and 0's as letters (TextAnnotation)"
-        closedDistRatio = 0.22
-        circularityThresh_0 = 0.80
-        circularityThresh_1 = 0.20
-        maxStraightCurvature = 0.6
-        strokeLen = max(GeomUtils.strokeLength(stroke), 1)
-        normDist = max(3, strokeLen / 5)
-        head, tail = stroke.Points[0], stroke.Points[-1]
-
-        endDist = GeomUtils.pointDistance(head.X, head.Y, tail.X, tail.Y)
-        #If the endpoints are 1/thresh apart, actually close the thing
-        isClosedShape = GeomUtils.pointDistanceSquared(head.X, head.Y, tail.X, tail.Y) \
-                        < (strokeLen * closedDistRatio) ** 2
-
-        if isClosedShape: #Close the shape back up
-            s_norm = GeomUtils.strokeNormalizeSpacing( Stroke(stroke.Points + [stroke.Points[0]]) , normDist ) 
-        else:
-            s_norm = GeomUtils.strokeNormalizeSpacing( stroke , normDist ) 
-        curvatures = GeomUtils.strokeGetPointsCurvature(s_norm)
-        circularity = GeomUtils.strokeCircularity( s_norm ) 
-
-        if isClosedShape and circularity > circularityThresh_0:
-            height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
-            oAnnotation = TextAnnotation("0", [[stroke]], height)
+        "Tags 1's, dashes and 0's as letters (TextAnnotation)"
+        strokelist = [stroke]
+        if _scoreStrokesForLetter(strokelist, '0') > 0.9:
+            oAnnotation = self._makeZeroAnnotation(strokelist)
             l_logger.debug("Annotating %s with %s" % ( stroke, oAnnotation))
-            BoardSingleton().AnnotateStrokes( [stroke],  oAnnotation)
-            l_logger.debug(" Afterward: %s.annotations is %s" % ( stroke, stroke.Annotations))
+            BoardSingleton().AnnotateStrokes( strokelist,  oAnnotation)
 
-        elif len(stroke.Points) >= 2 \
-            and max(curvatures) < maxStraightCurvature \
-            and circularity < circularityThresh_1:
-                if stroke.Points[0].X < stroke.Points[-1].X + strokeLen / 2.0 \
-                and stroke.Points[0].X > stroke.Points[-1].X - strokeLen / 2.0:
-                    height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
-                    oneAnnotation = TextAnnotation("1", [[stroke]], height)
-                    l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation.text))
-                    BoardSingleton().AnnotateStrokes( [stroke],  oneAnnotation)
-                    l_logger.debug(" Afterward: %s.annotations is %s" % ( stroke, stroke.Annotations))
-                elif stroke.Points[0].Y < stroke.Points[-1].Y + strokeLen / 2.0 \
-                and stroke.Points[0].Y > stroke.Points[-1].Y - strokeLen / 2.0:
-                    width = stroke.BoundBottomRight.X - stroke.BoundTopLeft.X 
-                    dashAnnotation = TextAnnotation("-", [[stroke]], width * 1.2) #Treat the dash's (boosted) width as its scale 
-                    l_logger.debug("Annotating %s with %s" % ( stroke, dashAnnotation.text))
-                    BoardSingleton().AnnotateStrokes( [stroke],  dashAnnotation)
-        else:
-            if not isClosedShape:
-                l_logger.debug("0: Not a closed shape")
-            if not (circularity > circularityThresh_0):
-                l_logger.debug("0: Not circular enough: %s" % (circularity))
-            if not len(stroke.Points) >= 2:
-                l_logger.debug("1: Not enough points")
-            if not (circularity < circularityThresh_1):
-                l_logger.debug("1: Too circular")
-            if not (max(curvatures) < 0.5):
-                l_logger.debug("1: Max curvature too big %s" % max(curvatures))
-            if not ( stroke.Points[0].X < stroke.Points[-1].X + strokeLen / 3 \
-               and   stroke.Points[0].X > stroke.Points[-1].X - strokeLen / 3):
-                l_logger.debug("1: Not vertical enough: \nX1 %s, \nX2 %s, \nLen %s" % (stroke.Points[0].X, stroke.Points[-1].X, strokeLen))
+        if _scoreStrokesForLetter(strokelist, '1') > 0.9:
+            oneAnnotation = self._makeOneAnnotation(strokelist)
+            l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation.text))
+            BoardSingleton().AnnotateStrokes( strokelist,  oneAnnotation)
 
+        if _scoreStrokesForLetter(strokelist, '-') > 0.9:
+            dashAnnotation = self._makeDashAnnotation(strokelist)
+            l_logger.debug("Annotating %s with %s" % ( stroke, dashAnnotation.text))
+            BoardSingleton().AnnotateStrokes( strokelist,  dashAnnotation)
 
     def onStrokeRemoved(self, stroke):
         all_text_annos = set(stroke.findAnnotations(TextAnnotation))
@@ -140,6 +117,86 @@ class _LetterMarker( BoardObserver ):
             if s is not stroke:
                 self.onStrokeAdded(s)
         #Handled by collectors
+
+def _getAllConfidenceScores(strokelist):
+    """Get the per-letter confidence scores for a group of strokes, normalized 0.0 - 1.0.
+    Returned as a dict {<letter> : <score>}"""
+    confidenceDict = {}
+    for letter in ['0', '1', '-']:
+        confidenceDict[letter] = _scoreStrokesForLetter(strokelist, letter)
+    return confidenceDict
+        
+def _scoreStrokesForLetter(strokelist, letter):
+    """Get the confidence score for a group of strokes matching a letter, normalized [0.0-1.0]"""
+    retConfidence = 0.0
+    #Recognition thresholds
+    closedDistRatio = 0.22
+    circularityThresh_0 = 0.80
+    circularityThresh_1 = 0.20
+    maxStraightCurvature = 0.6
+
+    if len(strokelist) == 0:
+        return 0.0
+    #Recognize a zero
+    if letter.upper() == "0":
+        stroke = strokelist[0]
+        strokeLen = max(GeomUtils.strokeLength(stroke), 1)
+        normDist = max(3, strokeLen / 5) #granularity of point spacing -- at least 3
+        head, tail = stroke.Points[0], stroke.Points[-1]
+
+        endDist = GeomUtils.pointDistance(head.X, head.Y, tail.X, tail.Y)
+        #If the endpoints are 1/thresh apart, actually close the thing
+        isClosedShape = GeomUtils.pointDistanceSquared(head.X, head.Y, tail.X, tail.Y) \
+                        < ( (strokeLen * closedDistRatio) ** 2 )
+
+        if isClosedShape: #Close the shape back up
+            s_norm = GeomUtils.strokeNormalizeSpacing( Stroke(stroke.Points + [stroke.Points[0]]) , normDist ) 
+        else:
+            s_norm = GeomUtils.strokeNormalizeSpacing( stroke , normDist ) 
+        #curvatures = GeomUtils.strokeGetPointsCurvature(s_norm)
+        circularity = GeomUtils.strokeCircularity( s_norm ) 
+
+        if isClosedShape:
+            retConfidence += 0.5
+        if circularity > circularityThresh_0:
+            retConfidence += 0.5
+        return retConfidence
+    #Recognize a one
+    elif letter.upper() == "1":
+        stroke = strokelist[0]
+        strokeLen = max(GeomUtils.strokeLength(stroke), 1)
+        normDist = max(3, strokeLen / 5) #granularity of point spacing -- at least 3
+        s_norm = GeomUtils.strokeNormalizeSpacing( stroke , normDist ) 
+
+        circularity = GeomUtils.strokeCircularity( s_norm ) 
+        curvatures = GeomUtils.strokeGetPointsCurvature(s_norm)
+        if max(curvatures) < maxStraightCurvature:
+            retConfidence += 0.30
+        if circularity < circularityThresh_1:
+            retConfidence += 0.5
+            if stroke.Points[0].X < stroke.Points[-1].X + strokeLen / 2.0 \
+            and stroke.Points[0].X > stroke.Points[-1].X - strokeLen / 2.0:
+                retConfidence += 0.2
+        return retConfidence
+    #Recognize a dash
+    elif letter.upper() == "-":
+        stroke = strokelist[0]
+        strokeLen = max(GeomUtils.strokeLength(stroke), 1)
+        normDist = max(3, strokeLen / 5) #granularity of point spacing -- at least 3
+        s_norm = GeomUtils.strokeNormalizeSpacing( stroke , normDist ) 
+
+        circularity = GeomUtils.strokeCircularity( s_norm ) 
+        curvatures = GeomUtils.strokeGetPointsCurvature(s_norm)
+        if max(curvatures) < maxStraightCurvature:
+            retConfidence += 0.30
+        if circularity < circularityThresh_1:
+            retConfidence += 0.5
+            if stroke.Points[0].Y < stroke.Points[-1].Y + strokeLen / 2.0 \
+            and stroke.Points[0].Y > stroke.Points[-1].Y - strokeLen / 2.0:
+                retConfidence += 0.2
+        return retConfidence
+    else:
+        return 0.0
 #-------------------------------------
 tc_logger = Logger.getLogger("TextCollector", Logger.DEBUG)
 
@@ -147,8 +204,37 @@ class TextCollector( ObserverBase.Collector ):
     "Watches for strokes that look like text"
     def __init__(self, circularity_threshold=0.90):
         # FIXME: this is for "binary" text right now
-        _LetterMarker()
+        self.letterMarker = _LetterMarker()
         ObserverBase.Collector.__init__( self, [], TextAnnotation  )
+
+    def onAnnotationSuggested(self, anno_type, strokelist):
+        """Called when the a list of strokes are suggested to yield an annotation of type anno_type."""
+        tc_logger.debug("Dealing with suggested %s" % (anno_type.__name__))
+        assert anno_type == TextAnnotation
+        for stk in strokelist:
+            annos = stk.findAnnotations(annoType=anno_type)
+            if len(annos) > 0:
+                continue
+            else:
+                singleStrokeList = [stk]
+                confList = sorted(_getAllConfidenceScores(singleStrokeList).items(), key=lambda pair: pair[1])
+                best = confList[-1]
+                tc_logger.debug("Letter confidences %s" % (confList))
+                if best[0] == "0":
+                    oAnnotation = self.letterMarker._makeZeroAnnotation(singleStrokeList)
+                    tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, oAnnotation))
+                    BoardSingleton().AnnotateStrokes( singleStrokeList,  oAnnotation)
+
+                elif best[0] == "1":
+                    oneAnnotation = self.letterMarker._makeOneAnnotation(singleStrokeList)
+                    tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, oneAnnotation.text))
+                    BoardSingleton().AnnotateStrokes( singleStrokeList,  oneAnnotation)
+
+                elif best[0] == "-":
+                    dashAnnotation = self.letterMarker._makeDashAnnotation(singleStrokeList)
+                    tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, dashAnnotation.text))
+                    BoardSingleton().AnnotateStrokes( singleStrokeList,  dashAnnotation)
+
 
     def mergeCollections( self, from_anno, to_anno ):
         "merge from_anno into to_anno if possible"

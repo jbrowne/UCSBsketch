@@ -108,6 +108,27 @@ class ImgProcThread (threading.Thread):
                 self.stk_queue.put(newStroke)
 
 
+class AnnotationDialog:
+    def __init__ (self, parent, anno_list):
+        top = self.top = Toplevel(parent)
+        Label (top, text="Choose an Annotation Type").pack()
+        self.lbox = Listbox(top)
+        self.lbox.bind("<Double-Button-1>", (lambda x: self.ok()) )
+        self.lbox.pack()
+        for entry in anno_list:
+            self.lbox.insert(END, entry)
+
+        b = Button(top, text="Cancel", command=self.cancel)
+        b.pack(pady=5)
+        self.data = None
+    def ok(self):
+        selected =  self.lbox.curselection()
+        if len(selected) > 0:
+            self.data = self.lbox.get(ACTIVE)
+        self.top.destroy()
+    def cancel(self):
+        self.top.destroy()
+
 #TODO: Wrapper for TSketchGUI because This inherits from frame and we can't just switch it to inherit from SketchGUI
 class TkSketchFrame(Frame):
     """The base GUI class. 
@@ -275,8 +296,8 @@ class TkSketchFrame(Frame):
         t = time.time()
         self.CurrentPointList.append(Point(x,y,t))
 
-        self.p_x = x
-        self.p_y = HEIGHT - y
+        self.p_x = event.x
+        self.p_y = event.y
 
     def CanvasMiddleMouseUp(self, event):
         suggestStrokes = set()
@@ -285,7 +306,13 @@ class TkSketchFrame(Frame):
             for testStroke in self.Board.Strokes:
                 if strokeContainsStroke(containerStroke, testStroke):
                     suggestStrokes.add(testStroke)
-            self.Board.SuggestAnnotation(ArrowAnnotation, list(suggestStrokes))
+            if len(suggestStrokes) > 0:
+                annoNameMap = dict( [(k.__name__, k) for k in self.Board.AnnoTargeters.keys() ] )
+                d = AnnotationDialog(self, annoNameMap.keys())
+                self.wait_window(d.top)
+                if d.data is not None:
+                    self.Board.SuggestAnnotation(annoNameMap[d.data], list(suggestStrokes))
+
 
         self.CurrentPointList = []
         self.p_x = self.p_y = None
