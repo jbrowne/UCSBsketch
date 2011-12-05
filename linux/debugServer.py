@@ -22,8 +22,8 @@ from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
-from SketchFramework.NetworkReceiver import ServerThread
-from SketchFramework.strokeout import imageBufferToStrokes, GETNORMWIDTH
+from SketchFramework.NetworkReceiver import ServerThread, Message
+from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 
 from Observers import CircleObserver
 from Observers import ArrowObserver
@@ -66,7 +66,8 @@ class FileResponseThread(threading.Thread):
             fp = open(self.fname, "r")
             try:
                 output = fp.read()
-                self.outQ.put(output)
+                msg = Message(Message.TYPE_XML, output)
+                self.outQ.put(msg)
             except Exception as e:
                 print e
             finally:
