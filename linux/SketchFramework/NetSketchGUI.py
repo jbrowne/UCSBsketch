@@ -30,7 +30,7 @@ from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
-from SketchFramework.NetworkReceiver import ServerThread
+from SketchFramework.NetworkReceiver import ServerThread, Message
 from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 
 from Observers import CircleObserver
@@ -229,6 +229,103 @@ class DrawText(DrawAction):
 
         return root
         
+class SketchResponseThread(threading.Thread):
+    """A Thread that handles the different requests sent for network interaction with the board"""
+    def __init__(self, recv_q, send_q):
+        """Set up everything for receiving and sending messages.
+            recv_q: the Queue for pulling data messages received from the client
+            send_q: the Queue into which the appropriate responses to the client will be put
+        """
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self._recv_q = recv_q
+        self._send_q = send_q
+        
+        self._boards = {}
+    def run(self):
+        """Continually receive and handle requests from clients, and generate appropriate responses"""
+        while True:
+            in_msg = self._recv_q.get()
+            logger.debug("Received something")
+            if in_msg is not None:
+                logger.debug("Message type %s" % (in_msg.getType))
+                if in_msg.getType() == Message.TYPE_IMG:
+                    logger.debug("Processing image")
+                    xml_response = self.processNewImage(in_msg.getData())
+                    respMsg = Message(Message.TYPE_XML, ET.tostring(xml_response))
+                    self._send_q.put(respMsg)
+                elif in_msg.getType() == Message.TYPE_XML:
+                    logger.debug("Processing XML")
+                    pass
+                else:
+                    logger.debug("Unknown message type")
+            else:
+                logger.debug("Invalid message type")
+            self._recv_q.task_done()
+
+    def processNewImage(self, imageData):
+        """Take in image data, process it and return a string of the resulting board XML"""
+        logger.debug("Processing net image")
+        stks = imageBufferToStrokes(imageData)
+        logger.debug("Processed net image, converting strokes")
+
+        self.resetBoard()
+        newBoard = self._Board
+        self._boards[newBoard.getID()] = newBoard
+
+        for stk in stks:
+            newStroke = Stroke()
+            for x,y in stk.points:
+               scale = WIDTH / GETNORMWIDTH()
+               newPoint = Point(scale * x, HEIGHT - scale * y)
+               newStroke.addPoint(newPoint)
+            newBoard.AddStroke(newStroke)
+
+        retXML = newBoard.xml()
+        retXML.attrib['height'] = str(HEIGHT)
+        retXML.attrib['width'] = str(WIDTH)
+        return retXML
+
+    def resetBoard(self):
+        "Clear all strokes and board observers from the board (logically and visually)"
+        self._Board = BoardSingleton(reset = True)
+        CircleObserver.CircleMarker()
+        #CircleObserver.CircleVisualizer()
+        ArrowObserver.ArrowMarker()
+        #ArrowObserver.ArrowVisualizer()
+        #LineObserver.LineMarker()
+        #LineObserver.LineVisualizer()
+        TextObserver.TextCollector()
+        #TextObserver.TextVisualizer()
+        DiGraphObserver.DiGraphMarker()
+        #DiGraphObserver.DiGraphVisualizer()
+        #DiGraphObserver.DiGraphExporter()
+        TuringMachineObserver.TuringMachineCollector()
+        #TuringMachineObserver.TuringMachineVisualizer()
+        #TuringMachineObserver.TuringMachineExporter()
+        
+        #TemplateObserver.TemplateMarker()
+        #TemplateObserver.TemplateVisualizer()
+        
+        
+        d = DebugObserver.DebugObserver()
+        #d.trackAnnotation(TestAnimObserver.TestAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
+        #d.trackAnnotation(LineObserver.LineAnnotation)
+        #d.trackAnnotation(ArrowObserver.ArrowAnnotation)
+        #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
+        #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
+        #d.trackAnnotation(CircleObserver.CircleAnnotation)
+        #d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
+        #d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
+        
+        #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
+        #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
+        #d.trackAnnotation(TextObserver.TextAnnotation)
+        #d.trackAnnotation(BarAnnotation)
+        
+
 class ImgProcThread (threading.Thread):
     "A Thread that continually pulls image data from imgQ and puts the resulting stroke list in strokeQ"
     def __init__(self, imgQ, strokeQ):
@@ -269,12 +366,19 @@ class NetSketchGUI(_SketchGUI):
        self._Board = None
        self.ResetBoard()
 
+       self._setupNetworkDispatcher()
        # Private data members
-       self._strokeQueue = Queue.Queue()
        self._serverThread = None
+       self._recv_q = None
+       self._send_q = None
+       self._netDispatchThread = None
+
+       self._strokeQueue = Queue.Queue()
+       """
        self._xmlResponseQueue = None
        self._imgProcThread = None
        self._setupImageServer()
+       """
 
        self._drawQueue = []
 
@@ -282,6 +386,16 @@ class NetSketchGUI(_SketchGUI):
        self._onBoardDrawOrder = []
 
        self.run()
+
+    def _setupNetworkDispatcher(self):
+        self._serverThread = ServerThread(port = 30000)
+        self._recv_q = self._serverThread.getRequestQueue()
+        self._send_q = self._serverThread.getResponseQueue()
+
+        self._netDispatchThread = SketchResponseThread(self._recv_q, self._send_q)
+        self._netDispatchThread.start()
+
+        self._serverThread.start()
 
     def ResetBoard(self):
         "Clear all strokes and board observers from the board (logically and visually)"
