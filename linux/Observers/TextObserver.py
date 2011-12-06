@@ -29,7 +29,7 @@ from Observers import ObserverBase
 from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -64,10 +64,10 @@ class TextAnnotation(Annotation):
 l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
 class _LetterMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
-    def __init__(self):
-        BoardObserver.__init__(self) 
-        BoardSingleton().AddBoardObserver( self , [TextAnnotation])
-        BoardSingleton().RegisterForStroke( self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board) 
+        self.getBoard().AddBoardObserver( self , [TextAnnotation])
+        self.getBoard().RegisterForStroke( self )
 
     def _makeZeroAnnotation(self, strokelist):
         """Take in a list of strokes and return a TextAnnotation with them marked as "0"""
@@ -94,24 +94,24 @@ class _LetterMarker( BoardObserver ):
         if _scoreStrokesForLetter(strokelist, '0') > 0.9:
             oAnnotation = self._makeZeroAnnotation(strokelist)
             l_logger.debug("Annotating %s with %s" % ( stroke, oAnnotation))
-            BoardSingleton().AnnotateStrokes( strokelist,  oAnnotation)
+            self.getBoard().AnnotateStrokes( strokelist,  oAnnotation)
 
         if _scoreStrokesForLetter(strokelist, '1') > 0.9:
             oneAnnotation = self._makeOneAnnotation(strokelist)
             l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation.text))
-            BoardSingleton().AnnotateStrokes( strokelist,  oneAnnotation)
+            self.getBoard().AnnotateStrokes( strokelist,  oneAnnotation)
 
         if _scoreStrokesForLetter(strokelist, '-') > 0.9:
             dashAnnotation = self._makeDashAnnotation(strokelist)
             l_logger.debug("Annotating %s with %s" % ( stroke, dashAnnotation.text))
-            BoardSingleton().AnnotateStrokes( strokelist,  dashAnnotation)
+            self.getBoard().AnnotateStrokes( strokelist,  dashAnnotation)
 
     def onStrokeRemoved(self, stroke):
         all_text_annos = set(stroke.findAnnotations(TextAnnotation))
         all_text_strokes = set([])
         for ta in all_text_annos:
             all_text_strokes.update(ta.Strokes)
-            BoardSingleton().RemoveAnnotation(ta)
+            self.getBoard().RemoveAnnotation(ta)
 
         for s in all_text_strokes:
             if s is not stroke:
@@ -202,10 +202,10 @@ tc_logger = Logger.getLogger("TextCollector", Logger.DEBUG)
 
 class TextCollector( ObserverBase.Collector ):
     "Watches for strokes that look like text"
-    def __init__(self, circularity_threshold=0.90):
+    def __init__(self, board, circularity_threshold=0.90):
         # FIXME: this is for "binary" text right now
-        self.letterMarker = _LetterMarker()
-        ObserverBase.Collector.__init__( self, [], TextAnnotation  )
+        self.letterMarker = _LetterMarker(board)
+        ObserverBase.Collector.__init__( self, board, [], TextAnnotation  )
 
     def onAnnotationSuggested(self, anno_type, strokelist):
         """Called when the a list of strokes are suggested to yield an annotation of type anno_type."""
@@ -223,17 +223,17 @@ class TextCollector( ObserverBase.Collector ):
                 if best[0] == "0":
                     oAnnotation = self.letterMarker._makeZeroAnnotation(singleStrokeList)
                     tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, oAnnotation))
-                    BoardSingleton().AnnotateStrokes( singleStrokeList,  oAnnotation)
+                    self.getBoard().AnnotateStrokes( singleStrokeList,  oAnnotation)
 
                 elif best[0] == "1":
                     oneAnnotation = self.letterMarker._makeOneAnnotation(singleStrokeList)
                     tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, oneAnnotation.text))
-                    BoardSingleton().AnnotateStrokes( singleStrokeList,  oneAnnotation)
+                    self.getBoard().AnnotateStrokes( singleStrokeList,  oneAnnotation)
 
                 elif best[0] == "-":
                     dashAnnotation = self.letterMarker._makeDashAnnotation(singleStrokeList)
                     tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, dashAnnotation.text))
-                    BoardSingleton().AnnotateStrokes( singleStrokeList,  dashAnnotation)
+                    self.getBoard().AnnotateStrokes( singleStrokeList,  dashAnnotation)
 
 
     def mergeCollections( self, from_anno, to_anno ):
@@ -330,8 +330,8 @@ class TextCollector( ObserverBase.Collector ):
 
 class TextVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, TextAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__( self, board,  TextAnnotation )
 
     def drawAnno( self, a ):
         if len(a.text) > 1:

@@ -29,11 +29,10 @@ from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkMessageBox import *
 
-from Observers.ArrowObserver import ArrowAnnotation
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardSingleton
+from SketchFramework.Board import Board
 from SketchSystem import initialize, standAloneMain
 #from SketchFramework.strokeout import imageBufferToStrokes, imageToStrokes
 #from SketchFramework.NetworkReceiver import ServerThread
@@ -48,7 +47,6 @@ WIDTH = 1000
 HEIGHT = 800
 MID_W = WIDTH/2
 MID_H = HEIGHT/2
-
    
 logger = Logger.getLogger("TkSketchGUI", Logger.DEBUG)
 
@@ -245,7 +243,7 @@ class TkSketchFrame(Frame):
 
     def RebuildObjectMenu(self):
         "Search the board for existing objects, and add a menu entry to manipulate it (drawAll)"
-        observers = BoardSingleton().GetBoardObservers()
+        observers = self.Board.GetBoardObservers()
         draw_vars = {}
         for obs in observers:
             key = obs.__class__
@@ -266,7 +264,7 @@ class TkSketchFrame(Frame):
         "Clear all strokes and board observers from the board (logically and visually)"
         self.p_x = self.p_y = None
 
-        self.Board = BoardSingleton(reset = True)
+        self.Board = Board()
         initialize(self.Board)
         self.RegisterAnimators()
         self.CurrentPointList = []

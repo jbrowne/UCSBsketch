@@ -8,7 +8,7 @@ from Utils import Debugging as D
 from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from Observers import DiGraphObserver
@@ -228,8 +228,8 @@ class BoxAnnotation (Annotation):
         self.corners = list(corners)
 
 class BoxVisualizer (ObserverBase.Visualizer):
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, BoxAnnotation)
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__( self, board, BoxAnnotation)
     def drawAnno(self, a):
         prev = None
         for cPt in a.corners + [a.corners[0]]:
@@ -238,15 +238,16 @@ class BoxVisualizer (ObserverBase.Visualizer):
             prev = cPt
         
 class BoxMarker(BoardObserver):
-    def __init__(self):
-        BoardSingleton().RegisterForStroke(self)
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().RegisterForStroke(self)
 
     def onStrokeAdded(self, stroke):
         self.tagBox(stroke)
 
     def onStrokeRemoved(self, stroke):
         for ba in stroke.findAnnotations(BoxAnnotation):
-            BoardSingleton().RemoveAnnotation(ba)
+            self.getBoard().RemoveAnnotation(ba)
 
     def tagBox(self, stroke):
 
@@ -285,18 +286,19 @@ class BoxMarker(BoardObserver):
             approxAcc = GeomUtils.strokeDTWDist(boxStroke, origStroke)
             print "Box approximates original with %s accuracy" % (approxAcc)
             if approxAcc < boxApproxThresh:
-                BoardSingleton().AnnotateStrokes([stroke], BoxAnnotation(c_list))
+                self.getBoard().AnnotateStrokes([stroke], BoxAnnotation(c_list))
 
         
 
 #-------------------------------------
 class TuringMachineCollector(BoardObserver):
     LABELMATCH_DISTANCE = (0.5, 2.0)
-    def __init__( self ):
+    def __init__( self, board):
         # this will register everything with the board, and we will get the proper notifications
-        BoardSingleton().AddBoardObserver(self, [TuringMachineAnnotation])
-        BoardSingleton().RegisterForAnnotation(TextObserver.TextAnnotation, self)
-        BoardSingleton().RegisterForAnnotation(DiGraphObserver.DiGraphAnnotation, self)
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver(self, [TuringMachineAnnotation])
+        self.getBoard().RegisterForAnnotation(TextObserver.TextAnnotation, self)
+        self.getBoard().RegisterForAnnotation(DiGraphObserver.DiGraphAnnotation, self)
 
         #BoxVisualizer()
 
@@ -337,7 +339,7 @@ class TuringMachineCollector(BoardObserver):
         labelEdgeMatches = {} # { label : {edge, distance} }
 
         for tmAnno in set(self.tmMap.keys()):
-            BoardSingleton().RemoveAnnotation(tmAnno)
+            self.getBoard().RemoveAnnotation(tmAnno)
             del(self.tmMap[tmAnno])
 
         for textAnno in self.labelMap.keys():
@@ -394,10 +396,10 @@ class TuringMachineCollector(BoardObserver):
                         tmAnno.assocLabel2Edge(label, edgeAnno)
 
             if shouldAddAnno:
-                BoardSingleton().AnnotateStrokes(tmAnno.getAssociatedStrokes(), tmAnno)
+                self.getBoard().AnnotateStrokes(tmAnno.getAssociatedStrokes(), tmAnno)
                 self.tmMap[tmAnno] = assocSet
             else:
-                BoardSingleton().UpdateAnnotation(tmAnno, new_strokes = tmAnno.getAssociatedStrokes())
+                self.getBoard().UpdateAnnotation(tmAnno, new_strokes = tmAnno.getAssociatedStrokes())
                 self.tmMap[tmAnno] = assocSet
 
     def onAnnotationRemoved(self, anno):
@@ -414,8 +416,8 @@ class TuringMachineCollector(BoardObserver):
 
 class TuringMachineVisualizer ( ObserverBase.Visualizer ):
     "Watches for DiGraph annotations, draws them"
-    def __init__(self, filename = "turing_machine.dot"):
-        ObserverBase.Visualizer.__init__( self, TuringMachineAnnotation)
+    def __init__(self, board, filename = "turing_machine.dot"):
+        ObserverBase.Visualizer.__init__( self, board, TuringMachineAnnotation)
 
     def drawAnno( self, a ):
         tm_logger.debug(ET.tostring(a.xml()))
@@ -517,8 +519,8 @@ class TuringMachineAnimator(ObserverBase.Animator, TuringMachineVisualizer):
 
 class TuringMachineExporter ( ObserverBase.Visualizer ):
     "Watches for DiGraph annotations, draws them"
-    def __init__(self, filename = "turing_machine.dot"):
-        ObserverBase.Visualizer.__init__( self, TuringMachineAnnotation)
+    def __init__(self, board, filename = "turing_machine.dot"):
+        ObserverBase.Visualizer.__init__( self, board, TuringMachineAnnotation)
         self._fname = filename
 
     def drawAnno( self, a ):

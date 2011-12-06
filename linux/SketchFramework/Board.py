@@ -23,7 +23,8 @@ class BoardException (Exception):
 #--------------------------------------------
 class BoardObserver(object):
     "The Board Observer Class from which all other Board Observers should be derived"
-    def __init__(self):
+    def __init__(self, board):
+        self._parentBoard = board
         self.AnnoFuncs={}
         self._targetAnnotations = None #Set by the Board with a call to "RegisterBoardObserver"
         
@@ -51,21 +52,23 @@ class BoardObserver(object):
     def drawMyself(self):
         pass
 
+    def getBoard(self):
+        return self._parentBoard
+
 #--------------------------------------------
 
 # TODO: Does Board really need to be a sigleton?  If we want 
 #       multiple boards operating simultanously, it might be better to avoid
 #       the Singleton pattern
 
-class _Board(object):
+class Board(object):
     Count = 0
-    BoardSingleton = None
     Lock =threading.Lock()
     "A singleton Object containing the Board and all of the strokes."
 
     def __init__(self):
-        self._id = _Board.Count
-        _Board.Count += 1
+        self._id = Board.Count
+        Board.Count += 1
         self.Reset()
         
 
@@ -73,7 +76,7 @@ class _Board(object):
         return self._id
 
     def Reset(self):
-        self.Lock = _Board.Lock
+        self.Lock = Board.Lock
         self.Strokes = [] #All the strokes on the board
         self.StrokeObservers=[] #All of the stroke observers to be called onStrokeAdded
         self.AnnoObservers={} #Dict indexed by annotation type to be called onAnnotationAdded
@@ -337,10 +340,4 @@ class _Board(object):
         return stroke_list
                 
 #--------------------------------------------
-
-def BoardSingleton(reset = False):
-    if _Board.BoardSingleton == None or reset:
-       logger.debug( "Creating board object" );
-       _Board.BoardSingleton = _Board()
-    return _Board.BoardSingleton
 
