@@ -45,13 +45,19 @@ class BoardObserver(object):
 #       the Singleton pattern
 
 class _Board(object):
+    Count = 0
     BoardSingleton = None
     Lock =threading.Lock()
     "A singleton Object containing the Board and all of the strokes."
 
     def __init__(self):
+        self._id = _Board.Count
+        _Board.Count += 1
         self.Reset()
         
+
+    def getID(self):
+        return self._id
 
     def Reset(self):
         self.Lock = _Board.Lock
@@ -68,6 +74,7 @@ class _Board(object):
     def xml(self):
         root = ET.Element("Board")
 
+        root.attrib["id"] = str(self._id)
         strokes_el = ET.SubElement(root, "Strokes")
         for s in self.Strokes:
             strokes_el.append(s.xml())

@@ -30,7 +30,7 @@ from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
-from SketchFramework.NetworkReceiver import ServerThread
+from SketchFramework.NetworkReceiver import ServerThread, Message
 from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 
 from Observers import CircleObserver
@@ -240,26 +240,91 @@ class SketchResponseThread(threading.Thread):
         self.daemon = True
         self._recv_q = recv_q
         self._send_q = send_q
+        
+        self._boards = {}
     def run(self):
         """Continually receive and handle requests from clients, and generate appropriate responses"""
         while True:
-            in_msg = StringIO.StringIO(self._recv_q.get())
-            print in_msg.readline()
+            in_msg = self._recv_q.get()
+            logger.debug("Received something")
+            if in_msg is not None:
+                logger.debug("Message type %s" % (in_msg.getType))
+                if in_msg.getType() == Message.TYPE_IMG:
+                    logger.debug("Processing image")
+                    xml_response = self.processNewImage(in_msg.getData())
+                    respMsg = Message(Message.TYPE_XML, ET.tostring(xml_response))
+                    self._send_q.put(respMsg)
+                elif in_msg.getType() == Message.TYPE_XML:
+                    logger.debug("Processing XML")
+                    pass
+                else:
+                    logger.debug("Unknown message type")
+            else:
+                logger.debug("Invalid message type")
             self._recv_q.task_done()
-            """
-            logger.debug("Processing net image")
-            stks = imageBufferToStrokes(image)
-            logger.debug("Processed net image, converting strokes")
-            newStrokeList = []
-            for stk in stks:
-                newStroke = Stroke()
-                for x,y in stk.points:
-                   scale = WIDTH / GETNORMWIDTH()
-                   newPoint = Point(scale * x, HEIGHT - scale * y)
-                   newStroke.addPoint(newPoint)
-                newStrokeList.append(newStroke)
-            self.stk_queue.put(newStrokeList)
-            """
+
+    def processNewImage(self, imageData):
+        """Take in image data, process it and return a string of the resulting board XML"""
+        logger.debug("Processing net image")
+        stks = imageBufferToStrokes(imageData)
+        logger.debug("Processed net image, converting strokes")
+
+        self.resetBoard()
+        newBoard = self._Board
+        self._boards[newBoard.getID()] = newBoard
+
+        for stk in stks:
+            newStroke = Stroke()
+            for x,y in stk.points:
+               scale = WIDTH / GETNORMWIDTH()
+               newPoint = Point(scale * x, HEIGHT - scale * y)
+               newStroke.addPoint(newPoint)
+            newBoard.AddStroke(newStroke)
+
+        retXML = newBoard.xml()
+        retXML.attrib['height'] = str(HEIGHT)
+        retXML.attrib['width'] = str(WIDTH)
+        return retXML
+
+    def resetBoard(self):
+        "Clear all strokes and board observers from the board (logically and visually)"
+        self._Board = BoardSingleton(reset = True)
+        CircleObserver.CircleMarker()
+        #CircleObserver.CircleVisualizer()
+        ArrowObserver.ArrowMarker()
+        #ArrowObserver.ArrowVisualizer()
+        #LineObserver.LineMarker()
+        #LineObserver.LineVisualizer()
+        TextObserver.TextCollector()
+        #TextObserver.TextVisualizer()
+        DiGraphObserver.DiGraphMarker()
+        #DiGraphObserver.DiGraphVisualizer()
+        #DiGraphObserver.DiGraphExporter()
+        TuringMachineObserver.TuringMachineCollector()
+        #TuringMachineObserver.TuringMachineVisualizer()
+        #TuringMachineObserver.TuringMachineExporter()
+        
+        #TemplateObserver.TemplateMarker()
+        #TemplateObserver.TemplateVisualizer()
+        
+        
+        d = DebugObserver.DebugObserver()
+        #d.trackAnnotation(TestAnimObserver.TestAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
+        #d.trackAnnotation(LineObserver.LineAnnotation)
+        #d.trackAnnotation(ArrowObserver.ArrowAnnotation)
+        #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
+        #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
+        #d.trackAnnotation(CircleObserver.CircleAnnotation)
+        #d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
+        #d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
+        
+        #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
+        #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
+        #d.trackAnnotation(TextObserver.TextAnnotation)
+        #d.trackAnnotation(BarAnnotation)
+        
 
 class ImgProcThread (threading.Thread):
     "A Thread that continually pulls image data from imgQ and puts the resulting stroke list in strokeQ"

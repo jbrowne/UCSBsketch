@@ -7,12 +7,30 @@ import time
 import os
 import threading
 import StringIO
+import pdb
+import struct
 
 from PIL import ImageFile
 
 class Message:
     TYPE_IMG = "Img"
     TYPE_XML = "Xml"
+
+    @classmethod
+    def parse(cls, inString):
+        """Factory method that returns a message parsed from the string,
+        or None if the string is poorly formatted"""
+        retMsg = None
+        strIO = StringIO.StringIO(inString)
+
+        msgType = strIO.readline()
+        dataString = inString[len(msgType):]
+        msgType = msgType.rstrip()
+
+        if msgType in [Message.TYPE_XML, Message.TYPE_IMG]:
+            retMsg = Message(msgType, dataString)
+        return retMsg
+
     def __init__(self, msgType, data):
         self._type = msgType
         self._data = data
@@ -63,27 +81,34 @@ class NetworkHandler(threading.Thread):
             See note about protocol in __init__
         """
         try:
-            print "Connected by %s" % (str(self.addr))
-            buf = ''
-            infp = self.sock.makefile()
-            #length = struct.unpack(infp.read(4))
-            #print "Reading %s bytes" % (length)
-            length = int(infp.readline())
+            while True:
+                print "Connected by %s" % (str(self.addr))
+                buf = ''
+                infp = self.sock.makefile()
+                #length = struct.unpack(infp.read(4))
+                #print "Reading %s bytes" % (length)
+                lenstr = infp.readline()
+                if  len(lenstr) > 0:
+                    length = int(lenstr)
 
-            buf = infp.read(length)
-            print "Read %s bytes" % (length)
-            self.recv_queue.put(buf)
+                    buf = infp.read(length)
+                    print "Read %s bytes" % (length)
+                    msg = Message.parse(buf)
+                    self.recv_queue.put(msg)
 
-            #self.resp_queue.put("Finished receiving %s" % (time.time()))
+                    #self.resp_queue.put("Finished receiving %s" % (time.time()))
 
-            response = self.resp_queue.get()
-            response = str(len(response)) + "\n" + str(response)
-            print "Sending... on %s" % (str(self.sock))
-            #response = "Finished receiving %s" % (time.time())
-            print "NetworkHandler: sending %s" % (response[:300])
-            sent = self.sock.send(response)
-            print "NetworkHandler: successfully sent %s bytes" % (sent)
-            self.resp_queue.task_done()
+                    response = self.resp_queue.get()
+                    response = str(len(response)) + "\n" + str(response)
+                    print "Sending... on %s" % (str(self.sock))
+                    #response = "Finished receiving %s" % (time.time())
+                    print "NetworkHandler: sending %s" % (response[:300])
+                    sent = self.sock.send(response)
+                    print "NetworkHandler: successfully sent %s bytes" % (sent)
+                    self.resp_queue.task_done()
+                else:
+                    #Disconnected before more data received
+                    break
         finally:
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
@@ -104,17 +129,18 @@ class FilePrinter(Printer):
     def __init__(self, queue, filename = ""):
         Printer.__init__(self, queue)
         self.fname = filename
+        self.daemon = True
     def run(self):
         while True:
-            result = self.queue.get()
-            print "Printing result (%s) " % (len(result))
+            msg = self.queue.get()
+            print "Printing msg (%s) " % (len(msg))
             try:
                 #fp = open(self.fname, "wb")
 
                 fp, fname = tempfile.mkstemp(suffix = '.jpg', dir="./received")
                 print "Saving to %s" % (fname)
                 fp = os.fdopen(fp, 'w+b')
-                fp.write(result)
+                fp.write(msg.getData())
                 fp.close()
             except Exception as e:
                 print "Error:, file not written. %s" % (e)
@@ -172,13 +198,14 @@ class ServerThread(threading.Thread):
                 nThread = NetworkHandler(self.request_queue, self.response_queue, conn, addr)
                 nThread.daemon=True
                 nThread.start()
-        except Exception as e:
+        except (KeyboardInterrupt, SystemExit) as e:
             print "Server error: %s" % (e)
             raise e
         finally:
             self.finish()
 
     def finish(self):
+        print "Closing socket"
         if self.sock is not None:
             self.sock.close()
         
@@ -186,18 +213,16 @@ class ServerThread(threading.Thread):
 if __name__ == "__main__":
     HOST = ''
     PORT = 30000
-    if len(sys.argv) < 2:
-        print "Usage: %s <filename>" % (sys.argv[0])
-        exit(1)
+    #if len(sys.argv) < 2:
+        #print "Usage: %s <filename>" % (sys.argv[0])
+        #exit(1)
 
     sThread = ServerThread()
-    sThread.start()
     print "Server Thread started"
-    time.sleep(0.5)
 
-    cThread = ClientThread(sys.argv[1])
-    cThread.start()
-    #print "Client Thread Started"
+    fpThread = FilePrinter(sThread.getRequestQueue())
+    fpThread.start()
+    sThread.start()
 
     try:
         sThread.join(3000)
