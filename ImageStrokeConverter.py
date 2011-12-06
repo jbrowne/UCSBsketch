@@ -24,6 +24,7 @@ import math
 import pdb
 import time
 import StringIO
+import datetime
 
 
 #Random, but consistent
@@ -57,13 +58,15 @@ DEBUGSCALE = 1
 def cvimgToStrokes(in_img):
    "External interface to take in an OpenCV image object and return a list of the strokes."
    saveimg(in_img)
+   saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().ctime()+".jpg")
    small_img = resizeImage(in_img)
    temp_img = removeBackground(small_img)
    strokelist = blobsToStrokes(temp_img)
+   prettyPrintStrokes(temp_img, strokelist)
    return strokelist
 def imageBufferToStrokes(data):
    "External interface to take in a PIL image buffer object and return a list of the strokes."
-   pil_img = Image.open(data)
+   pil_img = Image.open(StringIO.StringIO(data))
    cv_img = cv.CreateImageHeader(pil_img.size, cv.IPL_DEPTH_8U, 3)
    cv.SetData(cv_img, pil_img.tostring())
    cv_mat = cv.GetMat(cv_img)
@@ -642,27 +645,33 @@ def pointsToGraph(pointSet, rawImg):
 def scoreConcatSmoothness(ptList1, ptList2):
    "Scores the smoothness of the angle from 0 to 1, 1 being perfectly smooth"
 
-   angleDepth = 3 #A factor of the shortest stroke, how far into each stroke to go for a candidate point
+   scalesList = [3, 5, 10]  #A factor of the shortest stroke, how far into each stroke to go for a candidate point
 
+   totalSmoothness = 0.0
    assert ptList1[-1] == ptList2[0] # They are joined by a point
-   step = max([1, min([angleDepth, len(ptList1) / 10, len(ptList2) / 10]) ]) #Step at least 1, at most 5 points or 1/10 of the shorter stroke
+   for concatDepth in scalesList:
+       step = max([1, min([concatDepth, len(ptList1) / 10, len(ptList2) / 10]) ]) #Step at least 1, at most 5 points or 1/10 of the shorter stroke
 
-   #If there are enough points, skip the shared point and get a more representative point
-   if len(ptList1) > 1 and step > 2:
-      p2a = ptList1[-2]
-   else:
-      p2a = ptList1[-1]
+       #If there are enough points, skip the shared point and get a more representative point
+       if len(ptList1) > 1 and step > 2:
+          p2a = ptList1[-2]
+       else:
+          p2a = ptList1[-1]
 
-   if len(ptList2) > 1 and step > 2:
-      p2b = ptList2[1]
-   else:
-      p2b = ptList2[0]
+       if len(ptList2) > 1 and step > 2:
+          p2b = ptList2[1]
+       else:
+          p2b = ptList2[0]
 
-   p1 = ptList1[-step]
-   p2 = ( (p2a[0] + p2b[0]) / 2.0, (p2a[1] + p2b[1]) / 2.0 )
-   p3 = ptList2[step - 1]
-   
-   return interiorAngle(p1, p2, p3) / 180.0
+       p1 = ptList1[-step]
+       p2 = ( (p2a[0] + p2b[0]) / 2.0, (p2a[1] + p2b[1]) / 2.0 )
+       p3 = ptList2[step - 1]
+       
+       totalSmoothness += concatDepth * interiorAngle(p1, p2, p3) / 180.0
+   totalSmoothness = totalSmoothness / sum(scalesList)
+
+   assert (totalSmoothness >= 0 and totalSmoothness <= 1.0)
+   return totalSmoothness
 
 
 
@@ -1435,77 +1444,30 @@ def blobsToStrokes(img):
    return strokelist
 
 
-
-      
-
-
-
-      
-
-def processStrokes(cv_img):
+def prettyPrintStrokes(img, strokeList):
    """Take in a raw, color image and return a list of strokes extracted from it."""
 
-   global DEBUGIMG, BGVAL
-
-   #show(cv_img)
-   small_img = resizeImage(cv_img)
-   #small_img = cv.CloneMat(cv_img)
-
-   #getHoughLines(small_img)
-
-   temp_img = removeBackground(small_img)
-   DEBUGIMG = cv.CloneMat(temp_img)
-   #cv.Set(DEBUGIMG, 255)
-
-   
-   #DEBUGIMG = cv.CreateMat(DEBUGSCALE * temp_img.rows, DEBUGSCALE * temp_img.cols, cv.CV_8UC1)
-   cv.Set(DEBUGIMG, 255)
-   strokelist = blobsToStrokes(temp_img)
-      
-   #DEBUGIMG = cv.CloneMat(temp_img)
-   #cv.Set(DEBUGIMG, 255)
-   
+   temp_img = cv.CloneMat(img)
    cv.Set(temp_img, BGVAL)
+
    pointsPerFrame = 5
    numPts = 0
-   strokelist.sort(key = (lambda s: s.center[1] * 10 + s.center[0]) ) 
+   strokeList = list(strokeList)
+   strokeList.sort(key = (lambda s: s.center[1] * 10 + s.center[0]) ) 
    lineColor =  0
    startColor = 128
    stopColor = 220
    thicknesses = []
-   for s in strokelist:
+   for s in strokeList:
       prev = None
-      #t = s.getThickness()
-      t = 1
-      #print "Stroke thickness = %s" % (t)
-      thicks = s.getThicknesses()
-      thicknesses.extend(thicks)
       for i, p in enumerate(s.getPoints()):
-         #t = int(thicks[i] / 2)
-         debugPt = ( DEBUGSCALE * p[0], DEBUGSCALE * p[1])
-         setImgVal(DEBUGSCALE * p[0], DEBUGSCALE * p[1], 0, temp_img)
          if prev is not None:
-            pass
-            cv.Line(temp_img, prev, debugPt, lineColor, thickness=t)
-            #cv.Line(temp_img, prev, debugPt, 0, thickness=2)
-            #saveimg (temp_img)
+            cv.Line(temp_img, prev, p, lineColor, thickness=1)
          else:
-            pass
-            cv.Circle(temp_img, debugPt, 1, startColor, thickness=-1)
-            #saveimg(temp_img)
-         numPts += 1
-         prev = debugPt
-         if numPts % pointsPerFrame == 0:
-            pass
-            #saveimg(temp_img)
-            #if numPts % (5 * pointsPerFrame) == 0:
-               #cv.Set(temp_img, 255)
-      cv.Circle(temp_img, debugPt, 1, stopColor, thickness=-1)
+            cv.Circle(temp_img, p, 1, startColor, thickness=-1)
+         prev = p 
+      cv.Circle(temp_img, p, 1, stopColor, thickness=-1)
       saveimg(temp_img)
-
-   print "Average line thickness : %s" % ( sum(thicknesses) / len(thicknesses) )
-
-   return temp_img
 
 def pointDist(p1, p2):
    "Find the squared distance between two points"
@@ -1523,11 +1485,14 @@ def show(cv_img):
    saveimg(cv_img)
    
 
-def saveimg(cv_img, outdir = "./temp/", title=""):
+def saveimg(cv_img, name = None, outdir = "./temp/", title=""):
    "save a cv Image"
    global FNAMEITER
 
-   outfname = outdir + FNAMEITER.next()
+   if name is None:
+       outfname = outdir + FNAMEITER.next()
+   else:
+       outfname = outdir + name
    print "Saving %s: %s"  % (outfname, title)
 
    cv.SaveImage(outfname, cv_img)
@@ -1546,14 +1511,15 @@ def main(args):
       outfname = None
 
 
-   in_img = cv.LoadImageM(fname)
-   print "Processing image %sx%s" % (getWidth(in_img), getHeight(in_img))
-   out_img = processStrokes(in_img)
-   saveimg(out_img)
+   #in_img = cv.LoadImageM(fname)
+   ##print "Processing image %sx%s" % (getWidth(in_img), getHeight(in_img))
+   imageToStrokes(fname)
+   #out_img = processStrokes(in_img)
+   #saveimg(out_img)
    
-   if outfname is not None:
-      print "Saving to %s" % (outfname)
-      cv.SaveImage(outfname, out_img)
+   #if outfname is not None:
+      #print "Saving to %s" % (outfname)
+      #cv.SaveImage(outfname, out_img)
 
    #show(out_img)
 
