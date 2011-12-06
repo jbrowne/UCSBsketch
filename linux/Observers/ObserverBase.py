@@ -41,7 +41,7 @@ logger = Logger.getLogger('ObserverBase', Logger.WARN )
 class Visualizer( BoardObserver ):
     "Watches for annotations, draws them"
     def __init__(self, anno_type):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self , [])
         BoardSingleton().RegisterForAnnotation( anno_type, self )
         self.annotation_list = []
 
@@ -106,9 +106,10 @@ class Collector( BoardObserver ):
     # If this is the case, you just need to implement two functions, collectionFromItem and mergeCollections.
     # collectionFromItem builds a new collection of size 1 from one of the base items (or returns None).
     # mergeCollections takes two collections and merges them into one if possible.
+    # If this collector adds annotations other than the collection_annotype, list them in other_target_annos
 
-    def __init__(self, item_annotype_list, collection_annotype):
-        BoardSingleton().AddBoardObserver( self )
+    def __init__(self, item_annotype_list, collection_annotype, other_target_annos = []):
+        BoardSingleton().AddBoardObserver( self , [collection_annotype])
         for annotype in item_annotype_list:
             BoardSingleton().RegisterForAnnotation( annotype, self )
         BoardSingleton().RegisterForAnnotation( collection_annotype, self )

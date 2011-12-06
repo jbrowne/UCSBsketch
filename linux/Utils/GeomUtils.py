@@ -305,9 +305,9 @@ def strokeContainsStroke(outerStk, innerStk, granularity = None):
     #if granularity == None:
         #granularity = max (len(outerStk.Points), len(innerStk.Points))
 
-    #close stroke1
-    ep1 = stroke1.Points[0]
-    ep2 = stroke1.Points[-1]
+    #close outerStk
+    ep1 = outerStk.Points[0]
+    ep2 = outerStk.Points[-1]
     if pointDistanceSquared(ep1.X, ep1.Y, ep2.X, ep2.Y) > 10:
         logger.warn("Checking containment within a stroke that's probably not closed")
 

@@ -294,6 +294,7 @@ class TuringMachineCollector(BoardObserver):
     LABELMATCH_DISTANCE = (0.5, 2.0)
     def __init__( self ):
         # this will register everything with the board, and we will get the proper notifications
+        BoardSingleton().AddBoardObserver(self, [TuringMachineAnnotation])
         BoardSingleton().RegisterForAnnotation(TextObserver.TextAnnotation, self)
         BoardSingleton().RegisterForAnnotation(DiGraphObserver.DiGraphAnnotation, self)
 
