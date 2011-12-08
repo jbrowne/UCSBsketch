@@ -129,7 +129,7 @@ class ArrowMarker( BoardObserver ):
         #DISABLED
         logger.debug("**Warning: Single-stroke arrows disabled**")
         tip, tail = None, None
-        #tip, tail = _isSingleStrokeArrow(smoothedStroke)
+        tip, tail = _isSingleStrokeArrow(smoothedStroke)
         #if tip is None or tail is None:
             #revpts = list(smoothedStroke.Points)
             #revpts.reverse()
@@ -286,6 +286,8 @@ class ArrowMarker( BoardObserver ):
 
 def _isPointWithHead(point, head, tip):
     "Returns true if point is close enough and within the cone of the head stroke"
+
+    fuzz = 2 #Number of pixels to fuzz the "in-angle-cone" test
     distanceThresh = 1 
     distanceThresh *= distanceThresh #Keep up with squared distances
 
@@ -311,8 +313,17 @@ def _isPointWithHead(point, head, tip):
     #logger.debug("tip_to_endpoint: %s\n, tip_to_backofarrowhead: %s,\n endpoint_to_backofarrowhead: %s" % (tip_to_endpoint, tip_to_backofarrowhead, endpoint_to_backofarrowhead))
     #Tail's endpoint is close to the end of the arrowhead, or even closer to the tip of the arrowhead
     if tip_to_backofarrowhead >= endpoint_to_backofarrowhead or tip_to_backofarrowhead >= tip_to_endpoint:
-        if GeomUtils.pointInAngleCone(point, ep1, tip, ep2):
-            return True
+        #Make the in-angle-cone check a bit fuzzy
+        epList = [point, \
+                    Point(point.X + fuzz, point.Y), \
+                    Point(point.X - fuzz, point.Y), \
+                    Point(point.X,        point.Y + fuzz), \
+                    Point(point.X,        point.Y - fuzz), \
+                    Point(point.X + fuzz, point.Y + fuzz), \
+                    Point(point.X - fuzz, point.Y - fuzz)]
+        for pt in epList:
+            if GeomUtils.pointInAngleCone(pt, ep1, tip, ep2):
+                return True
     return False
     
 #-------------------------------------
