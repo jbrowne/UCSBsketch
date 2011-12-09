@@ -30,6 +30,9 @@ import datetime
 #Random, but consistent
 random.seed("sketchvision")
 
+
+DEBUG = False
+
 BLACK = 0
 WHITE = 255
 GRAY = 200
@@ -57,7 +60,8 @@ DEBUGSCALE = 1
 
 def cvimgToStrokes(in_img):
    "External interface to take in an OpenCV image object and return a list of the strokes."
-   saveimg(in_img)
+   if(DEBUG):
+       saveimg(in_img)
    saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().ctime()+".jpg")
    small_img = resizeImage(in_img)
    temp_img = removeBackground(small_img)
@@ -527,7 +531,8 @@ def pointsToStrokes(pointSet, rawImg):
    cv.Set(DEBUGIMG, 255)
    graph = pointsToGraph(pointSet, rawImg)
    drawGraph(graph, DEBUGIMG)
-   saveimg(DEBUGIMG)
+   if(DEBUG):
+       saveimg(DEBUGIMG)
 
    retStrokes = graphToStrokes(graph, rawImg)
    return retStrokes
@@ -642,21 +647,57 @@ def pointsToGraph(pointSet, rawImg):
 
    return graphDict
 
+
+#Stolen from GeomUtils
+def getLinesIntersection(line1, line2):
+   "Input: two lines specified as 2-tuples of points. Returns the intersection point of two lines or None."
+   p1, p2 = line1
+   q1, q2 = line2
+
+   if p1[0] > p2[0]:
+      p1, p2 = p2, p1
+   if q1[0] > q2[0]:
+      q1, q2 = q2, q1   
+
+   #is p __ than q
+   isHigher = p1[1] > q1[1] and p2[1] > q2[1] and p1[1] > q2[1] and p2[1] > q1[1]
+   isLower = p1[1] < q1[1] and p2[1] < q2[1] and p1[1] < q2[1] and p2[1] < q1[1]
+   isLeft= p2[0] < q1[0]
+   isRight= p1[0] > q2[0]
+
+   pA = p2[1] - p1[1]
+   pB = p1[0] - p2[0]
+   pC = pA*p1[0] + pB*p1[1]
+
+   qA = q2[1] - q1[1]
+   qB = q1[0] - q2[0]
+   qC = qA*q1[0] + qB*q1[1]
+
+   det = pA*qB - qA*pB
+   if det == 0.0:
+      return None #Parallel
+   ret_x = (qB*pC - pB*qC) / float(det)
+   ret_y = (pA*qC - qA*pC) / float(det)
+
+   xpoint = (ret_x, ret_y)
+   return xpoint
+
 def scoreConcatSmoothness(ptList1, ptList2):
    "Scores the smoothness of the angle from 0 to 1, 1 being perfectly smooth"
 
-   scalesList = [3, 5, 10]  #A factor of the shortest stroke, how far into each stroke to go for a candidate point
+   scalesList = range(3,10) #[3, 5, 10]  #A factor of the shortest stroke, how far into each stroke to go for a candidate point
 
    totalSmoothness = 0.0
    assert ptList1[-1] == ptList2[0] # They are joined by a point
+   allAnglesList = []
    for concatDepth in scalesList:
-       step = max([1, min([concatDepth, len(ptList1) / 10, len(ptList2) / 10]) ]) #Step at least 1, at most 5 points or 1/10 of the shorter stroke
+       step = max([1, min([concatDepth, len(ptList1), len(ptList2)]) ]) #Step at least 1, at most 5 points or 1/10 of the shorter stroke
 
        #If there are enough points, skip the shared point and get a more representative point
        if len(ptList1) > 1 and step > 2:
           p2a = ptList1[-2]
        else:
-          p2a = ptList1[-1]
+          p2a = ptList1[-1] #Use the shared point
 
        if len(ptList2) > 1 and step > 2:
           p2b = ptList2[1]
@@ -664,11 +705,28 @@ def scoreConcatSmoothness(ptList1, ptList2):
           p2b = ptList2[0]
 
        p1 = ptList1[-step]
-       p2 = ( (p2a[0] + p2b[0]) / 2.0, (p2a[1] + p2b[1]) / 2.0 )
        p3 = ptList2[step - 1]
+
+       p2_cross = getLinesIntersection( (p1, p2a), (p3, p2b) )
+       p2_avg = ( (p2a[0] + p2b[0]) / 2.0, (p2a[1] + p2b[1]) / 2.0 )
+
+       angleAvg = interiorAngle(p1, p2_avg, p3) / 180.0
+       print "  Step width: %s, attempted %s" % (step, concatDepth)
+       print "    Avg angle: %s" % (angleAvg)
+       if p2_cross is not None:
+          angleCross = interiorAngle(p1, p2_cross, p3) /180.0
+       else:
+          angleCross = 0.0
+       print "    Cross angle: %s" % (angleCross)
+       bestAngle = max([angleCross, angleAvg])
+       allAnglesList.append(bestAngle)
        
-       totalSmoothness += concatDepth * interiorAngle(p1, p2, p3) / 180.0
-   totalSmoothness = totalSmoothness / sum(scalesList)
+       #totalSmoothness += concatDepth * bestAngle
+   print "    Angles List: %s" % (sorted(allAnglesList))
+   #totalSmoothness = totalSmoothness / sum(scalesList)
+   totalSmoothness = sorted(allAnglesList)[len(allAnglesList)/2] #Take the median smoothness over all the scales
+   totalSmoothness = totalSmoothness / float(max( [len(ptList1), len(ptList2)] )) #Drop the smoothness for longer strokes. Assumes long strokes don't tend to jump much?
+   print "Smoothness scored: %s" % (totalSmoothness)
 
    assert (totalSmoothness >= 0 and totalSmoothness <= 1.0)
    return totalSmoothness
@@ -727,7 +785,7 @@ def graphToStrokes(graph, rawImg):
                e1 = crossingEdges[bestPair[0]]
                e2 = crossingEdges[bestPair[1]]
                newEdge = list(reversed(e1)) + e2[1:]
-               print "    Covering 2 edges by merging into 1"
+               print "    Covering 2 edges by merging into 1 with smoothness %s" % (bestSmoothness)
                edgeList.append(newEdge)
                crossingEdges.remove(e1)
                crossingEdges.remove(e2)
@@ -1282,21 +1340,26 @@ class ImageStrokeConverter(object):
          if smooth_k % 2 == 0:
             smooth_k += 1
 
-         saveimg(bg_img)
+         if(DEBUG):
+            saveimg(bg_img)
       #cv.EqualizeHist(bg_img, bg_img)
       #cv.EqualizeHist(gray_img, gray_img)
       bg_img = invert(bg_img)
       #gray_img = smooth(gray_img, ksize=denoise_k)
 
-      saveimg(gray_img)
+      if(DEBUG):
+         saveimg(gray_img)
      
       cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
-      saveimg(gray_img)
+      if(DEBUG):
+         saveimg(gray_img)
       #cv.EqualizeHist(gray_img, gray_img)
       #gray_img = smooth(gray_img, ksize=denoise_k, t='gauss')
-      saveimg(gray_img)
+      if(DEBUG):
+         saveimg(gray_img)
       cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
-      saveimg(gray_img)
+      if(DEBUG):
+         saveimg(gray_img)
       self._rawImg = gray_img
       #gray_img = smooth(gray_img, ksize=denoise_k)
 """
@@ -1339,28 +1402,35 @@ def removeBackground(cv_img):
 
    bg_img = invert(bg_img)
 
-   saveimg(gray_img)
+   if(DEBUG):
+      saveimg(gray_img)
   
    cv.AddWeighted(gray_img, 0.5, bg_img, 0.5, 0.0, gray_img )
-   saveimg(gray_img)
+   if(DEBUG):
+      saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
    gray_img = invert(gray_img)
 
    #gray_img = smooth(gray_img, ksize=3, t='median')
-   saveimg(gray_img)
+   if(DEBUG):
+      saveimg(gray_img)
    for i in [3]: #xrange(3):
       gray_img2 = smooth(gray_img, ksize=i, t='median')
       gamma = (i * 2 - 2)* -128 - 100
       cv.AddWeighted(gray_img, i, gray_img2, i, gamma, gray_img )
-      saveimg(gray_img)
+      if(DEBUG):
+         saveimg(gray_img)
    gray_img = invert(gray_img)
-   saveimg(gray_img)
+   if(DEBUG):
+      saveimg(gray_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
    #saveimg(gray_img)
    gray_img = smooth(gray_img, ksize=3, t='gauss')
-   saveimg(gray_img)
+   if(DEBUG):
+      saveimg(gray_img)
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
-   saveimg(gray_img)
+   if(DEBUG):
+      saveimg(gray_img)
    #_, _, gray_img = erodeBlobsPoints(AllPtsIter(gray_img.cols, gray_img.rows), gray_img)
    #show(gray_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
@@ -1400,7 +1470,8 @@ def blobsToStrokes(img):
    while changed1 or changed2:
       passnum += 1
       print "Pass %s" % (passnum)
-      saveimg(img)
+      if(DEBUG):
+         saveimg(img)
       evenIter = (passnum %2 == 0)
       t1 = time.time()
 
@@ -1438,7 +1509,8 @@ def blobsToStrokes(img):
 
    chartFile.close()
 
-   saveimg(img)
+   if(DEBUG):
+      saveimg(img)
    print "Tracing strokes"
    strokelist = pointsToStrokes(pointSet, rawImg)
    return strokelist
@@ -1467,7 +1539,8 @@ def prettyPrintStrokes(img, strokeList):
             cv.Circle(temp_img, p, 1, startColor, thickness=-1)
          prev = p 
       cv.Circle(temp_img, p, 1, stopColor, thickness=-1)
-      saveimg(temp_img)
+      if(DEBUG):
+         saveimg(temp_img)
 
 def pointDist(p1, p2):
    "Find the squared distance between two points"
@@ -1482,7 +1555,8 @@ def show(cv_img):
       Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
    elif cv_img.type == cv.CV_8UC3:
       Image.fromstring("RGB", cv.GetSize(cv_img), cv_img.tostring()).show()
-   saveimg(cv_img)
+   if(DEBUG):
+      saveimg(cv_img)
    
 
 def saveimg(cv_img, name = None, outdir = "./temp/", title=""):
@@ -1498,7 +1572,8 @@ def saveimg(cv_img, name = None, outdir = "./temp/", title=""):
    cv.SaveImage(outfname, cv_img)
 
 def main(args):
-   global SQUARE_ERROR, PRUNING_ERROR
+   global SQUARE_ERROR, PRUNING_ERROR, DEBUG
+   DEBUG = True
    if len (args) < 2:
       print( "Usage: %s <image_file> [output_file]" % (args[0]))
       exit(1)
