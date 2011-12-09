@@ -241,7 +241,7 @@ class TkSketchFrame(Frame):
            newStroke = Stroke()
            if len(s.points) > 1:
                for x,y in s.points:
-                  scale = 1 #WIDTH / float(1280)
+                  scale = WIDTH / float(1280)
                   newPoint = Point(scale * x,HEIGHT - scale * y)
                   newStroke.addPoint(newPoint)
                self.Board.AddStroke(newStroke)

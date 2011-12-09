@@ -46,9 +46,15 @@ class TextAnnotation(Annotation):
         scale is an appropriate size"""
         Annotation.__init__(self)
         self.text = text # a string for the text
+
+        assert len(stroke_letter_map) == len(text)
         self.letter2strokesMap = stroke_letter_map
+
+        assert scale > 0.0
         self.scale = scale # an approximate "size" for the text
+
         self.alternates = [text]
+
     def xml(self):
         root = Annotation.xml(self)
         root.attrib["text"] = self.text
@@ -59,9 +65,11 @@ class TextAnnotation(Annotation):
             textEl.attrib['text'] = str(a)
             root.append(textEl)
         return root
+    def __repr__(self):
+        return 'Text("%s":%0.2f)' % (self.text, self.scale)
 
 #-------------------------------------
-l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
+l_logger = Logger.getLogger('LetterMarker', Logger.DEBUG)
 class _LetterMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
     def __init__(self):
@@ -98,12 +106,12 @@ class _LetterMarker( BoardObserver ):
 
         if _scoreStrokesForLetter(strokelist, '1') > 0.9:
             oneAnnotation = self._makeOneAnnotation(strokelist)
-            l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation.text))
+            l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation))
             BoardSingleton().AnnotateStrokes( strokelist,  oneAnnotation)
 
         if _scoreStrokesForLetter(strokelist, '-') > 0.9:
             dashAnnotation = self._makeDashAnnotation(strokelist)
-            l_logger.debug("Annotating %s with %s" % ( stroke, dashAnnotation.text))
+            l_logger.debug("Annotating %s with %s" % ( stroke, dashAnnotation))
             BoardSingleton().AnnotateStrokes( strokelist,  dashAnnotation)
 
     def onStrokeRemoved(self, stroke):
@@ -134,9 +142,15 @@ def _scoreStrokesForLetter(strokelist, letter):
     circularityThresh_0 = 0.80
     circularityThresh_1 = 0.20
     maxStraightCurvature = 0.6
+    strokesBB = GeomUtils.strokelistBoundingBox(strokelist)
 
     if len(strokelist) == 0:
         return 0.0
+
+    #The case of a single point
+    if strokesBB[0].X == strokesBB[1].X and strokesBB[0].Y == strokesBB[1].Y:
+        return 0.0
+
     #Recognize a zero
     if letter.upper() == "0":
         stroke = strokelist[0]
@@ -227,30 +241,26 @@ class TextCollector( ObserverBase.Collector ):
 
                 elif best[0] == "1":
                     oneAnnotation = self.letterMarker._makeOneAnnotation(singleStrokeList)
-                    tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, oneAnnotation.text))
+                    tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, oneAnnotation))
                     BoardSingleton().AnnotateStrokes( singleStrokeList,  oneAnnotation)
 
                 elif best[0] == "-":
                     dashAnnotation = self.letterMarker._makeDashAnnotation(singleStrokeList)
-                    tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, dashAnnotation.text))
+                    tc_logger.debug("Annotating %s with %s" % ( singleStrokeList, dashAnnotation))
                     BoardSingleton().AnnotateStrokes( singleStrokeList,  dashAnnotation)
 
 
     def mergeCollections( self, from_anno, to_anno ):
         "merge from_anno into to_anno if possible"
-        # check that they have compatable scales
         vertOverlapRatio = 0
         horizDistRatio = 2.0
         scaleDiffRatio = 2.0
-        if from_anno.scale > 0:
-            scale_diff = to_anno.scale / from_anno.scale
-            if scale_diff> scaleDiffRatio or scale_diff < 1/ float(scaleDiffRatio) :
-                tc_logger.debug("Not merging %s and %s: Scale Diff is %s" % (from_anno.text, to_anno.text, scale_diff))
-                return False
-            else:
-                return False
 
-        # check that they are not overlapping
+        #  bb[0]-------+
+        #   |          |
+        #   |          |
+        #   | (0,0)    |
+        #   +--------bb[1]
         bb_from = GeomUtils.strokelistBoundingBox( from_anno.Strokes )
         center_from = Point( (bb_from[0].X + bb_from[1].X) / 2.0, (bb_from[0].Y + bb_from[1].Y) / 2.0)
         tl = Point (center_from.X - from_anno.scale/ 2.0, center_from.Y + (from_anno.scale / 2.0) )
@@ -262,29 +272,26 @@ class TextCollector( ObserverBase.Collector ):
         tl = Point (center_to.X - to_anno.scale/ 2.0, center_to.Y + (to_anno.scale / 2.0) )
         br = Point (center_to.X + to_anno.scale/ 2.0, center_to.Y - (to_anno.scale / 2.0) )
         bb_to = (tl, br)
-        """
-        if not GeomUtils.boundingboxOverlap( bb_from, bb_to ):
-            tc_logger.debug("Not merging Bounding boxes don't overlap")
-            return False
-        """
-
-        #  bb[0]-------+
-        #   |          |
-        #   |          |
-        #   | (0,0)    |
-        #   +--------bb[1]
 
         # check that they are next to each other
         if    abs( bb_from[1].X - bb_to[0].X ) > to_anno.scale * horizDistRatio \
           and abs( bb_from[0].X - bb_to[1].X ) > to_anno.scale * horizDistRatio \
           and abs( bb_from[1].X - bb_to[0].X ) > from_anno.scale * horizDistRatio \
           and abs( bb_from[0].X - bb_to[1].X ) > from_anno.scale * horizDistRatio:
-            tc_logger.debug("Not merging %s and %s: horizontal distance too great" % (from_anno.text, to_anno.text))
+            #tc_logger.debug("Not merging %s and %s: horizontal distance too great" % (from_anno.text, to_anno.text))
             return False
+
         # check y's overlap
         if   bb_from[0].Y - bb_to[1].Y < vertOverlapRatio \
           or bb_to[0].Y - bb_from[1].Y < vertOverlapRatio :
-            tc_logger.debug("Not merging %s and %s: vertical overlap too small" % (from_anno.text, to_anno.text))
+            #tc_logger.debug("Not merging %s and %s: vertical overlap too small" % (from_anno.text, to_anno.text))
+            return False
+
+        # check that they have compatible scales
+        scale_diff1 = to_anno.scale / from_anno.scale
+        scale_diff2 = from_anno.scale / to_anno.scale
+        if scale_diff1 > scaleDiffRatio or scale_diff2 > scaleDiffRatio:
+            tc_logger.debug("Not merging %s and %s: Scale Diff is %s" % (from_anno, to_anno, scale_diff1))
             return False
 
         # Order the letters properly from left to right

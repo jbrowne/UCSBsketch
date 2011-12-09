@@ -252,6 +252,9 @@ class SketchResponseThread(threading.Thread):
                 if in_msg.getType() == Message.TYPE_IMG:
                     logger.debug("Processing image")
                     xml_response = self.processNewImage(in_msg.getData())
+                    fp = open("xmlout.xml", "w")
+                    print >> fp, ET.tostring(xml_response)
+                    fp.close()
                     respMsg = Message(Message.TYPE_XML, ET.tostring(xml_response))
                     self._send_q.put(respMsg)
                 elif in_msg.getType() == Message.TYPE_XML:

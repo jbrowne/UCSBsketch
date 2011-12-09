@@ -259,6 +259,7 @@ class DiGraphMarker( ObserverBase.Collector ):
     def collectionFromItem( self, strokes, anno ):
         "turn the circle/arrow annotation given into a digraph"          
         #Prefer adding strokes as arrows over nodes
+        digraph_anno = None
         if anno.isType( DiGraphNodeAnnotation ):
             if len(BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=ArrowObserver.ArrowAnnotation) ) == 0:
                 digraph_anno = DiGraphAnnotation( node_set=set([anno]) )
