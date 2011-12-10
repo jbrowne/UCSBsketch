@@ -222,7 +222,7 @@ def linePixels(pt1, pt2):
       slope = deltay / float(deltax)
       y = left[1]
       error = 0.0
-      for x in xrange(left[0], right[0] + 1):
+      for x in xrange(int(left[0]), int(right[0]) + 1):
          if error > -0.5 and error < 0.5:
             yield (x,y)
          while error >= 0.5:
@@ -236,7 +236,7 @@ def linePixels(pt1, pt2):
          error += slope
    else:
       bottom, top = sorted([pt1, pt2], key = lambda pt: pt[1])
-      for y in xrange(bottom[1], top[1] + 1):
+      for y in xrange(int(bottom[1]), int(top[1]) + 1):
          yield (left[0], y)
 
 
@@ -246,24 +246,26 @@ def drawLine(pt1, pt2, color, img):
       setImgVal(x,y,color,img)
 
 
-def pointsOverlap(pt1, pt2, img, pt1Thickness = None, pt2Thickness = None):
+def pointsOverlap(pt1, pt2, img, pt1Thickness = None, pt2Thickness = None, checkSeparation=True):
    """Checks to see if two points cover each other with their thickness and are not separatred by white"""
    global CENTERVAL
    assert (pt1Thickness != None and pt2Thickness != None) or img != None, "Error, cannot determine overlap without thickness!"
    distSqr = pointsDistSquared(pt1, pt2) 
 
    if pt1Thickness != None and pt2Thickness != None:
-      pt1ThicknessSqr = pt1Thickness ** 2
-      pt2ThicknessSqr = pt2Thickness ** 2
+      pt1ThicknessSqr = (pt1Thickness /2.0) ** 2
+      pt2ThicknessSqr = (pt2Thickness /2.0) ** 2
    else:
       pt1ThicknessSqr = (thicknessAtPoint(pt1, img) / 2.0) ** 2
       pt2ThicknessSqr = (thicknessAtPoint(pt2, img) / 2.0) ** 2
       
    if distSqr > pt2ThicknessSqr and distSqr > pt1ThicknessSqr: #If neither thickness covers the other point
       return False
-   for x,y in linePixels(pt1, pt2):
-      if getImgVal(x,y,img) != CENTERVAL:
-         return False
+
+   if checkSeparation:
+       for x,y in linePixels(pt1, pt2):
+          if getImgVal(x,y,img) != CENTERVAL:
+             return False
    return True
 
 
@@ -294,11 +296,119 @@ def pointsDistSquared (pt1, pt2):
 
    
 
+def _squareIntersections(graphDict, rawImg):
+    """Take in a graph of {<point> : {'kids' : set(kidpts), 'thickness' : float} } 
+    and the original, binary image of strokes and 
+    fix errors on intersections introduced by thinnning, producing more 'square' intersections.
+    
+    Uses trajectory of strokes upon entering 'intersection region' to determine a better crossing point for those strokes."""
+    keyPointsList = getKeyPoints(graphDict) #List of keypoint dictionaries, one dict per "blob"
+
+    removedPoints = set()
+    newPoints = {} #To be filled with <point> : {'kids' : set(), 'thickness': float}
+    # Look at all the points where edges intersect
+    for kpDict in keyPointsList:
+        for cp in kpDict['crosspoints']:
+            cpDict = {'kids' : set(), 'thickness': None}
+            #Generate a list of edges, ordered such that crosspoint is at edge[0]
+            edgeList = [] 
+            for edge in kpDict['edges']:
+                if edge[0] == cp:
+                    edgeList.append(list(edge))
+                elif edge[-1] == cp:
+                    edgeList.append(list(reversed(edge)))
+
+            #Remove points from the edges such that they do not enter the "crossing region"
+            cpThickness = graphDict[cp]['thickness']
+            print "CrossPoint %s, thickness %s" % (str(cp), cpThickness)
+            for edge in edgeList:
+                print " *Edge:", edge
+                for pt in list(edge):
+                    if len(edge) > 1 and \
+                       pointsOverlap(cp, pt, rawImg, \
+                                     pt1Thickness = cpThickness, \
+                                     pt2Thickness = 1, checkSeparation = False):
+                        print "  Remove %s" % (str(pt))
+                        edge.remove(pt)
+                        removedPoints.add(pt)
+                    else:   
+                        break
+            #Generate a new intersection point and connect the edges to it
+            dirSegments = [] #line segments (tuple (pt1, pt2)) for the representative direction of the edge
+            for edge in edgeList:
+                cpDict['kids'].add(edge[0]) #Connect the edge to the new cross point
+                if len(edge) > 1: #Otherwise ignore its trajectory
+                    centerPt = ( (edge[0][0] + cp[0]) / 2.0, (edge[0][1] + cp[1]) / 2.0 ) #Point blending the end of the edge and the original crosspoint
+                    seg = (centerPt, edge[:3][-1]) #Hack to get the endpoint at most 3 away
+                    dirSegments.append(seg)
+
+            #print "Generated %s edge segments" % (len(dirSegments))
+            #Get the pairwise intersections for all segments
+            allCrossPointsX = []
+            allCrossPointsY = []
+            allIntersects = []
+            for i in range(len(dirSegments)):
+                for j in range(i + 1, len(dirSegments)):
+                    line1 = dirSegments[i]
+                    line2 = dirSegments[j]
+                    cross = getLinesIntersection(line1, line2)
+                    if cross is not None:
+                        x,y = cross
+                        allIntersects.append( (x,y))
+                        allCrossPointsY.append(y)
+                        allCrossPointsX.append(x)
+
+            if len(allCrossPointsX) > 0 :
+                #The new crossing point has the median X and median Y coords of those intersections
+                allCrossPointsX.sort()
+                allCrossPointsY.sort()
+                medianIdx = len(allCrossPointsY) / 2
+                newCrossPoint = (int(allCrossPointsX[medianIdx]), int(allCrossPointsY[medianIdx]))
+
+                print " Intersections: %s\n * New median point %s" % (allIntersects, str(newCrossPoint))
+            else:
+                print " Intersections empty, reverting to old CP"
+                newCrossPoint = cp
+
+            cpDict['thickness'] = thicknessAtPoint(newCrossPoint, rawImg)
+            newPoints[newCrossPoint] = cpDict
+
+    for pt in removedPoints:
+        _deletePointFromGraph(pt, graphDict)
+    for pt , ptDict in newPoints.items():
+        _insertPointIntoGraph(pt,ptDict, graphDict) 
+
+def _deletePointFromGraph(point, graphDict):
+    """Given a point and a graphdict, delete the point from the graph, and also remove
+    any references from its children"""
+    if point in graphDict:
+        ptDict = graphDict[point]
+        for kpt in ptDict['kids']:
+            if point in graphDict[kpt]['kids']: 
+                graphDict[kpt]['kids'].remove(point)
+        del(graphDict[point])
+
+def _insertPointIntoGraph(point, pointDict, graphDict):
+    """Given a point and its pointDict = {'kids' : set(), 'thickness' : float},
+    insert and link the point into the graph.
+    If the point is already in the graph, it is overwritten."""
+
+    if point in graphDict:
+        _deletePointFromGraph(point, graphDict)
+    graphDict[point] = pointDict
+    for kpt in list(pointDict['kids']):
+        if kpt in graphDict:
+            graphDict[kpt]['kids'].add(point)
+        else:
+            print "WARNING: Tried to insert point dictionary with invalid children"
+            pointDict['kids'].remove(kpt)
+
+
+        
+
 def _collapseIntersections(graph, rawImg):
    """Given a graph dictionary and a keypoints list (with edge info),
    Collapse overlapping crossing points into one intersection. """
-
-   print "Calling from _collapseIntersections"
    keyPointsList = getKeyPoints(graph)
    for kpDict in keyPointsList:
       mergeDict = {}
@@ -326,10 +436,10 @@ def _collapseIntersections(graph, rawImg):
                   mergeDict[mergePt] = mergeSet #Merged into the set
          #END for cp2 ...
       #END for cp1 ...
+
       #Do the merging now
       alreadyMerged = set([])
       for rep, mergeSet in mergeDict.items():
-
          #HACK to only process each mergeSet once. (Stupid non-hashable types)
          if rep in alreadyMerged: 
             continue
@@ -454,14 +564,15 @@ def _getGraphEdges(graph, keyPointsList):
          par = ptDict['par']
          curEdge = ptDict['edge']
 
-         if pt in seen:
+         if pt in seen and pt not in allKeyPts:
             continue
 
          #Keypoint is starting an edge
          if par == None:
             assert pt in allKeyPts, "Point with no parent, not in keypoint list"
+            seen.add(pt)
             for k in graph[pt]['kids']:
-               if k not in seen and k not in allKeyPts:
+               if k not in seen:
                   procStack.append( {'pt' : k, 'par' : pt, 'edge' : [pt]} )
          #All other keypoints should end an edge and might start a new one
          elif pt in allKeyPts:
@@ -529,11 +640,9 @@ def pointsToStrokes(pointSet, rawImg):
    global DEBUGIMG
    DEBUGIMG = cv.CloneMat(rawImg)
    cv.Set(DEBUGIMG, 255)
+   print "Generating point graph"
    graph = pointsToGraph(pointSet, rawImg)
-   drawGraph(graph, DEBUGIMG)
-   if(DEBUG):
-       saveimg(DEBUGIMG)
-
+   print "Converting graph to strokes"
    retStrokes = graphToStrokes(graph, rawImg)
    return retStrokes
 
@@ -643,7 +752,27 @@ def pointsToGraph(pointSet, rawImg):
             graphDict[ep]['kids'].add(nPt)
             graphDict[nPt]['kids'].add(ep)
 
+   if(DEBUG):
+       cv.Set(DEBUGIMG, 255)
+       drawGraph(graphDict, DEBUGIMG)
+       saveimg(DEBUGIMG)
+   print "Before collapsing, graphdict: %s" % (len(graphDict))
+
    _collapseIntersections(graphDict, rawImg)
+
+   if(DEBUG):
+       cv.Set(DEBUGIMG, 255)
+       drawGraph(graphDict, DEBUGIMG)
+       saveimg(DEBUGIMG)
+   print "After collapsing, graphdict: %s" % (len(graphDict))
+
+   _squareIntersections(graphDict, rawImg)
+
+   if(DEBUG):
+       cv.Set(DEBUGIMG, 255)
+       drawGraph(graphDict, DEBUGIMG)
+       saveimg(DEBUGIMG)
+   print "After squaring, graphdict: %s" % (len(graphDict))
 
    return graphDict
 
@@ -711,22 +840,22 @@ def scoreConcatSmoothness(ptList1, ptList2):
        p2_avg = ( (p2a[0] + p2b[0]) / 2.0, (p2a[1] + p2b[1]) / 2.0 )
 
        angleAvg = interiorAngle(p1, p2_avg, p3) / 180.0
-       print "  Step width: %s, attempted %s" % (step, concatDepth)
-       print "    Avg angle: %s" % (angleAvg)
+       #print "  Step width: %s, attempted %s" % (step, concatDepth)
+       #print "    Avg angle: %s" % (angleAvg)
        if p2_cross is not None:
           angleCross = interiorAngle(p1, p2_cross, p3) /180.0
        else:
           angleCross = 0.0
-       print "    Cross angle: %s" % (angleCross)
+       #print "    Cross angle: %s" % (angleCross)
        bestAngle = max([angleCross, angleAvg])
        allAnglesList.append(bestAngle)
        
        #totalSmoothness += concatDepth * bestAngle
-   print "    Angles List: %s" % (sorted(allAnglesList))
+   #print "    Angles List: %s" % (sorted(allAnglesList))
    #totalSmoothness = totalSmoothness / sum(scalesList)
-   totalSmoothness = sorted(allAnglesList)[len(allAnglesList)/2] #Take the median smoothness over all the scales
-   totalSmoothness = totalSmoothness / float(max( [len(ptList1), len(ptList2)] )) #Drop the smoothness for longer strokes. Assumes long strokes don't tend to jump much?
-   print "Smoothness scored: %s" % (totalSmoothness)
+   totalSmoothness = sorted(allAnglesList) [len(allAnglesList)/2] #Take the median smoothness over all the scales
+   #totalSmoothness = totalSmoothness / float( [len(ptList1), len(ptList2)] )) #Drop the smoothness for longer strokes. Assumes long strokes don't tend to jump much?
+   #print "Smoothness scored: %s" % (totalSmoothness)
 
    assert (totalSmoothness >= 0 and totalSmoothness <= 1.0)
    return totalSmoothness
@@ -739,8 +868,6 @@ def graphToStrokes(graph, rawImg):
    """Takes in a graph of points and generates a list of strokes that covers them"""
    retStrokes = []
 
-
-   print "Calling from graphToStrokes"
    keyPointsList = getKeyPoints(graph)
 
    allEdgeList = [kp['edges'] for kp in keyPointsList]
@@ -776,9 +903,11 @@ def graphToStrokes(graph, rawImg):
                #Get the smoothest pair intersecting at this point
                bestPair = (0, 1)
                bestSmoothness = 0
+               allEdgeLen = sum([ len(edge) for edge in crossingEdges ])
                for i in xrange(len(crossingEdges)):
                   for j in xrange(i + 1, len(crossingEdges)):
                      curSmoothness = scoreConcatSmoothness(list(reversed(crossingEdges[i])), crossingEdges[j])
+                     #curSmoothness = curSmoothness * allEdgeLen / float(len(crossingEdges[i]) + len(crossingEdges[j]) )
                      if curSmoothness > bestSmoothness:
                         bestSmoothness = curSmoothness
                         bestPair = (i, j)
@@ -804,54 +933,6 @@ def graphToStrokes(graph, rawImg):
             
    return retStrokes
 
-   """
-   keyPoints = getKeyPoints(graph)
-   edgeList = getGraphEdges(graph)
-   for kpDict in keyPoints:
-      endPoints = list(kpDict['endpoints'])
-      crossPoints = list(kpDict['crosspoints'])
-      seedPoint = kpDict['seed']
-
-      if len(endPoints) == 0:             #Zero endpoints
-         if len(crossPoints) == 0:
-            strokes = strokesFromSeed(seedPoint, graph)
-         elif len(crossPoints) == 1:
-            strokes = strokesFromSeed(seedPoint, graph)
-         elif (len(crossPoints) %2) == 0:
-            strokes = strokesFromSeed(seedPoint, graph)
-         elif (len(crossPoints) %2) == 1:
-            strokes = strokesFromSeed(seedPoint, graph)
-      elif len(endPoints) == 1:           #One endpoint
-         if len(crossPoints) == 0:
-            strokes = strokesFromSeed(endPoints[0], graph)
-         elif len(crossPoints) == 1:
-            strokes = strokesFromSeed(endPoints[0], graph)
-         elif (len(crossPoints) %2) == 0:
-            strokes = strokesFromSeed(endPoints[0], graph)
-         elif (len(crossPoints) %2) == 1:
-            strokes = strokesFromSeed(endPoints[0], graph)
-      elif len(endPoints) %2 == 0:        #Even endpoints
-         if len(crossPoints) == 0:
-            strokes = strokesFromSeed(endPoints[0], graph)
-         elif len(crossPoints) == 1:
-            strokes = strokesFromSeed(endPoints[0], graph)
-         elif (len(crossPoints) %2) == 0:
-            strokes = strokesFromSeed(endPoints[0], graph)
-         elif (len(crossPoints) %2) == 1:
-            strokes = strokesFromSeed(endPoints[0], graph)
-      elif len(endPoints) %2 == 1:        #Odd endpoints
-         if len(crossPoints) == 0:
-            strokes = strokesFromSeed(endPoints[0], graph)
-         elif len(crossPoints) == 1:
-            strokes = strokesFromSeed(endPoints[0], graph)
-         elif (len(crossPoints) %2) == 0:
-            strokes = strokesFromSeed(endPoints[0], graph)
-         elif (len(crossPoints) %2) == 1:
-            strokes = strokesFromSeed(endPoints[0], graph)
-
-      retStrokes.extend(strokes)
-   return retStrokes
-   """
 def filledAndCrossingVals(point, img, skipCorners = False):
    """
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
@@ -1268,102 +1349,6 @@ def isForeGroundGone(img):
          i -= 1
 
    return noForeground
-
-         
-
-   
-      
-   
-"""
-# ---------------------------------------------
-# Unused object oriented style
-# ---------------------------------------------
-   
-class ImageStrokeConverter(object):
-   DEBUGIMG = None
-   WIDTH = 1000 #Normalized width of an image
-   #****************************
-   # Status constants
-   #****************************
-   EMPTY = 0
-   IMAGELOADED = 1
-   STROKESEXTRACTED = 2
-   #****************************
-   # Image Processing constants
-   #****************************
-   BGVAL = 255 #Background color
-   DENOISE_K = 5 / 1000.0
-   SMOOTH_K  = 3 / 100.0
-   INK_THRESH = 250
-   def __init__(self, width = WIDTH):
-      self._rawImg = None
-      self._width = width
-      self._state = ImageStrokeConverter.EMPTY
-
-   def loadImage(self, fname):
-      self._state = ImageStrokeConverter.EMPTY
-      self._rawImg = cv.LoadImageM(fname)
-      self._removeImageBackground()
-      self._state = ImageStrokeConverter.IMAGELOADED
-
-   def getStrokes(self):
-      if self._state >= ImageStrokeConverter.IMAGELOADED:
-         strokelist = blobsToStrokes(temp_img)
-      else:
-         return []
-
-   def _removeImageBackground(self):
-      "Take in a color image and convert it to a binary image of just ink"
-      #Hardcoded for resolution/phone/distance
-      #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
-      denoise_k = ImageStrokeConverter.DENOISE_K
-      smooth_k  = ImageStrokeConverter.SMOOTH_K
-      ink_thresh = ImageStrokeConverter.INK_THRESH
-      width = self._rawImg.cols
-
-      denoise_k = max (1, int(denoise_k * width))
-      if denoise_k % 2 == 0:
-         denoise_k += 1
-      smooth_k = max (1, int(smooth_k * width))
-      if smooth_k % 2 == 0:
-         smooth_k += 1
-
-      inv_factor = 0.5
-      gray_img = cv.CreateMat(self._rawImg.rows, self._rawImg.cols, cv.CV_8UC1)
-      cv.CvtColor(self._rawImg, gray_img, cv.CV_RGB2GRAY)
-      #Create histogram for single channel (0..255 range), into 255 bins
-      bg_img = gray_img
-      while not isForeGroundGone(bg_img):
-         printHistogramList(getHistogramList(bg_img), granularity = 5)
-         bg_img = smooth(bg_img, ksize=smooth_k, t='median')
-         smooth_k = int(smooth_k * 1.1)
-         if smooth_k % 2 == 0:
-            smooth_k += 1
-
-         if(DEBUG):
-            saveimg(bg_img)
-      #cv.EqualizeHist(bg_img, bg_img)
-      #cv.EqualizeHist(gray_img, gray_img)
-      bg_img = invert(bg_img)
-      #gray_img = smooth(gray_img, ksize=denoise_k)
-
-      if(DEBUG):
-         saveimg(gray_img)
-     
-      cv.AddWeighted(gray_img, 1, bg_img, 1, 0.0, gray_img )
-      if(DEBUG):
-         saveimg(gray_img)
-      #cv.EqualizeHist(gray_img, gray_img)
-      #gray_img = smooth(gray_img, ksize=denoise_k, t='gauss')
-      if(DEBUG):
-         saveimg(gray_img)
-      cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
-      if(DEBUG):
-         saveimg(gray_img)
-      self._rawImg = gray_img
-      #gray_img = smooth(gray_img, ksize=denoise_k)
-"""
-
       
 def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
