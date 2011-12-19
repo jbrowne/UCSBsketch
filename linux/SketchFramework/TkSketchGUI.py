@@ -43,7 +43,7 @@ from Utils import Logger
 from Observers.ObserverBase import Animator
 
 
-from Observers import RubineObserver
+from Utils import Rubine
 
 # Constants
 WIDTH = 1000
@@ -172,13 +172,13 @@ class TkSketchFrame(Frame):
         #top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
         
         self.rubine_menu = Menu(top_menu)
-        trainer = RubineObserver.RubineTrainer()
+        trainer = Rubine.RubineTrainer(False)
         top_menu.add_cascade(label="Rubine", menu=self.rubine_menu)
-        self.rubine_menu.add_command(label="Start Training", command = (lambda :trainer.startTraining() or self.Redraw()), underline=1 )
-        self.rubine_menu.add_command(label="Finish Training", command = (lambda :trainer.finishTraining() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="Start Training", command = (lambda :trainer.addToBoard() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="Finish Training", command = (lambda :trainer.calculateWeights() or self.Redraw()), underline=1 )
         self.rubine_menu.add_command(label="New Class", command = (lambda :trainer.newClass() or self.Redraw()), underline=1 )
-        self.rubine_menu.add_command(label="Save Weights", command = (lambda :trainer.saveWeights() or self.Redraw()), underline=1 )
-        self.rubine_menu.add_command(label="Load Weights", command = (lambda :trainer.loadWeights() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="Save Weights", command = (lambda :trainer.saveWeights("rubine.dat") or self.Redraw()), underline=1 )
+        #self.rubine_menu.add_command(label="Load Weights", command = (lambda :trainer.loadWeights() or self.Redraw()), underline=1 )
         
 
 

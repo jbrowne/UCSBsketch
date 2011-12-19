@@ -29,7 +29,8 @@ from Observers import TemplateObserver
 from Observers import TuringMachineObserver
 from Observers import TestAnimObserver
 from Bin import BinObserver, EqualsObserver, EquationObserver
-from Observers import RubineObserver
+from Utils import Rubine
+from Observers import NumberObserver
 
 def initialize(Board):
     " This function calls the board and board observer initialization code. Interface code should import this function"
@@ -60,17 +61,20 @@ def initialize(Board):
     #TemplateObserver.TemplateMarker()
     #TemplateObserver.TemplateVisualizer()
 
-    '''
-    BinObserver.BinCollector()
-    BinObserver.BinVisualizer()
-    EqualsObserver.EqualsMarker()
-    EqualsObserver.EqualsVisualizer()
-    EquationObserver.EquationObserver()
-    EquationObserver.EquationVisualizer()
-    '''
+    
+    #BinObserver.BinCollector()
+    #BinObserver.BinVisualizer()
+    #EqualsObserver.EqualsMarker()
+    #EqualsObserver.EqualsVisualizer()
+    #EquationObserver.EquationObserver()
+    #EquationObserver.EquationVisualizer()
+    
 
-    #RubineObserver.RubineMarker()
-    #RubineObserver.RubineVisualizer()
+    Rubine.RubineMarker("rubine.dat")
+    Rubine.RubineVisualizer()
+
+    #NumberObserver.NumCollector()
+    #NumberObserver.NumVisualizer()
     
     #d = DebugObserver.DebugObserver()
     #d.trackAnnotation(TestAnimObserver.TestAnnotation)

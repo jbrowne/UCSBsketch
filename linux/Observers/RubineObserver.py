@@ -36,9 +36,9 @@ logger = Logger.getLogger('TextObserver', Logger.WARN )
 #-------------------------------------
 
 class RubineAnnotation(Annotation):
-    def __init__(self, text, scale):
+    def __init__(self, type, scale, accuracy):
         "Create a Rubin annotation."
-        Annotation.__init__(self, type, accuracy)
+        Annotation.__init__(self)
         self.type = type # a string for the text
         self.accuracy = accuracy
         self.scale = scale # an approximate "size" for the text
@@ -164,9 +164,9 @@ class RubineTrainer( BoardObserver ):
 
     def __init__(self):
         BoardObserver.__init__(self)
-        self.marker = RubineMarker(self.weights, self.weight0)
-        BoardSingleton().AddBoardObserver( self.marker )
-        BoardSingleton().RegisterForStroke( self.marker )
+        #self.marker = RubineMarker(self.weights, self.weight0)
+        #BoardSingleton().AddBoardObserver( self.marker )
+        #BoardSingleton().RegisterForStroke( self.marker )
         print "Trainer"
     def onStrokeAdded(self, stroke):
         print "Trainer"
@@ -258,7 +258,6 @@ class RubineTrainer( BoardObserver ):
         for i in range(len(self.weight0)):
             self.weight0[i] /= maxWeight
         '''
-
 
         #print self.weights
         #print self.weight0
@@ -444,10 +443,13 @@ class RubineMarker( BoardObserver ):
         print str(delta) + " : " + str(len(self.weights[0]) * len(self.weights[0]) * 0.5)
 
         if delta > len(self.weights[0]) * len(self.weights[0]) * 0.5:
-            pass#print "DON'T RECOGNISE!"
+            return # pass # print "DON'T RECOGNISE!"
         
 
         print self.names[maxIndex]
+
+        height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y        
+        BoardSingleton().AnnotateStrokes( [stroke],  RubineAnnotation(self.names[maxIndex], height , 0))
 
     def setWeights(self, weights, weight0, names):
         self.weights = weights
@@ -467,6 +469,13 @@ class RubineVisualizer( ObserverBase.Visualizer ):
 
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
+
+        spaceing = 5
+        ul.X -= spaceing
+        ul.Y += spaceing
+        br.X += spaceing
+        br.Y -= spaceing
+
         logger.debug(a.Strokes)
         height = ul.Y - br.Y
         midpointY = (ul.Y + br.Y) / 2
@@ -474,6 +483,7 @@ class RubineVisualizer( ObserverBase.Visualizer ):
         left_x = midpointX - a.scale / 2.0
         right_x = midpointX + a.scale / 2.0
         SketchGUI.drawBox(ul, br, color="#a0a0a0")
+        SketchGUI.drawText( br.X - 15, br.Y, a.type , size=15, color="#a0a0a0" )
 
 #-------------------------------------
 # if executed by itself, run all the doc tests
