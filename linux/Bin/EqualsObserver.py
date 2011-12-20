@@ -29,6 +29,8 @@ from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
 
+from Bin import DirectedLine
+
 logger = Logger.getLogger('TextObserver', Logger.WARN )
 
 #-------------------------------------
@@ -48,69 +50,56 @@ class EqualsAnnotation(Annotation):
 l_logger = Logger.getLogger('EqualsMarker', Logger.WARN)
 class EqualsMarker( BoardObserver ):
     """Looks for equals signes"""
-    possibleStrokes = []
+    possibleAnnotations = []
     def __init__(self):
         BoardObserver.__init__(self)
         BoardSingleton().AddBoardObserver( self )
-        BoardSingleton().RegisterForStroke( self )
-    def onStrokeAdded(self, stroke):
+        BoardSingleton().RegisterForAnnotation( DirectedLine.H_LineAnnotation, self )
+    def onAnnotationAdded( self, strokes, annotation ):
         "Checks to see if an equals sign has been added"
         
-        strokeLen = max(GeomUtils.strokeLength(stroke), 1)
-        closedDistRatio = 0.22
-        head, tail = stroke.Points[0], stroke.Points[-1]
-        isClosedShape = GeomUtils.pointDistanceSquared(head.X, head.Y, tail.X, tail.Y) \
-                        < (strokeLen * closedDistRatio) ** 2
+        # Find the midpoints         
+        ul,br = GeomUtils.strokelistBoundingBox( strokes )
+        midpointY = (ul.Y + br.Y) / 2
+        midpointX = (ul.X + br.X) / 2
+        strokeLen = GeomUtils.strokeLength(strokes[0])
 
-        if isClosedShape:
+        for a in self.possibleAnnotations:
+            s = a.Strokes[0]
+            prevStrokeLen = GeomUtils.strokeLength(s)
+
+            # test the the two segments are of similar length
+            lengthRange = 0.4
+            if prevStrokeLen * (1-lengthRange) < strokeLen < prevStrokeLen * (1+lengthRange):
+                pass # were the right length
+            else: # not the right length, so lets start again
+                continue
+
+            ul,br = GeomUtils.strokelistBoundingBox( [s] )
+            prevMidpointY = (ul.Y + br.Y) / 2
+            prevMidpointX = (ul.X + br.X) / 2
+
+            # Test that the two segments are close enough horizontally
+            if GeomUtils.pointDistance(midpointX, 0, prevMidpointX, 0) < prevStrokeLen * 0.4:
+                pass # there are close enough horizontally
+            else: # we start again
+                continue
+
+            # Test that the two segments are close enough vertically
+            if GeomUtils.pointDistance(0,midpointY, 0, prevMidpointY) < prevStrokeLen * 0.5:
+                pass # there are close enough vertically
+            else: # we start again
+                continue
+
+            # we found a match
+            self.possibleAnnotations.remove(a)
+            BoardSingleton().AnnotateStrokes( strokes + [s],  EqualsAnnotation(1))
             return
 
-        # check if we have a horizontal line
-        if not stroke.Points[0].Y < stroke.Points[-1].Y + strokeLen / 2.0 \
-        or not stroke.Points[0].Y > stroke.Points[-1].Y - strokeLen / 2.0 \
-        or strokeLen == 1:
-            l_logger.debug("-: Not a horizontal line")
-        else: # Awesome, we have a horizontal line
-                
-            # Find the midpoints         
-            ul,br = GeomUtils.strokelistBoundingBox( [stroke] )
-            midpointY = (ul.Y + br.Y) / 2
-            midpointX = (ul.X + br.X) / 2
 
-            for s in self.possibleStrokes:
-                preStrokeLen = GeomUtils.strokeLength(s)
-
-                # test the the two segments are of similar length
-                lengthRange = 0.4
-                if preStrokeLen * (1-lengthRange) < strokeLen < preStrokeLen * (1+lengthRange):
-                    pass # were the right lenght
-                else: # not the right length, so lets start again
-                    continue
-
-                ul,br = GeomUtils.strokelistBoundingBox( [s] )
-                prevMidpointY = (ul.Y + br.Y) / 2
-                prevMidpointX = (ul.X + br.X) / 2
-
-                # Test that the two segments are close enough horizontally
-                if GeomUtils.pointDistance(midpointX, 0, prevMidpointX, 0) < preStrokeLen * 0.4:
-                    pass # there are close enough horizontally
-                else: # we start again
-                    continue
-
-                # Test that the two segments are close enough vertically
-                if GeomUtils.pointDistance(0,midpointY, 0, prevMidpointY) < preStrokeLen * 0.5:
-                    pass # there are close enough vertically
-                else: # we start again
-                    continue
-
-                # we found a match
-                self.possibleStrokes.remove(s)
-                BoardSingleton().AnnotateStrokes( [stroke, s],  EqualsAnnotation(1))
-                return
-
-            # no match was found, add to the list of possible
-            self.possibleStrokes.append(stroke)
-            return
+        # no match was found, add to the list of possible
+        self.possibleAnnotations.append(annotation)
+        return
                     
 
 #-------------------------------------

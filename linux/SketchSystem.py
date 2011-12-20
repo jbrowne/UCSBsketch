@@ -28,7 +28,7 @@ from Observers import DebugObserver
 from Observers import TemplateObserver
 from Observers import TuringMachineObserver
 from Observers import TestAnimObserver
-from Bin import BinObserver, EqualsObserver, EquationObserver
+from Bin import BinObserver, EqualsObserver, EquationObserver, DirectedLine
 from Utils import Rubine
 from Observers import NumberObserver
 
@@ -47,8 +47,8 @@ def initialize(Board):
     #CircleObserver.CircleVisualizer()
     #ArrowObserver.ArrowMarker()
     #ArrowObserver.ArrowVisualizer()
-    #LineObserver.LineMarker()
-    #LineObserver.LineVisualizer()
+    LineObserver.LineMarker()
+    LineObserver.LineVisualizer()
     #TextObserver.TextCollector()
     #TextObserver.TextVisualizer()
     #DiGraphObserver.DiGraphMarker()
@@ -64,14 +64,16 @@ def initialize(Board):
     
     #BinObserver.BinCollector()
     #BinObserver.BinVisualizer()
-    #EqualsObserver.EqualsMarker()
-    #EqualsObserver.EqualsVisualizer()
+    EqualsObserver.EqualsMarker()
+    EqualsObserver.EqualsVisualizer()
     #EquationObserver.EquationObserver()
     #EquationObserver.EquationVisualizer()
     
 
-    Rubine.RubineMarker("rubine.dat")
-    Rubine.RubineVisualizer()
+    #Rubine.RubineMarker("rubine.dat")
+    #Rubine.RubineVisualizer()
+
+    DirectedLine.DirectedLineMarker()
 
     #NumberObserver.NumCollector()
     #NumberObserver.NumVisualizer()
