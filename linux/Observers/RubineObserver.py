@@ -467,6 +467,10 @@ class RubineVisualizer( ObserverBase.Visualizer ):
     def __init__(self):
         ObserverBase.Visualizer.__init__( self, RubineAnnotation )
 
+    def onAnnotationRemoved(self, annotation):
+        "Watches for annotations to be removed" 
+        self.annotation_list.remove(annotation)
+
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
 

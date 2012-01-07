@@ -109,6 +109,10 @@ class EqualsVisualizer( ObserverBase.Visualizer ):
     def __init__(self):
         ObserverBase.Visualizer.__init__( self, EqualsAnnotation )
 
+    def onAnnotationRemoved(self, annotation):
+        "Watches for annotations to be removed" 
+        self.annotation_list.remove(annotation)
+
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
         spaceing = 5
