@@ -45,12 +45,58 @@ from Observers import ObserverBase
 from xml.etree import ElementTree as ET
 
 
-logger = Logger.getLogger('DiGraphObserver', Logger.DEBUG )
+logger = Logger.getLogger('DiGraphObserver', Logger.WARN)
+node_log = Logger.getLogger('DiGraphNode', Logger.DEBUG)
+
+#-------------------------------------
+class DiGraphNodeAnnotation(CircleObserver.CircleAnnotation):
+    
+    def __init__(self, circularity, center, radius):
+        #Reminder, CircleAnno has fields:
+        #   center
+        CircleObserver.CircleAnnotation.__init__(self, circularity, center, radius)
+        node_log.debug("Creating new Node")
 
 #-------------------------------------
 
+class NodeMarker( BoardObserver ):
+    "Watches for Circle, and annotates them with the circularity, center and the radius"
+    CLOSED_DIST_THRESH = 0.1 #Stroke endpoints are % away from each other means closed
+    def __init__(self):
+        # TODO: we may wish to add the ability to expose/centralize these thresholds
+        # so that they can be tuned differently for various enviornments
+        BoardSingleton().AddBoardObserver( self, [DiGraphNodeAnnotation] )
+        BoardSingleton().RegisterForStroke( self )
+
+    def onStrokeAdded( self, stroke ):
+        "Watches for Strokes with Circularity > threshold to Annotate"
+        # need at least 6 points to be a circle
+	if stroke.length()<6:
+            return
+        strokeLen = GeomUtils.strokeLength(stroke)
+        distCutoff = NodeMarker.CLOSED_DIST_THRESH * (strokeLen ** 2)
+	#s_norm = GeomUtils.strokeNormalizeSpacing( stroke, 20 ) 
+        ep1 = stroke.Points[0]
+        ep2 = stroke.Points[-1]
+
+        epDist = GeomUtils.pointDistanceSquared(ep1.X, ep1.Y, ep2.X, ep2.Y)
+        if epDist <= distCutoff:
+            avgDist = GeomUtils.averageDistance( stroke.Center, stroke.Points )
+            BoardSingleton().AnnotateStrokes([stroke], DiGraphNodeAnnotation(0, stroke.Center, avgDist))
+        else:
+            node_log.debug("Not a node: distance %s > %s" % (epDist, distCutoff))
+
+
+    def onStrokeRemoved(self, stroke):
+	"When a stroke is removed, remove circle annotation if found"
+    	for anno in stroke.findAnnotations(DiGraphNodeAnnotation, True):
+            BoardSingleton().RemoveAnnotation(anno)
+
+
+#-------------------------------------
 class DiGraphAnnotation(Annotation):
-    MATCHING_DISTANCE = 2.0 # Multiplier for how far outside the circle radius to check
+    MATCHING_DISTANCE = 3.0 # Multiplier for how far outside the circle radius to check
+    POINTSTO_DISTANCE = 2.0 # Multiplier for how big to treat the circle in calculating "points-to" 
     def __init__(self, node_set=None, edge_set=None):
         Annotation.__init__(self)
         # DiGraph annotations maintain 3 things:
@@ -101,10 +147,10 @@ class DiGraphAnnotation(Annotation):
 
         return root
 
-
-            
-
-
+    def removeNode (self, circleAnno):
+        if circleAnno in self.node_set:
+            self.node_set.remove(circleAnno)
+            self.updateConnectMap()
 
     def updateConnectMap(self):
         "walk the set of edges and nodes, build a map of which nodes point to which edges and nodes"
@@ -129,15 +175,22 @@ class DiGraphAnnotation(Annotation):
 
     def tipToNode( self, arrow_anno, circle_anno ):
         "return true if the tip of the arrow points to the circle"
-        lineDist = max(len(arrow_anno.tailstroke.Points) / 20, 1) #Check the last 10th of the stroke points the right way
+        lineDist = min(10, max(len(arrow_anno.tailstroke.Points) / 10, 1)) #Check the last 10th of the stroke points the right way
+        #lineseg: two points from arrow "neck" to arrowhead tip 
+        #lineseg2: two points from arrow "neck" to last point in tail stroke
         if arrow_anno.direction == "tail2head":
             lineSeg = ( arrow_anno.tailstroke.Points[-lineDist], arrow_anno.tip )
+            lineSeg2 = ( arrow_anno.tailstroke.Points[-lineDist], arrow_anno.tailstroke.Points[-1] )
         else: #direction == 'head2tail'
             lineSeg = ( arrow_anno.tailstroke.Points[lineDist], arrow_anno.tip )
+            lineSeg2 = ( arrow_anno.tailstroke.Points[lineDist], arrow_anno.tailstroke.Points[0] )
             
         if GeomUtils.pointDist( arrow_anno.tip,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE:
             if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius):
                 return True
+            if GeomUtils.linePointsTowards( lineSeg2[0], lineSeg2[1], circle_anno.center, circle_anno.radius):
+                return True
+
         return False
 
     def tailToNode( self, arrow_anno, circle_anno ):
@@ -149,7 +202,7 @@ class DiGraphAnnotation(Annotation):
             lineSeg = ( arrow_anno.tailstroke.Points[-lineDist], arrow_anno.tailstroke.Points[-1] )
             
         if GeomUtils.pointDist( arrow_anno.tail,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE:
-            if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius):
+            if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius * DiGraphAnnotation.POINTSTO_DISTANCE):
                 return True
         return False
 
@@ -200,14 +253,23 @@ class DiGraphMarker( ObserverBase.Collector ):
     def __init__( self ):
         # this will register everything with the board, and we will get the proper notifications
         ObserverBase.Collector.__init__( self, \
-            [CircleObserver.CircleAnnotation, ArrowObserver.ArrowAnnotation], DiGraphAnnotation )
+            [DiGraphNodeAnnotation, ArrowObserver.ArrowAnnotation], DiGraphAnnotation )
+        NodeMarker()
 
     def collectionFromItem( self, strokes, anno ):
         "turn the circle/arrow annotation given into a digraph"          
-        if anno.isType( CircleObserver.CircleAnnotation ):
-            digraph_anno = DiGraphAnnotation( node_set=set([anno]) )
+        #Prefer adding strokes as arrows over nodes
+        if anno.isType( DiGraphNodeAnnotation ):
+            if len(BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=ArrowObserver.ArrowAnnotation) ) == 0:
+                digraph_anno = DiGraphAnnotation( node_set=set([anno]) )
         if anno.isType( ArrowObserver.ArrowAnnotation ):
             digraph_anno = DiGraphAnnotation( edge_set=set([anno]) )
+
+            circleAnnos = BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=DiGraphNodeAnnotation)
+            for circle_anno in circleAnnos:
+                BoardSingleton().RemoveAnnotation(circle_anno)
+                BoardSingleton().AnnotateStrokes(circle_anno.Strokes, circle_anno)
+
         return digraph_anno
 
     def mergeCollections( self, from_anno, to_anno ):

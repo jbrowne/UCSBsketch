@@ -103,7 +103,7 @@ from Utils import Logger
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 
-logger = Logger.getLogger('GeomUtils', Logger.WARN )
+logger = Logger.getLogger('GeomUtils', Logger.DEBUG )
 
 
 #--------------------------------------------------------------
@@ -299,25 +299,28 @@ def angleSub( a, b ):
 #--------------------------------------------------------------
 # Functions on Strokes
 
-def strokeContainsStroke(stroke1, stroke2, granularity = None):
-    "Returns whther stroke1 contains stroke2"
-    if granularity == None:
-        granularity = max (len(stroke1.Points), len(stroke2.Points))
+def strokeContainsStroke(outerStk, innerStk, granularity = None):
+    "Returns whther outerStk contains innerStk"
+    #pdb.set_trace()
+    #if granularity == None:
+        #granularity = max (len(outerStk.Points), len(innerStk.Points))
 
-    #close stroke1
-    ep1 = stroke1.Points[0]
-    ep2 = stroke1.Points[-1]
+    #close outerStk
+    ep1 = outerStk.Points[0]
+    ep2 = outerStk.Points[-1]
     if pointDistanceSquared(ep1.X, ep1.Y, ep2.X, ep2.Y) > 10:
         logger.warn("Checking containment within a stroke that's probably not closed")
 
-    sNorm1 = strokeNormalizeSpacing(Stroke(stroke1.Points + [ep2]), numpoints = granularity)
     #Test first point inside stroke 1
-    if not pointInPolygon(sNorm1.Points, stroke2.Points[0]):
+    if not pointInPolygon(outerStk.Points, innerStk.Points[0]):
+        logger.debug("Stroke %s doesn't start in polygon" % innerStk.id)
         return False
-    #Test if stroke2 ever leaves stroke1's containment
-    elif len(getStrokesIntersection(stroke1, stroke2)) > 0:
+    #Test if innerStk ever leaves outerStk's containment
+    elif len(getStrokesIntersection(outerStk, innerStk)) > 0:
+        logger.debug("Stroke %s leaves polygon" % innerStk.id)
         return False
 
+    logger.debug("Stroke %s CONTAINED" % innerStk.id)
     return True
         
 
@@ -687,21 +690,7 @@ def boundingboxOverlap( bb1, bb2 ):
     return True # there is a collision
 
 #--------------------------------------------------------------
-# Functions on Lists of Points
-
-def pointlistBoundingBox( pointlist ):
-    "Input: a list of points. Return the bounding box as a tuple of points, (topleft,bottomright)"
-    if len(pointlist) < 1:
-        return
-    topleft = pointlist[0].copy()
-    bottomright = pointlist[0].copy()
-    for p in pointlist:
-        topleft.X = min( topleft.X, p.X )
-        topleft.Y = max( topleft.Y, p.Y)
-        bottomright.X = max( bottomright.X, p.X )
-        bottomright.Y = min( bottomright.Y, p.Y )    
-    return (topleft,bottomright)
-        
+# Functions on Lists of Points 
 
 def momentOfOrder(center, inPoints, p, q):
     "Input: Point center, List inPoints, int p, q.  Returns the Mathematical moment of a set of points or orders p, q"
@@ -1107,21 +1096,24 @@ def area(inPoints):
 def pointInPolygon( inPoints, point ):
     "Input: List inPoints, Point point.  Returns true if the point is inside the Polygon.  Assumptions: List of points describes a CLOSED polygon.  Open polygons will be treated as if first & last point interconnect.  TODO:  Improve support for strokes with tails."
     
-    numIntersections = 0
     rayEndPt = Point( sys.maxint, point.Y ) #A ray extending as far as possible to the right , max X coord.
     
     currentPoint = None
     nextPoint = None
     
+    allCrossPts = set()
     for i in range(0, len(inPoints)):
         
         currentPoint = inPoints[i]
         nextPoint = inPoints[(i + 1) % len(inPoints)]
         
-        if( linesIntersect( point, rayEndPt, currentPoint, nextPoint) ):
-            numIntersections +=1
+        crossPt = getLinesIntersection( (point, rayEndPt), (currentPoint, nextPoint) )
+        if crossPt != None:
+            allCrossPts.add( (crossPt.X, crossPt.Y) )
             
-    return ((numIntersections%2)!=0)    #If the ray passes through an ODD number of points, then it's inside the polygon.
+    logger.debug("pointInPolygon: %s intersections: %s" % (str(len(allCrossPts)), allCrossPts))
+    
+    return ( (len(allCrossPts) % 2) !=0)    #If the ray passes through an ODD number of points, then it's inside the polygon.
 
 
                 
@@ -1179,39 +1171,6 @@ def getLinesIntersection(line1, line2, infinite1 = False, infinite2 = False):
     
 def linesIntersect(p1, p2, q1, q2):
     "Returns true if lines intersect, else false. getLinesIntersection returns the actual point"
-    """ BROKEN BROKEN BROKEN
-    retval = False
-    if p1.X > p2.X:
-        p1, p2 = p2, p1
-    if q1.X > q2.X:
-        q1, q2 = q2, q1   
-    
-    #is p __ than q
-    isHigher = p1.Y > q1.Y and p2.Y > q2.Y and p1.Y > q2.Y and p2.Y > q1.Y
-    isLower = p1.Y < q1.Y and p2.Y < q2.Y and p1.Y < q2.Y and p2.Y < q1.Y
-    isLeft= p2.X < q1.X
-    isRight= p1.X > q2.X
-    
-    if not (isHigher or isLower or isLeft or isRight):
-        #Now p1 and q1 are the left points
-        if p1.Y > q2.Y and p2.Y <= q1.Y:
-            retval = True
-        elif p1.Y < q2.Y and p2.Y >= q1.Y:
-            retval = True
-        elif p1.Y == q1.Y and p1.X == q1.X:
-            retval = True
-            
-    if retval is False:
-        fp = open("points.csv", "w")
-        print >> fp, "point,x,y"
-        print >> fp, "p1,%s,%s" % (p1.X, p1.Y)
-        print >> fp, "p2,%s,%s" % (p2.X, p2.Y)
-        print >> fp, "q1,%s,%s" % (q1.X, q1.Y)
-        print >> fp, "q2,%s,%s" % (q2.X, q2.Y)
-        fp.close()
-        
-    return retval
-    """
     if getLinesIntersection((p1, p2) , (q1, q2)) is not None:
         return True
     return False

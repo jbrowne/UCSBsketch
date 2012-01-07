@@ -67,7 +67,7 @@ class CircleMarker( BoardObserver ):
     def __init__(self, circularity_threshold=0.90):
         # TODO: we may wish to add the ability to expose/centralize these thresholds
         # so that they can be tuned differently for various enviornments
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self , [CircleAnnotation])
         BoardSingleton().RegisterForStroke( self )
 	self.threshold = circularity_threshold;
 
@@ -101,7 +101,7 @@ class CircleMarker( BoardObserver ):
 class CircleVisualizer( BoardObserver ):
     "Watches for Circle annotations, draws them"
     def __init__(self):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self, [] )
         BoardSingleton().RegisterForAnnotation( CircleAnnotation, self )
         self.annotation_list = []
 
@@ -115,7 +115,10 @@ class CircleVisualizer( BoardObserver ):
         "Watches for annotations to be removed" 
         logger.debug( "A circle annotation was removed with Circularity, Center and Radius = %f, (%f,%f), %f", \
 	 	annotation.circularity, annotation.center.X, annotation.center.Y, annotation.radius )
-        self.annotation_list.remove(annotation)
+        if annotation in self.annotation_list:
+            self.annotation_list.remove(annotation)
+        else:
+            logger.warn("Removing annotation not already tracked")
 
     def drawMyself( self ):
 	for a in self.annotation_list:

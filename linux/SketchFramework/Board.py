@@ -7,14 +7,25 @@ from SketchFramework.Stroke import Stroke
 
 from Utils import Logger
 from Utils import GeomUtils
+from xml.etree import ElementTree as ET
 
 logger = Logger.getLogger('Board', Logger.DEBUG )
+
+#--------------------------------------------
+class BoardException (Exception):
+    """A custom exception class to handle errors within the framework"""
+    def __init__(self, message):
+        """input: message for the error"""
+        self.message = message
+    def __str__(self):
+        return repr(self.message)
 
 #--------------------------------------------
 class BoardObserver(object):
     "The Board Observer Class from which all other Board Observers should be derived"
     def __init__(self):
         self.AnnoFuncs={}
+        self._targetAnnotations = None #Set by the Board with a call to "RegisterBoardObserver"
         
     def onStrokeAdded( self, stroke ):
         pass
@@ -34,6 +45,9 @@ class BoardObserver(object):
     def onAnnotationRemoved(self, annotation):
         pass
 
+    def onAnnotationSuggested(self, anno_type, strokelist):
+        """Called when the a list of strokes are suggested to yield an annotation of type anno_type."""
+
     def drawMyself(self):
         pass
 
@@ -44,26 +58,47 @@ class BoardObserver(object):
 #       the Singleton pattern
 
 class _Board(object):
+    Count = 0
     BoardSingleton = None
     Lock =threading.Lock()
     "A singleton Object containing the Board and all of the strokes."
 
     def __init__(self):
+        self._id = _Board.Count
+        _Board.Count += 1
         self.Reset()
         
 
+    def getID(self):
+        return self._id
+
     def Reset(self):
         self.Lock = _Board.Lock
-        self.Strokes = []
-        self.StrokeObservers=[]
-        self.AnnoObservers={}
-        self.BoardObservers=[]
+        self.Strokes = [] #All the strokes on the board
+        self.StrokeObservers=[] #All of the stroke observers to be called onStrokeAdded
+        self.AnnoObservers={} #Dict indexed by annotation type to be called onAnnotationAdded
+        self.BoardObservers=[] #Generic list of all board observers. Deprecated?
+        self.AnnoTargeters = {} #Dict indexed by annotation type, to a list of board observers that add that kind of annotation
         
         #Ensure that we don't add something after its removal
         self._removed_annotations = {}
         self._removed_strokes = {}
         
 
+    def xml(self):
+        root = ET.Element("Board")
+
+        root.attrib["id"] = str(self._id)
+        strokes_el = ET.SubElement(root, "Strokes")
+        for s in self.Strokes:
+            strokes_el.append(s.xml())
+
+        annos_el = ET.SubElement(root, "Annotations")
+        for a in self.FindAnnotations():
+            annos_el.append(a.xml())
+
+        return root
+        
     def AddStroke( self, newStroke ):
         "Input: Stroke newStroke.  Adds a Stroke to the board and calls any Stroke Observers as needed"
         logger.debug( "Adding Stroke: %d", newStroke.id )
@@ -104,12 +139,15 @@ class _Board(object):
         "Input: BoardObserver stroke.  Registers with the board an Observer to be called when strokes are added"
         self.StrokeObservers.append( strokeObserver )
         if strokeObserver not in self.BoardObservers:
-            self.AddBoardObserver(strokeObserver)
+            raise BoardException("Trying to register unknown observer for strokes")
 
     def RegisterForAnnotation( self, annoType, annoObserver, funcToCall = None ):
         "Input: Type annoType, BoardObserver annoObserver, function funcToCall.  Call the observer when the matching annoation is found"
 	    #  Function funcToCall Registers with the board an Observer based on an 
 	    #  Annotation type.  Optional: An *additional* function to call on the observer upon annotation occurence
+        if annoObserver not in self.BoardObservers:
+            raise BoardException("Trying to register unknown observer for annotation %s" % (annoType.__name__))
+            
         if ( annoType not in self.AnnoObservers ):
             self.AnnoObservers[annoType] = []
 
@@ -133,9 +171,6 @@ class _Board(object):
         if annoType in self.AnnoObservers:
             if annoObserver in self.AnnoObservers[annoType]:
 	            self.AnnoObservers[annoType].remove(annoObserver)
-
-        if annoObserver not in self.BoardObservers:
-            self.AddBoardObserver(annoObserver)
 
     def IsRegisteredForAnnotation( self, annoType, annoObserver ):
         "Input: Type annoType, BoardObserver annonObserve.  return true if annoObserver is already listening for annoType"
@@ -174,6 +209,14 @@ class _Board(object):
             for i in annoObsvrs:
                 if anno not in self._removed_annotations: #Will fail if someone has called "RemoveAnnotation"
                     i.onAnnotationAdded(strokes, anno)
+
+    def SuggestAnnotation(self, anno_type, strokelist):
+        """Send these strokes back to whoever manages anno_type Annotations and try to get a good annotation from them"""
+        logger.debug("Suggesting %s strokes be annotated with %s" % (len(strokelist), anno_type.__name__))
+        obsSet = self.AnnoTargeters.get(anno_type, set())
+
+        for observer in obsSet:
+            observer.onAnnotationSuggested(anno_type, strokelist)
 
     def UpdateAnnotation(self, anno, new_strokes=None, notify=True, remove_empty = True ):
 	"""Input: Annotation, Strokes.  Changes the annotation and alerts the correct listeners. 
@@ -236,12 +279,18 @@ class _Board(object):
             except ValueError:
                 logger.error( "RemoveAnnotation: Trying to remove nonexistant annotation %s", anno  )
             
-    def AddBoardObserver ( self, obs ):
+    def AddBoardObserver ( self, obs, targetAnnoList ):
         "Input: Observer obs.  Obs is added to the list of Board Observers"
         # FIXME? should we check that the object is one in the list once?
         if obs not in self.BoardObservers:
             logger.debug( "Adding Observer: %s", str(obs.__class__.__name__) )
             self.BoardObservers.append( obs )
+
+        #Note that this observer adds these kinds of annotations
+        for anno_type in targetAnnoList:
+            obsSet = self.AnnoTargeters.setdefault(anno_type, set())
+            obsSet.add(obs)
+
 
     def RemoveBoardObserver( self, obs):
         "Input: Observer obs.  Obs is removed from the list of Board Observers"

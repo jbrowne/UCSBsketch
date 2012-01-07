@@ -31,7 +31,7 @@ from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 from xml.etree import ElementTree as ET
 
-logger = Logger.getLogger('ArrowObserver', Logger.WARN)
+logger = Logger.getLogger('ArrowObserver', Logger.DEBUG)
 
 #-------------------------------------
 
@@ -70,7 +70,7 @@ class ArrowAnnotation( Annotation ):
 class ArrowMarker( BoardObserver ):
 
     def __init__(self):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self , [ArrowAnnotation])
         BoardSingleton().RegisterForStroke( self )
         
         #For multistroke arrows, keep track of arrowheads and line endpoints
@@ -82,6 +82,38 @@ class ArrowMarker( BoardObserver ):
         
         
 
+    def onAnnotationSuggested(self, anno_type, strokelist):
+        """Called when the a list of strokes are suggested to yield an annotation of type anno_type."""
+
+        #First pass, assume we were just too strict with the distance/size thresholds
+        knownHeads = []
+        knownTails = []
+        for tip, stk in self._arrowHeads:
+            if stk in strokelist:
+                knownHeads.append( (tip, stk) )
+        for ep, tail_stk in self._endpoints:
+            if tail_stk in strokelist:
+                for tip, head_stk in knownHeads:
+                    if head_stk == tail_stk:
+                        continue
+                    headEnds = ( head_stk.Points[0], head_stk.Points[-1] )
+                    if GeomUtils.pointInAngleCone(ep, headEnds[0], tip, headEnds[1]):
+                        anno = ArrowAnnotation( tip, ep, headstroke= head_stk, tailstroke = tail_stk )
+                        BoardSingleton().AnnotateStrokes([head_stk, tail_stk],anno)
+                        logger.debug("Suggestion Response: Matched arrow with looser constraints")
+                        return
+
+        #Second pass, we missed the arrowhead to begin with
+
+        logger.warn("Not able to generate Arrow!")
+        return
+
+                        
+                        
+                
+
+
+ 
     def onStrokeAdded( self, stroke ):
         "Watches for Strokes that look like an arrow to Annotate"
         smoothedStroke = GeomUtils.strokeSmooth(stroke)
@@ -178,8 +210,11 @@ class ArrowMarker( BoardObserver ):
             ep1, ep2 = head.Points[0], head.Points[-1]
             headBreadth = GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y)
             for endpoint, tailStroke in self._endpoints:
-                if GeomUtils.strokeLength(head) < GeomUtils.strokeLength(tailStroke) \
-                and _isPointWithHead(endpoint, head, tip): #Make sure the proportions aren't totally off
+                headLen = GeomUtils.strokeLength(head) 
+                tailLen = GeomUtils.strokeLength(tailStroke)
+                pointWithHead = _isPointWithHead(endpoint, head, tip)
+                if headLen < tailLen \
+                and pointWithHead:
                     logger.debug("Head stroke has a tail close and within cone")
                     pointingLength = len(tailStroke.Points) / 5
                     #headToTail
@@ -190,6 +225,15 @@ class ArrowMarker( BoardObserver ):
                     pointsTo = GeomUtils.linePointsTowards(linept1, linept2, tip, headBreadth)
                     if pointsTo:
                         retlist.append( (endpoint, tailStroke) )
+                else:
+                    if headLen < tailLen:
+                        logger.debug("  Head stroke scale is okay for this arrowhead")
+                    else:
+                        logger.debug("  Head stroke scale is BAD for this arrowhead")
+                    if pointWithHead:
+                        logger.debug("  Head stroke is NOT close or within cone of an arrowhead\n")
+                    else:
+                        logger.debug("  Head stroke is close and within cone of an arrowhead\n")
 
         elif tail is not None and head is None: #Find the head
             endpoint = point
@@ -203,12 +247,25 @@ class ArrowMarker( BoardObserver ):
             for tip, headStroke in self._arrowHeads:
                 ep1, ep2 = headStroke.Points[0], headStroke.Points[-1]
                 headBreadth = GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y)
-                if GeomUtils.strokeLength(headStroke) < GeomUtils.strokeLength(tail) \
-                and _isPointWithHead(endpoint, headStroke, tip):
+                headLen = GeomUtils.strokeLength(headStroke) 
+                tailLen = GeomUtils.strokeLength(tail)
+                pointWithHead = _isPointWithHead(endpoint, headStroke, tip)
+                if headLen < tailLen \
+                and pointWithHead:
                     logger.debug("Tail stroke is close and within cone of an arrowhead")
                     pointsTo = GeomUtils.linePointsTowards(linept1, linept2, tip, headBreadth)
                     if pointsTo:
                         retlist.append( (tip, headStroke) )
+                else:
+                    if headLen < tailLen:
+                        logger.debug("  Tail stroke scale is okay for this arrowhead")
+                    else:
+                        logger.debug("  Tail stroke scale is BAD for this arrowhead")
+                    if pointWithHead:
+                        logger.debug("  Tail stroke is NOT close or within cone of an arrowhead\n")
+                    else:
+                        logger.debug("  Tail stroke is close and within cone of an arrowhead\n")
+                        
         return retlist
                 
 
@@ -263,7 +320,7 @@ def _isPointWithHead(point, head, tip):
 class ArrowVisualizer( BoardObserver ):
     "Watches for Arrow annotations, draws them"
     def __init__(self):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self ,[])
         BoardSingleton().RegisterForAnnotation( ArrowAnnotation, self )
         self.annotation_list = []
 

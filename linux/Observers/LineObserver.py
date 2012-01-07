@@ -52,7 +52,7 @@ class LineAnnotation(Annotation):
 class LineMarker( BoardObserver ):
     "Watches for lines, and annotates them with the linearity and angle"
     def __init__(self, linearity_threshold=0.85):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self , [LineAnnotation])
         BoardSingleton().RegisterForStroke( self )
         self.threshold = linearity_threshold;
 
@@ -79,7 +79,7 @@ class LineMarker( BoardObserver ):
 class LineVisualizer( BoardObserver ):
     "Watches for Line annotations, draws them"
     def __init__(self):
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self, [] )
         BoardSingleton().RegisterForAnnotation( LineAnnotation, self )
         self.annotation_list = []
 

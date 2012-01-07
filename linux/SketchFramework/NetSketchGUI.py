@@ -10,12 +10,10 @@ Description:
           drawCircle
           drawText
    All other functions and interface behavior is up to the GUI designer.
-   This implementation listens for MouseDown events and builds strokes to hand off
-      to the board system. Upon any event, Redraw is called globally to fetch all 
-      board paint objects and display them.
-Todo:
-   It would be nice if the interface weren't so directly tied to the Tkinter underpinnings.
-   I.e., TkSketchGUI is essentially a Tkinter frame object, and must be manipulated similarly.
+
+   This implementation hosts a server on port 30000 to listen for incoming picture data.
+   The photo is then processed to extract the strokes, strokes are added to the board, and
+   the system responds to the client with an xml description of the board's state.
 """
 
 
@@ -32,8 +30,8 @@ from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardSingleton
-from SketchFramework.NetworkReceiver import ServerThread
-from SketchFramework.strokeout import imageBufferToStrokes, GETNORMWIDTH
+from SketchFramework.NetworkReceiver import ServerThread, Message
+from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 
 from Observers import CircleObserver
 from Observers import ArrowObserver
@@ -60,12 +58,14 @@ logger = Logger.getLogger("NetSketchGUI", Logger.DEBUG)
 
 
 class DrawAction(object):
+    "Base class for a draw action"
     def __init__(self, action_type):
         self.action_type = action_type
     def xml(self):
         raise NotImplemented
 
 class DrawCircle(DrawAction):
+    "An object that defines parameters for drawing a circle"
     def __init__(self, x, y, radius, color, fill, width):
         DrawAction.__init__(self, "Circle")
         self.x = x
@@ -114,6 +114,7 @@ class DrawCircle(DrawAction):
 
 
 class DrawStroke(DrawAction):
+    "An object defining the parameters to draw a stroke"
     def __init__(self, stroke, width, color):
         DrawAction.__init__(self, "Stroke")
         self.stroke = stroke
@@ -138,6 +139,7 @@ class DrawStroke(DrawAction):
         return root
 
 class DrawLine(DrawAction):
+    "An object defining the parameters to draw a Line"
     def __init__(self, x1, y1, x2, y2, width, color):
         DrawAction.__init__(self, "Line")
         self.x1 = x1
@@ -185,6 +187,7 @@ class DrawLine(DrawAction):
         return root
 
 class DrawText(DrawAction):
+    "An object defining parameters to draw a string of text"
     def __init__(self, x, y, text, size, color):
         DrawAction.__init__(self, "Text")
         self.x = x
@@ -226,15 +229,115 @@ class DrawText(DrawAction):
 
         return root
         
+class SketchResponseThread(threading.Thread):
+    """A Thread that handles the different requests sent for network interaction with the board"""
+    def __init__(self, recv_q, send_q):
+        """Set up everything for receiving and sending messages.
+            recv_q: the Queue for pulling data messages received from the client
+            send_q: the Queue into which the appropriate responses to the client will be put
+        """
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self._recv_q = recv_q
+        self._send_q = send_q
+        
+        self._boards = {}
+    def run(self):
+        """Continually receive and handle requests from clients, and generate appropriate responses"""
+        while True:
+            in_msg = self._recv_q.get()
+            logger.debug("Received something")
+            if in_msg is not None:
+                logger.debug("Message type %s" % (in_msg.getType))
+                if in_msg.getType() == Message.TYPE_IMG:
+                    logger.debug("Processing image")
+                    xml_response = self.processNewImage(in_msg.getData())
+                    respMsg = Message(Message.TYPE_XML, ET.tostring(xml_response))
+                    self._send_q.put(respMsg)
+                elif in_msg.getType() == Message.TYPE_XML:
+                    logger.debug("Processing XML")
+                    pass
+                else:
+                    logger.debug("Unknown message type")
+            else:
+                logger.debug("Invalid message type")
+            self._recv_q.task_done()
+
+    def processNewImage(self, imageData):
+        """Take in image data, process it and return a string of the resulting board XML"""
+        logger.debug("Processing net image")
+        stks = imageBufferToStrokes(imageData)
+        logger.debug("Processed net image, converting strokes")
+
+        self.resetBoard()
+        newBoard = self._Board
+        self._boards[newBoard.getID()] = newBoard
+
+        for stk in stks:
+            newStroke = Stroke()
+            for x,y in stk.points:
+               scale = WIDTH / GETNORMWIDTH()
+               newPoint = Point(scale * x, HEIGHT - scale * y)
+               newStroke.addPoint(newPoint)
+            newBoard.AddStroke(newStroke)
+
+        retXML = newBoard.xml()
+        retXML.attrib['height'] = str(HEIGHT)
+        retXML.attrib['width'] = str(WIDTH)
+        return retXML
+
+    def resetBoard(self):
+        "Clear all strokes and board observers from the board (logically and visually)"
+        self._Board = BoardSingleton(reset = True)
+        CircleObserver.CircleMarker()
+        #CircleObserver.CircleVisualizer()
+        ArrowObserver.ArrowMarker()
+        #ArrowObserver.ArrowVisualizer()
+        #LineObserver.LineMarker()
+        #LineObserver.LineVisualizer()
+        TextObserver.TextCollector()
+        #TextObserver.TextVisualizer()
+        DiGraphObserver.DiGraphMarker()
+        #DiGraphObserver.DiGraphVisualizer()
+        #DiGraphObserver.DiGraphExporter()
+        TuringMachineObserver.TuringMachineCollector()
+        #TuringMachineObserver.TuringMachineVisualizer()
+        #TuringMachineObserver.TuringMachineExporter()
+        
+        #TemplateObserver.TemplateMarker()
+        #TemplateObserver.TemplateVisualizer()
+        
+        
+        d = DebugObserver.DebugObserver()
+        #d.trackAnnotation(TestAnimObserver.TestAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
+        #d.trackAnnotation(LineObserver.LineAnnotation)
+        #d.trackAnnotation(ArrowObserver.ArrowAnnotation)
+        #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
+        #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
+        #d.trackAnnotation(CircleObserver.CircleAnnotation)
+        #d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
+        #d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
+        
+        #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
+        #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
+        #d.trackAnnotation(TextObserver.TextAnnotation)
+        #d.trackAnnotation(BarAnnotation)
+        
+
 class ImgProcThread (threading.Thread):
     "A Thread that continually pulls image data from imgQ and puts the resulting stroke list in strokeQ"
     def __init__(self, imgQ, strokeQ):
+        "Initialize the thread as a daemon thread"
         threading.Thread.__init__(self)
         self.daemon = True
 
         self.img_queue = imgQ
         self.stk_queue = strokeQ
+
     def run(self):
+        "Continually monitor img_queue for images, process the image, and add the strokes to stk_queue"
         while True:
             image = StringIO.StringIO(self.img_queue.get())
             logger.debug("Processing net image")
@@ -252,6 +355,7 @@ class ImgProcThread (threading.Thread):
     
 
 class NetSketchGUI(_SketchGUI):
+    "A _SketchGUI subclass that handles network communication and image processing."
 
     Singleton = None
     def __init__(self):
@@ -262,12 +366,19 @@ class NetSketchGUI(_SketchGUI):
        self._Board = None
        self.ResetBoard()
 
+       self._setupNetworkDispatcher()
        # Private data members
-       self._strokeQueue = Queue.Queue()
        self._serverThread = None
+       self._recv_q = None
+       self._send_q = None
+       self._netDispatchThread = None
+
+       self._strokeQueue = Queue.Queue()
+       """
        self._xmlResponseQueue = None
        self._imgProcThread = None
        self._setupImageServer()
+       """
 
        self._drawQueue = []
 
@@ -275,6 +386,16 @@ class NetSketchGUI(_SketchGUI):
        self._onBoardDrawOrder = []
 
        self.run()
+
+    def _setupNetworkDispatcher(self):
+        self._serverThread = ServerThread(port = 30000)
+        self._recv_q = self._serverThread.getRequestQueue()
+        self._send_q = self._serverThread.getResponseQueue()
+
+        self._netDispatchThread = SketchResponseThread(self._recv_q, self._send_q)
+        self._netDispatchThread.start()
+
+        self._serverThread.start()
 
     def ResetBoard(self):
         "Clear all strokes and board observers from the board (logically and visually)"
@@ -354,6 +475,9 @@ class NetSketchGUI(_SketchGUI):
             self._drawQueue.append(anno)
 
     def run(self):
+        """Reset the board and wait for some entity to add strokes to the strokeQueue. 
+        Add these strokes to the board, and build the xml view of the board, then queue the
+        response to send back"""
         while True:
             logger.debug("Waiting on queue")
             try:
@@ -364,6 +488,14 @@ class NetSketchGUI(_SketchGUI):
                     self._Board.AddStroke(stk)
                 self._strokeQueue.task_done()
 
+                respXML = self.boardXML()
+                self._xmlResponseQueue.put(ET.tostring(respXML))
+
+                fp = open("xmlout.xml", "w")
+                print >> fp, ET.tostring(respXML)
+                fp.close()
+
+                """
                 for stk in self._Board.Strokes:
                     stk.drawMyself()
 
@@ -373,8 +505,24 @@ class NetSketchGUI(_SketchGUI):
                     obs.drawMyself()
 
                 self._processDrawQueue()
+                """
             except Queue.Empty as e:
                 logger.debug("No strokes yet...")
+    def boardXML(self):
+        root = ET.Element("Board")
+        root.attrib['height'] = str(HEIGHT)
+        root.attrib['width'] = str(WIDTH)
+
+        strokes_el = ET.SubElement(root, "Strokes")
+        for s in self._Board.Strokes:
+            strokes_el.append(s.xml())
+
+        annos_el = ET.SubElement(root, "Annotations")
+        for a in self._Board.FindAnnotations():
+            annos_el.append(a.xml())
+
+        return root
+ 
     def _processDrawQueue(self):
         "Go through the draw queue and draw what needs to be drawn"
         drawXML = ET.Element("Board")
