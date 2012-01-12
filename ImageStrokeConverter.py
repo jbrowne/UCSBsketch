@@ -306,6 +306,7 @@ def _squareIntersections(graphDict, rawImg):
 
     removedPoints = set()
     newPoints = {} #To be filled with <point> : {'kids' : set(), 'thickness': float}
+
     # Look at all the points where edges intersect
     for kpDict in keyPointsList:
         for cp in kpDict['crosspoints']:
@@ -322,13 +323,13 @@ def _squareIntersections(graphDict, rawImg):
             cpThickness = graphDict[cp]['thickness']
             print "CrossPoint %s, thickness %s" % (str(cp), cpThickness)
             for edge in edgeList:
-                print " *Edge:", edge
+                #print " *Edge:", edge
                 for pt in list(edge):
                     if len(edge) > 1 and \
                        pointsOverlap(cp, pt, rawImg, \
-                                     pt1Thickness = cpThickness, \
+                                     pt1Thickness = 2 * cpThickness / 3.0 , \
                                      pt2Thickness = 1, checkSeparation = False):
-                        print "  Remove %s" % (str(pt))
+                        #print "  Remove %s" % (str(pt))
                         edge.remove(pt)
                         removedPoints.add(pt)
                     else:   
@@ -627,13 +628,18 @@ def strokesFromSeed(seed, graph):
    
 
 def drawGraph(graph, img):
+   keyPts = set()
    for p, pdict in graph.items():
-      setImgVal(p[0], p[1], 128, img)
+      #setImgVal(p[0], p[1], 128, img)
+      if len(pdict['kids']) != 2:
+         keyPts.add(p)
       for k in pdict['kids']:
-         drawLine(p,k,220,img)
+         drawLine(p,k,128,img)
          #cv.Line(img, p, k, 220, thickness = 1)
          #setImgVal(p[0], p[1], 128, img)
-         setImgVal(k[0], k[1], 128, img)
+         #setImgVal(k[0], k[1], 128, img)
+   for p in keyPts:
+      setImgVal(p[0], p[1], 220, img)
    
 def pointsToStrokes(pointSet, rawImg):
    "Converts a set() of point tuples into a list of strokes making up those points"
@@ -756,6 +762,8 @@ def pointsToGraph(pointSet, rawImg):
        cv.Set(DEBUGIMG, 255)
        drawGraph(graphDict, DEBUGIMG)
        saveimg(DEBUGIMG)
+
+
    print "Before collapsing, graphdict: %s" % (len(graphDict))
 
    _collapseIntersections(graphDict, rawImg)
@@ -876,11 +884,13 @@ def graphToStrokes(graph, rawImg):
       
 
    for kpDict in keyPointsList:
+      #Straightforward, blob with single edge (no intersections)
       if len(kpDict['edges']) == 1:
          stroke = Stroke()
          for pt in kpDict['edges'][0]:
             stroke.addPoint(pt)
          retStrokes.append(stroke)
+      #Complicated, match up edges at intersections to shrink number of lines
       elif len(kpDict['edges']) > 1:
          print "%s Edges to cover" % (len(kpDict['edges']))
          edgeList = list(kpDict['edges'])
@@ -1066,7 +1076,7 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
 
    return ( numChanged, retPoints, outImg )
 
-def erodeBlobsPoints (pointSet, img):
+def erodeBlobsPoints (pointSet, img, minFill = 1, maxFill = 9 ):
    numChanged = 0
    retPoints = set()
    outImg = cv.CloneMat(img)
@@ -1074,8 +1084,8 @@ def erodeBlobsPoints (pointSet, img):
       (i,j) = p
       valDict = filledAndCrossingVals(p, img, skipCorners = False)
 
-      if valDict['filled'] > 1:
-         if valDict['filled'] < 8:
+      if valDict['filled'] > minFill:
+         if valDict['filled'] < maxFill:
             numChanged += 1
             setImgVal(i, j, FILLEDVAL, outImg)
          else:
@@ -1410,7 +1420,7 @@ def removeBackground(cv_img):
       saveimg(gray_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
    #saveimg(gray_img)
-   gray_img = smooth(gray_img, ksize=3, t='gauss')
+   #gray_img = smooth(gray_img, ksize=3, t='gauss')
    if(DEBUG):
       saveimg(gray_img)
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
@@ -1451,7 +1461,7 @@ def blobsToStrokes(img):
    isHollowed = False
 
    chartFile = open("pointsData.txt", "w")
-   numChanged, pointSet, img = erodeBlobsPoints(pointSet, img)
+   numChanged, pointSet, img = erodeBlobsPoints(pointSet, img, maxFill = 6)
    while changed1 or changed2:
       passnum += 1
       print "Pass %s" % (passnum)
@@ -1465,14 +1475,12 @@ def blobsToStrokes(img):
          psetSize = len(pointSet)
 
       print >> chartFile, numChanged, len(pointSet), numChanged / float(len(pointSet)), numChanged / float(psetSize)
+      
       """
       if numChanged / float(psetSize) < 0.04 and not isHollowed:
-         numChanged, pointSet, img = erodeBlobsPoints(pointSet, img)
+         numChanged, pointSet, img = erodeBlobsPoints(pointSet, img, minFill = 4, maxFill = 9)
          isHollowed = True
          continue
-
-      """
-      """
 
 
       if len(pointSet) <= psetSize / 2.0:
