@@ -210,26 +210,30 @@ class ArrowMarker( BoardObserver ):
             ep1, ep2 = head.Points[0], head.Points[-1]
             headBreadth = GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y)
             for endpoint, tailStroke in self._endpoints:
+                pointingLength = len(tailStroke.Points) / 5
+                if endpoint == tailStroke.Points[0]: #Treat as drawn head2tail
+                    tailpoints = tailStroke.Points
+                    linept1, linept2 = tailStroke.Points[pointingLength], endpoint
+                elif endpoint== tailStroke.Points[-1]: #Treat as drawn tail2head
+                    tailpoints = list(reversed(tailStroke.Points))
+                    linept1, linept2 = tailStroke.Points[-pointingLength], endpoint
+
                 headLen = GeomUtils.strokeLength(head) 
                 tailLen = GeomUtils.strokeLength(tailStroke)
-                pointWithHead = _isPointWithHead(endpoint, head, tip)
-                if headLen < tailLen \
+                pointWithHead = _isPointWithHead(tailpoints, head, tip)
+                if headLen < tailLen * 2 \
                 and pointWithHead:
                     logger.debug("Head stroke has a tail close and within cone")
-                    pointingLength = len(tailStroke.Points) / 5
                     #headToTail
-                    if endpoint == tailStroke.Points[0]:
-                        linept1, linept2 = tailStroke.Points[pointingLength], endpoint
-                    elif endpoint== tailStroke.Points[-1]:
-                        linept1, linept2 = tailStroke.Points[-pointingLength], endpoint
                     pointsTo = GeomUtils.linePointsTowards(linept1, linept2, tip, headBreadth)
                     if pointsTo:
                         retlist.append( (endpoint, tailStroke) )
                 else:
-                    if headLen < tailLen:
+                    if headLen < tailLen * 2:
                         logger.debug("  Head stroke scale is okay for this arrowhead")
                     else:
                         logger.debug("  Head stroke scale is BAD for this arrowhead")
+                        logger.debug("  Head Len: %s, tail Len: %s" % (headLen, tailLen))
                     if pointWithHead:
                         logger.debug("  Head stroke is NOT close or within cone of an arrowhead\n")
                     else:
@@ -238,10 +242,12 @@ class ArrowMarker( BoardObserver ):
         elif tail is not None and head is None: #Find the head
             endpoint = point
             pointingLength = len(tail.Points) / 5
-            #headToTail
-            if endpoint == tail.Points[0]:
+
+            if endpoint == tail.Points[0]: #Treat as drawn head2tail
+                tailpoints = tail.Points
                 linept1, linept2 = tail.Points[pointingLength], endpoint
-            elif endpoint== tail.Points[-1]:
+            elif endpoint== tail.Points[-1]: #Treat as drawn tail2head
+                tailpoints = list(reversed(tail.Points))
                 linept1, linept2 = tail.Points[-pointingLength], endpoint
 
             for tip, headStroke in self._arrowHeads:
@@ -249,19 +255,21 @@ class ArrowMarker( BoardObserver ):
                 headBreadth = GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y)
                 headLen = GeomUtils.strokeLength(headStroke) 
                 tailLen = GeomUtils.strokeLength(tail)
-                pointWithHead = _isPointWithHead(endpoint, headStroke, tip)
-                if headLen < tailLen \
+                pointWithHead = _isPointWithHead(tailpoints, headStroke, tip)
+                if headLen < tailLen * 2\
                 and pointWithHead:
                     logger.debug("Tail stroke is close and within cone of an arrowhead")
                     pointsTo = GeomUtils.linePointsTowards(linept1, linept2, tip, headBreadth)
                     if pointsTo:
                         retlist.append( (tip, headStroke) )
                 else:
-                    if headLen < tailLen:
+                    if headLen < tailLen * 2:
                         logger.debug("  Tail stroke scale is okay for this arrowhead")
                     else:
                         logger.debug("  Tail stroke scale is BAD for this arrowhead")
-                    if pointWithHead:
+                        logger.debug("  Head Len: %s, tail Len: %s" % (headLen, tailLen))
+
+                    if not pointWithHead:
                         logger.debug("  Tail stroke is NOT close or within cone of an arrowhead\n")
                     else:
                         logger.debug("  Tail stroke is close and within cone of an arrowhead\n")
@@ -284,13 +292,13 @@ class ArrowMarker( BoardObserver ):
             BoardSingleton().RemoveAnnotation(anno)
 
 
-def _isPointWithHead(point, head, tip):
+def _isPointWithHead(tailpoints, head, tip):
     "Returns true if point is close enough and within the cone of the head stroke"
 
-    fuzz = 2 #Number of pixels to fuzz the "in-angle-cone" test
     distanceThresh = 1 
     distanceThresh *= distanceThresh #Keep up with squared distances
 
+    point = tailpoints[0]
     ep1 = head.Points[0]
     ep2 = head.Points[-1]
     #              *  tip
@@ -309,20 +317,19 @@ def _isPointWithHead(point, head, tip):
     tip_to_endpoint = GeomUtils.pointDistanceSquared(point.X, point.Y, tip.X, tip.Y)
     tip_to_backofarrowhead =  GeomUtils.pointDistanceSquared(tip.X, tip.Y, midpoint.X, midpoint.Y)
     endpoint_to_backofarrowhead = GeomUtils.pointDistanceSquared(point.X, point.Y, midpoint.X, midpoint.Y)
+
+    #fuzz = math.sqrt(tip_to_backofarrowhead) #Number of pixels to fuzz the "in-angle-cone" test
     
     #logger.debug("tip_to_endpoint: %s\n, tip_to_backofarrowhead: %s,\n endpoint_to_backofarrowhead: %s" % (tip_to_endpoint, tip_to_backofarrowhead, endpoint_to_backofarrowhead))
     #Tail's endpoint is close to the end of the arrowhead, or even closer to the tip of the arrowhead
     if tip_to_backofarrowhead >= endpoint_to_backofarrowhead or tip_to_backofarrowhead >= tip_to_endpoint:
-        #Make the in-angle-cone check a bit fuzzy
-        epList = [point, \
-                    Point(point.X + fuzz, point.Y), \
-                    Point(point.X - fuzz, point.Y), \
-                    Point(point.X,        point.Y + fuzz), \
-                    Point(point.X,        point.Y - fuzz), \
-                    Point(point.X + fuzz, point.Y + fuzz), \
-                    Point(point.X - fuzz, point.Y - fuzz)]
+        logger.debug("Distance from head-tip to tail-endpoint is good!")
+        #Check the in-angle cone progressively down the tail
+        epList = tailpoints[: len(tailpoints) / 3]
+
         for pt in epList:
             if GeomUtils.pointInAngleCone(pt, ep1, tip, ep2):
+                logger.debug("Endpoint inside angle cone")
                 return True
     return False
     
@@ -384,7 +391,7 @@ def _isSingleStrokeArrow(stroke):
     "Input: Single stroke for evaluation. Returns a tuple of points (tip, tail) if the stroke is an arrow, (None, None) otherwise"
     logger.debug("stroke len %d", stroke.length() )
     if len(stroke.Points) < 10:
-        logger.debug("Not an arrow: stroke too short")
+        logger.debug("Not a single-stroke arrow: stroke too short")
         return (None, None)# too small to be arrow
 
     """
@@ -430,7 +437,7 @@ def _isSingleStrokeArrow(stroke):
     # now we know the scale of the arrow head if there is one
     # if the first corner is more than 1/4 of the way from the end of the stroke
     if first_corner > norm_len/5:
-        logger.debug("Not an arrow: First right angle too far from endpoint")
+        logger.debug("Not a ss arrow: First right angle too far from endpoint")
         return (None, None) # scale is wrong for an arrowhead        
 
     tail = stroke.Points[0] # first of the original points
@@ -439,12 +446,12 @@ def _isSingleStrokeArrow(stroke):
     # create a list of the monoticity of all substrokes from the first corner to some dist after
     m_list = [ GeomUtils.strokeMonotonicity(Stroke(points[first_corner:x])) for x in range(first_corner+2,first_corner*3) ]
     if len(m_list) == 0:
-        logger.debug("Not an arrow: Stroke monotonicity list zero length")
+        logger.debug("Not a ss arrow: Stroke monotonicity list zero length")
         return (None, None)
     m_min = min(m_list) 
     #logger.debug("stroke mon (%f)", m_min )
     if m_min>0.65:
-        logger.debug("Not an arrow: Stroke too monotonic")
+        logger.debug("Not a ss arrow: Stroke too monotonic")
         return (None, None)# too monotonic after the first corner, need to double back
     
     logger.debug("Single Stroke Arrow found!")

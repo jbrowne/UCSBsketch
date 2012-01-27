@@ -48,7 +48,7 @@ from Observers.ObserverBase import Animator
 
 # Constants
 WIDTH = 1024
-HEIGHT = 3 * WIDTH / 4
+HEIGHT = int(4.8 * WIDTH / 8)
 
 MID_W = WIDTH/2
 MID_H = HEIGHT/2

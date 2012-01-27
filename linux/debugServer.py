@@ -67,6 +67,7 @@ class FileResponseThread(threading.Thread):
             try:
                 output = fp.read()
                 msg = Message(Message.TYPE_XML, output)
+                time.sleep(3)
                 self.outQ.put(msg)
             except Exception as e:
                 print e

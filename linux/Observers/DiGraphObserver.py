@@ -45,7 +45,7 @@ from Observers import ObserverBase
 from xml.etree import ElementTree as ET
 
 
-logger = Logger.getLogger('DiGraphObserver', Logger.WARN)
+logger = Logger.getLogger('DiGraphObserver', Logger.DEBUG)
 node_log = Logger.getLogger('DiGraphNode', Logger.DEBUG)
 
 #-------------------------------------
@@ -84,7 +84,7 @@ class NodeMarker( BoardObserver ):
             avgDist = GeomUtils.averageDistance( stroke.Center, stroke.Points )
             BoardSingleton().AnnotateStrokes([stroke], DiGraphNodeAnnotation(0, stroke.Center, avgDist))
         else:
-            node_log.debug("Not a node: distance %s > %s" % (epDist, distCutoff))
+            node_log.debug("Not a node: endpoint distance %s > %s" % (epDist, distCutoff))
 
 
     def onStrokeRemoved(self, stroke):
@@ -262,11 +262,15 @@ class DiGraphMarker( ObserverBase.Collector ):
         digraph_anno = None
         if anno.isType( DiGraphNodeAnnotation ):
             if len(BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=ArrowObserver.ArrowAnnotation) ) == 0:
+                logger.debug("Node anno found, adding to set")
                 digraph_anno = DiGraphAnnotation( node_set=set([anno]) )
+            else:   
+                logger.debug("Node anno found, NOT adding to set, since it's also an arrow")
         if anno.isType( ArrowObserver.ArrowAnnotation ):
             digraph_anno = DiGraphAnnotation( edge_set=set([anno]) )
-
             circleAnnos = BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=DiGraphNodeAnnotation)
+            #Remove the circle annotation from this arrow, and add them back, 
+            #   letting the DiGraphAnnotation case filter out the bad ones
             for circle_anno in circleAnnos:
                 BoardSingleton().RemoveAnnotation(circle_anno)
                 BoardSingleton().AnnotateStrokes(circle_anno.Strokes, circle_anno)
