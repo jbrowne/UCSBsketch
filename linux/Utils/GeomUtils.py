@@ -402,7 +402,7 @@ def strokeNormalizeSpacing( inStroke, numpoints=50):
 
     #Single point strokes case
     if len(inPoints) == 1 or numpoints <= 1: 
-        return Stroke(numpoints * [inPoints[0]])
+        return Stroke(int(numpoints) * [inPoints[0]])
         
     # calculate the total euclidean distance traveled
     total_dist = float(strokeLength(inStroke))
@@ -692,6 +692,55 @@ def boundingboxOverlap( bb1, bb2 ):
 #--------------------------------------------------------------
 # Functions on Lists of Points 
 
+
+def pointListOrientationHistogram(points, direction=False):
+    """Return a dict with the histogram of the segment orientations for this pointlist.
+    If direction is true, count the direction as unique (i.e. right->left != left->right)"""
+
+    def to_tuple(indict):
+        temp = []
+        for orient in ['lr', 'tb', 'tlbr', 'trbl']:
+            if orient in indict:
+                temp.append(indict[orient])
+        return tuple(temp)
+
+    if direction:
+        print "Sorry, don't support direction yet"
+        raise NotImplemented
+    else:
+        retDict = { 'lr' : 0,
+                    'tb' : 0,
+                    'tlbr' : 0,
+                    'trbl' : 0,
+                  }
+    if len(points) < 2:
+        return to_tuple(retDict)
+    else:
+        prev = None
+        for p in points:
+            if prev != None:
+                if p.X == prev.X: #same X
+                    if p.Y < prev.Y or p.Y > prev.Y:
+                        retDict['tb'] += 1
+                else:
+                    angle = math.atan( (p.Y - prev.Y)/(p.X - prev.X) ) * 57.296 # convert to deg
+                    if angle >= 67.5 or angle < -67.5:
+                        retDict['tb'] += 1
+                    elif angle >= 22.5:
+                        retDict['trbl'] += 1
+                    elif angle >= -22.5:
+                        retDict['lr'] += 1
+                    elif angle >= -67.5:
+                        retDict['tlbr'] += 1
+            #endif prev != None
+            prev = p
+        #Normalize the histogram to sum() = 1
+        totalSegs = sum(retDict.values())
+        if totalSegs > 0:
+            for orient, count in retDict.items():
+                retDict[orient] = count / float(totalSegs)
+        return to_tuple(retDict)
+        
 def momentOfOrder(center, inPoints, p, q):
     "Input: Point center, List inPoints, int p, q.  Returns the Mathematical moment of a set of points or orders p, q"
     retval = []

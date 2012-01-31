@@ -28,6 +28,7 @@ from Observers import DebugObserver
 from Observers import TemplateObserver
 from Observers import TuringMachineObserver
 from Observers import TestAnimObserver
+from Observers import MultiStrokeFeatureObserver
 
 
 def initialize(Board):
@@ -41,16 +42,16 @@ def initialize(Board):
     #RaceTrackObserver.SplitStrokeVisualizer()
     #RaceTrackObserver.RaceTrackMarker()
     #RaceTrackObserver.RaceTrackVisualizer()
-    CircleObserver.CircleMarker()
-    CircleObserver.CircleVisualizer()
-    ArrowObserver.ArrowMarker()
-    ArrowObserver.ArrowVisualizer()
+    #CircleObserver.CircleMarker()
+    #CircleObserver.CircleVisualizer()
+    #ArrowObserver.ArrowMarker()
+    #ArrowObserver.ArrowVisualizer()
     #LineObserver.LineMarker()
     #LineObserver.LineVisualizer()
-    TextObserver.TextCollector()
-    TextObserver.TextVisualizer()
-    DiGraphObserver.DiGraphMarker()
-    DiGraphObserver.DiGraphVisualizer()
+    #TextObserver.TextCollector()
+    #TextObserver.TextVisualizer()
+    #DiGraphObserver.DiGraphMarker()
+    #DiGraphObserver.DiGraphVisualizer()
     #DiGraphObserver.DiGraphExporter()
     #TuringMachineObserver.TuringMachineCollector()
     #TuringMachineObserver.TuringMachineAnimator()
@@ -58,6 +59,7 @@ def initialize(Board):
     
     #TemplateObserver.TemplateMarker()
     #TemplateObserver.TemplateVisualizer()
+    MultiStrokeFeatureObserver.MultiStrokeMarker()
     
     
     d = DebugObserver.DebugObserver()
@@ -77,6 +79,7 @@ def initialize(Board):
     #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
     #d.trackAnnotation(TextObserver.TextAnnotation)
     #d.trackAnnotation(BarAnnotation)
+    d.trackAnnotation(MultiStrokeFeatureObserver.MultiStrokeAnnotation)
     
 
 def standAloneMain():

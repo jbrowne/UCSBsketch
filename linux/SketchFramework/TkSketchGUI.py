@@ -372,7 +372,7 @@ class TkSketchFrame(Frame):
     def AddCurrentStroke(self):
         if len(self.CurrentPointList) > 0:
             stroke = Stroke( self.CurrentPointList )#, smoothing=True )
-            
+
             self.Board.AddStroke(stroke)
             self.StrokeList.append(stroke)
             self.CurrentPointList = []
