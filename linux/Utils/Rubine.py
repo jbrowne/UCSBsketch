@@ -17,21 +17,14 @@ import math
 from Utils import Logger
 from Utils import GeomUtils
 
-from Observers import CircleObserver
-from Observers import LineObserver
-from Observers import ObserverBase
-
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
-from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
 
 from numpy  import *
 
-logger = Logger.getLogger('TextObserver', Logger.WARN )
+logger = Logger.getLogger('Rubine', Logger.WARN )
 
 #------------------------------------------------------------
 
@@ -165,7 +158,7 @@ def getRubineVector(stroke):
 
     # The first feature is the cosine of the inital angle
     # The second feature is the sine of the inital angle
-    if GeomUtils.pointDist(sp[0], sp[2]) != 0:
+    if len(sp) > 2 and GeomUtils.pointDist(sp[0], sp[2]) != 0:
         f1 = (sp[2].X - sp[0].X) / GeomUtils.pointDist(sp[0], sp[2])
         f2 = (sp[2].Y - sp[0].Y) / GeomUtils.pointDist(sp[0], sp[2])
     else:
@@ -178,17 +171,18 @@ def getRubineVector(stroke):
     if (br.X - ul.X) != 0:
         f4 = math.atan((ul.Y - br.Y)/ (br.X - ul.X))
     else:
-        f4 = 0
+        f4 = 0  #Should this be pi/2? (lim of f4 as delta_x -> 0)
 
-    last = len(p) - 1
+    #last = len(p) - 1 #Can just use index "-1"
     # 5th is the length between the first and last point
-    f5 = GeomUtils.pointDist(sp[0], sp[last])
+    f5 = GeomUtils.pointDist(sp[0], sp[-1])
+
     # the 6th and 7th are the cosine and sine of the angle between the first and last point
-    if GeomUtils.pointDist(sp[0], sp[last]) != 0:
-        f6 = (sp[last].X - sp[0].X) / GeomUtils.pointDist(sp[0], sp[last])
-        f7 = (sp[last].Y - sp[0].Y) / GeomUtils.pointDist(sp[0], sp[last])
+    if GeomUtils.pointDist(sp[0], sp[-1]) != 0:
+        f6 = (sp[-1].X - sp[0].X) / GeomUtils.pointDist(sp[0], sp[-1])
+        f7 = (sp[-1].Y - sp[0].Y) / GeomUtils.pointDist(sp[0], sp[-1])
     else:
-        f6 = 0
+        f6 = 0 #You might make the claim that this should be 1, since as they get closer to each other, the delta_x better approximates the pointDist(p1,p2)
         f7 = 0
 
     # 8th and 9th are the sum of the lengths and angles
