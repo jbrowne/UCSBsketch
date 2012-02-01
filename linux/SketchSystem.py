@@ -28,8 +28,8 @@ from Observers import DebugObserver
 from Observers import TemplateObserver
 from Observers import TuringMachineObserver
 from Observers import TestAnimObserver
-from Bin import BinObserver, EqualsObserver, PlusObserver, ExpressionObserver, EquationObserver, DirectedLine
-from Utils import Rubine
+from Observers import RubineObserver
+from Bin import BinObserver, EqualsObserver, PlusObserver, MinusObserver, DivideObserver, MultObserver, ExpressionObserver, EquationObserver, DirectedLine
 from Observers import NumberObserver
 
 def initialize(Board):
@@ -61,26 +61,30 @@ def initialize(Board):
     #TemplateObserver.TemplateMarker()
     #TemplateObserver.TemplateVisualizer()
 
-    
-    #BinObserver.BinCollector()
-    #BinObserver.BinVisualizer()
-    EqualsObserver.EqualsMarker()
-    EqualsObserver.EqualsVisualizer()
-    PlusObserver.PlusMarker()
-    PlusObserver.PlusVisualizer()
-    ExpressionObserver.ExpressionObserver()
-    ExpressionObserver.ExpressionVisualizer()
-    #EquationObserver.EquationObserver()
-    #EquationObserver.EquationVisualizer()
-    
-
-    Rubine.RubineMarker("rubine.dat")
+    RubineObserver.RubineMarker("rubine.dat", debug=False)
     #Rubine.RubineVisualizer()
 
     DirectedLine.DirectedLineMarker()
 
     NumberObserver.NumCollector()
     NumberObserver.NumVisualizer()
+
+    #BinObserver.BinCollector()
+    #BinObserver.BinVisualizer()
+    EqualsObserver.EqualsMarker()
+    EqualsObserver.EqualsVisualizer()
+    PlusObserver.PlusMarker()
+    PlusObserver.PlusVisualizer()
+    MinusObserver.MinusMarker()
+    MinusObserver.MinusVisualizer()
+    DivideObserver.DivideMarker()
+    DivideObserver.DivideVisualizer()
+    MultObserver.MultMarker()
+    MultObserver.MultVisualizer()
+    ExpressionObserver.ExpressionObserver()
+    ExpressionObserver.ExpressionVisualizer()
+    #EquationObserver.EquationObserver()
+    #EquationObserver.EquationVisualizer()
     
     #d = DebugObserver.DebugObserver()
     #d.trackAnnotation(TestAnimObserver.TestAnnotation)

@@ -1,8 +1,8 @@
 """
-filename: EqualsObserver.py
+filename: MultObserver.py
 
 description:
-   This module looks for equal signs
+   This module looks for multtiply signs
 
 Doctest Examples:
 
@@ -35,7 +35,7 @@ logger = Logger.getLogger('TextObserver', Logger.WARN )
 
 #-------------------------------------
 
-class EqualsAnnotation(Annotation):
+class MultAnnotation(Annotation):
     def __init__(self, scale):
         "Create a Text annotation. text is the string, and scale is an appropriate size"
         Annotation.__init__(self)
@@ -47,24 +47,36 @@ class EqualsAnnotation(Annotation):
 
 #-------------------------------------
 
-l_logger = Logger.getLogger('EqualsMarker', Logger.WARN)
-class EqualsMarker( BoardObserver ):
-    """Looks for equals signes"""
-    possibleAnnotations = []
+l_logger = Logger.getLogger('MultMarker', Logger.WARN)
+class MultMarker( BoardObserver ):
+    """Looks for plus signes"""
+    possibleAnnotations_BT = []
+    possibleAnnotations_TB = []
+
     def __init__(self):
         BoardObserver.__init__(self)
-        BoardSingleton().AddBoardObserver( self, [EqualsAnnotation])
-        BoardSingleton().RegisterForAnnotation( DirectedLine.H_LineAnnotation, self )
+        BoardSingleton().AddBoardObserver( self, [MultAnnotation])
+        BoardSingleton().RegisterForAnnotation( DirectedLine.BT_LineAnnotation, self )
+        BoardSingleton().RegisterForAnnotation( DirectedLine.TB_LineAnnotation, self )
     def onAnnotationAdded( self, strokes, annotation ):
-        "Checks to see if an equals sign has been added"
-        
+        "Checks to see if an multiply sign has been added"
+
         # Find the midpoints         
         ul,br = GeomUtils.strokelistBoundingBox( strokes )
         midpointY = (ul.Y + br.Y) / 2
         midpointX = (ul.X + br.X) / 2
         strokeLen = GeomUtils.strokeLength(strokes[0])
 
-        for a in self.possibleAnnotations:
+        if annotation.isType(DirectedLine.BT_LineAnnotation):
+            possibleAnnotations = self.possibleAnnotations_TB
+            otherPossibleAnnotations = self.possibleAnnotations_BT
+        elif annotation.isType(DirectedLine.TB_LineAnnotation):
+            possibleAnnotations = self.possibleAnnotations_BT
+            otherPossibleAnnotations = self.possibleAnnotations_TB
+
+        print len(possibleAnnotations)
+
+        for a in possibleAnnotations:
             s = a.Strokes[0]
             prevStrokeLen = GeomUtils.strokeLength(s)
 
@@ -80,38 +92,44 @@ class EqualsMarker( BoardObserver ):
             prevMidpointX = (ul.X + br.X) / 2
 
             # Test that the two segments are close enough horizontally
-            if GeomUtils.pointDistance(midpointX, 0, prevMidpointX, 0) < prevStrokeLen * 0.4:
+            if GeomUtils.pointDistance(midpointX, 0, prevMidpointX, 0) < prevStrokeLen * 0.25:
                 pass # there are close enough horizontally
             else: # we start again
                 continue
 
             # Test that the two segments are close enough vertically
-            if GeomUtils.pointDistance(0,midpointY, 0, prevMidpointY) < prevStrokeLen * 0.5:
+            if GeomUtils.pointDistance(0,midpointY, 0, prevMidpointY) < prevStrokeLen * 0.25:
                 pass # there are close enough vertically
             else: # we start again
                 continue
 
             # we found a match
-            self.possibleAnnotations.remove(a)
-            BoardSingleton().AnnotateStrokes( strokes + [s],  EqualsAnnotation(1))
+            possibleAnnotations.remove(a)
+
+            annos = s.findAnnotations()
+
+            annos += BoardSingleton().FindAnnotations(strokelist = strokes)
+
+            for i in annos:
+                BoardSingleton().RemoveAnnotation(i)
+
+            ul,br = GeomUtils.strokelistBoundingBox( strokes + [s] )
+            height = ul.Y - br.Y
+            BoardSingleton().AnnotateStrokes( strokes + [s],  MultAnnotation(height))
             return
 
 
         # no match was found, add to the list of possible
-        self.possibleAnnotations.append(annotation)
+        otherPossibleAnnotations.append(annotation)
         return
                     
 
 #-------------------------------------
 
-class EqualsVisualizer( ObserverBase.Visualizer ):
+class MultVisualizer( ObserverBase.Visualizer ):
 
     def __init__(self):
-        ObserverBase.Visualizer.__init__( self, EqualsAnnotation )
-
-    def onAnnotationRemoved(self, annotation):
-        "Watches for annotations to be removed" 
-        self.annotation_list.remove(annotation)
+        ObserverBase.Visualizer.__init__( self, MultAnnotation )
 
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
@@ -129,7 +147,7 @@ class EqualsVisualizer( ObserverBase.Visualizer ):
         right_x = midpointX + a.scale / 2.0
         SketchGUI.drawBox(ul, br, color="#a0a0a0");
         
-        SketchGUI.drawText( br.X - 15, br.Y, "=", size=15, color="#a0a0a0" )
+        SketchGUI.drawText( br.X - 15, br.Y, "X", size=15, color="#a0a0a0" )
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

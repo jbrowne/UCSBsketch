@@ -199,15 +199,21 @@ class TkSketchFrame(Frame):
         #top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
         
         self.rubine_menu = Menu(top_menu)
-        trainer = Rubine.RubineTrainer(False)
+        self.trainer = Rubine.RubineTrainer(True)
+        self.isTraining = False
         top_menu.add_cascade(label="Rubine", menu=self.rubine_menu)
-        self.rubine_menu.add_command(label="Start Training", command = (lambda :trainer.addToBoard() or self.Redraw()), underline=1 )
-        self.rubine_menu.add_command(label="Finish Training", command = (lambda :trainer.calculateWeights() or self.Redraw()), underline=1 )
-        self.rubine_menu.add_command(label="New Class", command = (lambda :trainer.newClass() or self.Redraw()), underline=1 )
-        self.rubine_menu.add_command(label="Save Weights", command = (lambda :trainer.saveWeights("rubine.dat") or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="Start Training", command = (lambda :self.startTraining() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="Finish Training", command = (lambda :self.finishTraining() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="New Class", command = (lambda :self.trainer.newClass() or self.Redraw()), underline=1 )
+        self.rubine_menu.add_command(label="Save Weights", command = (lambda :self.trainer.saveWeights("rubine.dat") or self.Redraw()), underline=1 )
         #self.rubine_menu.add_command(label="Load Weights", command = (lambda :trainer.loadWeights() or self.Redraw()), underline=1 )
         
+    def startTraining(self): 
+        self.isTraining = True
 
+    def finishTraining(self):
+        self.isTraining = False
+        self.trainer.calculateWeights()
 
     def AddQueuedStroke(self):
         #Only process one stroke per round
@@ -387,6 +393,9 @@ class TkSketchFrame(Frame):
         if len(self.CurrentPointList) > 0:
             stroke = Stroke( self.CurrentPointList )#, smoothing=True )
             
+            if self.isTraining:
+                self.trainer.addStroke(stroke) 
+
             self.Board.AddStroke(stroke)
             self.StrokeList.append(stroke)
             self.CurrentPointList = []

@@ -66,7 +66,7 @@ class DirectedLineMarker( BoardObserver ):
 
     def __init__(self):
         BoardObserver.__init__(self)
-        BoardSingleton().AddBoardObserver( self )
+        BoardSingleton().AddBoardObserver( self, [H_LineAnnotation, V_LineAnnotation, TB_LineAnnotation, BT_LineAnnotation] )
         BoardSingleton().RegisterForAnnotation( LineObserver.LineAnnotation, self )
 
     def onAnnotationAdded( self, strokes, annotation ):
