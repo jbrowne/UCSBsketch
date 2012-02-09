@@ -19,7 +19,7 @@ class Stroke(AnnotatableObject):
     def __repr__(self):
         return "<Stroke %s>" % (str(self.id))
     
-    def __init__(self, points=None):#, smoothing=False): DEPRECATED
+    def __init__(self, points=None, board=None):#, smoothing=False): DEPRECATED
         # call parent constructor
         AnnotatableObject.__init__(self) 
         # give each stroke a unique id
@@ -37,6 +37,7 @@ class Stroke(AnnotatableObject):
 
         self._length = -1
         self._resample = {}
+        self.setBoard(board)# self._board = board
 
         if points and len(points)>0:
             # if passed a sequence of tuples, covert them all to points
@@ -82,13 +83,13 @@ class Stroke(AnnotatableObject):
  
     
     def drawMyself(self, color=None):
-        from SketchFramework import SketchGUI as GUI
 
         if color: drawColor = color
         else: drawColor = self.Color 
 
-        if len(self.Points) > 0:
-            GUI.drawStroke(self, color=drawColor, erasable = True)
+        board = self.getBoard()
+        if board is not None and board.getGUI() is not None and len(self.Points) > 0:
+            board.getGUI().drawStroke(self, color=drawColor, erasable = True)
                             
     def length (self, force = False):
         if self._length == -1 or force:
@@ -106,6 +107,11 @@ class Stroke(AnnotatableObject):
 
     def get_id(self):
 	return self.id
+
+    def setBoard(self, board):
+        self._board = board
+    def getBoard(self):
+        return self._board
 
     def addPoint(self, x, y, t):
         self.addPoint( Point( x, y, t ) )

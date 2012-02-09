@@ -16,10 +16,9 @@ from Utils import Logger
 
 from SketchFramework import Point
 from SketchFramework import Stroke
-from SketchFramework import SketchGUI
 
 from SketchFramework.Annotation import Annotation
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 
 
 logger = Logger.getLogger('TemplateObserver', Logger.DEBUG )
@@ -39,8 +38,8 @@ class TemplateMarker( BoardObserver ):
     "Compares all strokes with templates and annotates strokes with any template within some threshold."
     def __init__(self):
         
-        BoardSingleton().AddBoardObserver( self , [TemplateAnnotation])
-        BoardSingleton().RegisterForStroke( self )
+        self.getBoard().AddBoardObserver( self , [TemplateAnnotation])
+        self.getBoard().RegisterForStroke( self )
         self.templateRecognizers = list()
         for filename in os.listdir('./'):
             if filename.endswith('.templ'):
@@ -55,13 +54,13 @@ class TemplateMarker( BoardObserver ):
             logger.debug("   '%s' ... %s" % (score_dict['name'], score_dict['score']))
             if score_dict is not None and score_dict['score'] < 0.2:
                 anno = TemplateAnnotation(score_dict['name'], score_dict['template'])
-                BoardSingleton().AnnotateStrokes( [stroke], anno )
+                self.getBoard().AnnotateStrokes( [stroke], anno )
 
 
     def onStrokeRemoved(self, stroke):
         "When a stroke is removed, remove circle annotation if found"
         for anno in stroke.findAnnotations(TemplateAnnotation, True):
-            BoardSingleton().RemoveAnnotation(anno)
+            self.getBoard().RemoveAnnotation(anno)
 
 #-------------------------------------
 
@@ -84,8 +83,8 @@ def scoreStroke(stroke, template, sample_size):
 class TemplateVisualizer( BoardObserver ):
     "Watches for Template annotations, draws them"
     def __init__(self):
-        BoardSingleton().AddBoardObserver( self, [] )
-        BoardSingleton().RegisterForAnnotation( TemplateAnnotation, self )
+        self.getBoard().AddBoardObserver( self, [] )
+        self.getBoard().RegisterForAnnotation( TemplateAnnotation, self )
         self.annotation_list = []
 
     def onAnnotationAdded( self, strokes, annotation ):
@@ -104,8 +103,8 @@ class TemplateVisualizer( BoardObserver ):
             templ_stroke = Stroke.Stroke(a.template)
             templ_stroke = templ_stroke.translate(center.X, center.Y)
 
-            SketchGUI.drawText(center.X, center.Y, InText=a.name)
-            SketchGUI.drawStroke(templ_stroke, color="#F050F0")
+            self.getBoard().getGUI().drawText(center.X, center.Y, InText=a.name)
+            self.getBoard().getGUI().drawStroke(templ_stroke, color="#F050F0")
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

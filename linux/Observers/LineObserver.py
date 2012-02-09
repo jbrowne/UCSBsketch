@@ -29,10 +29,9 @@ import math
 from Utils import Logger
 from Utils import GeomUtils
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 logger = Logger.getLogger('LineObserver', Logger.WARN )
@@ -51,9 +50,10 @@ class LineAnnotation(Annotation):
 
 class LineMarker( BoardObserver ):
     "Watches for lines, and annotates them with the linearity and angle"
-    def __init__(self, linearity_threshold=0.85):
-        BoardSingleton().AddBoardObserver( self , [LineAnnotation])
-        BoardSingleton().RegisterForStroke( self )
+    def __init__(self, board, linearity_threshold=0.85):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self , [LineAnnotation])
+        self.getBoard().RegisterForStroke( self )
 	self.threshold = linearity_threshold;
 
     def onStrokeAdded( self, stroke ):
@@ -67,20 +67,21 @@ class LineMarker( BoardObserver ):
         
         if( linearity > self.threshold ):
             lanno = LineAnnotation( linearity, angle, stroke.Points[0], stroke.Points[-1] )
-            BoardSingleton().AnnotateStrokes( [stroke], lanno )
+            self.getBoard().AnnotateStrokes( [stroke], lanno )
 
     def onStrokeRemoved(self, stroke):
 	"When a stroke is removed, remove line annotation if found"
     	for anno in stroke.findAnnotations(LineAnnotation, True):
-            BoardSingleton().RemoveAnnotation(anno)
+            self.getBoard().RemoveAnnotation(anno)
 
 #-------------------------------------
 
 class LineVisualizer( BoardObserver ):
     "Watches for Line annotations, draws them"
-    def __init__(self):
-        BoardSingleton().AddBoardObserver( self, [] )
-        BoardSingleton().RegisterForAnnotation( LineAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [] )
+        self.getBoard().RegisterForAnnotation( LineAnnotation, self )
         self.annotation_list = []
 
     def onAnnotationAdded( self, strokes, annotation ):
@@ -94,7 +95,7 @@ class LineVisualizer( BoardObserver ):
 
     def drawMyself( self ):
 	for a in self.annotation_list:
-            SketchGUI.drawLine( a.start_point.X, a.start_point.Y, a.end_point.X, a.end_point.Y,  color="#ddaaff", width=2.0)
+            self.getBoard().getGUI().drawLine( a.start_point.X, a.start_point.Y, a.end_point.X, a.end_point.Y,  color="#ddaaff", width=2.0)
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

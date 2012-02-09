@@ -21,7 +21,6 @@ from xml.etree import ElementTree as ET
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardSingleton
 from SketchFramework.NetworkReceiver import ServerThread, Message
 from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 

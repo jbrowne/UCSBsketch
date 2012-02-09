@@ -24,10 +24,9 @@ from Utils import Logger
 from Utils import GeomUtils
 from Utils import Template
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 from xml.etree import ElementTree as ET
 
@@ -69,9 +68,10 @@ class ArrowAnnotation( Annotation ):
 
 class ArrowMarker( BoardObserver ):
 
-    def __init__(self):
-        BoardSingleton().AddBoardObserver( self , [ArrowAnnotation])
-        BoardSingleton().RegisterForStroke( self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self , [ArrowAnnotation])
+        self.getBoard().RegisterForStroke( self )
         
         #For multistroke arrows, keep track of arrowheads and line endpoints
         # and match them up into arrows
@@ -99,7 +99,7 @@ class ArrowMarker( BoardObserver ):
                     headEnds = ( head_stk.Points[0], head_stk.Points[-1] )
                     if GeomUtils.pointInAngleCone(ep, headEnds[0], tip, headEnds[1]):
                         anno = ArrowAnnotation( tip, ep, headstroke= head_stk, tailstroke = tail_stk )
-                        BoardSingleton().AnnotateStrokes([head_stk, tail_stk],anno)
+                        self.getBoard().AnnotateStrokes([head_stk, tail_stk],anno)
                         logger.debug("Suggestion Response: Matched arrow with looser constraints")
                         return
 
@@ -138,7 +138,7 @@ class ArrowMarker( BoardObserver ):
         if  tip is not None and tail is not None:
             isArrowHead = False
             anno = ArrowAnnotation( tip, tail, headstroke= stroke, tailstroke = stroke )
-            BoardSingleton().AnnotateStrokes( [stroke],  anno)
+            self.getBoard().AnnotateStrokes( [stroke],  anno)
         #/DISABLED
         else:
             if _isArrowHead(smoothedStroke, self.arrowHeadMatcher):
@@ -172,7 +172,7 @@ class ArrowMarker( BoardObserver ):
 
                     logger.debug("Stroke is head of arrow, drawn %s" % (direction))
                     anno = ArrowAnnotation(tip, endpoint, headstroke = stroke, tailstroke = tail, direction = direction)
-                    BoardSingleton().AnnotateStrokes([head, tail],anno)
+                    self.getBoard().AnnotateStrokes([head, tail],anno)
         
         #Match it like a tail even if we think it's an arrowhead. Oh ambiguity!
         matchedHeads = self._matchHeadtoTail(tail = stroke, point = ep1)
@@ -180,13 +180,13 @@ class ArrowMarker( BoardObserver ):
         for tip, head in matchedHeads:
             logger.debug("Stroke is tail of arrow, drawn head2tail")
             anno = ArrowAnnotation(tip, ep2, headstroke = head, tailstroke = tail, direction='head2tail') #Arrow is from the back endpoint to the tip of the arrowhead
-            BoardSingleton().AnnotateStrokes([head, tail],anno)
+            self.getBoard().AnnotateStrokes([head, tail],anno)
             
         matchedHeads = self._matchHeadtoTail(tail = stroke, point = ep2)
         for tip, head in matchedHeads:
             logger.debug("Stroke is tail of arrow, drawn tail2head")
             anno = ArrowAnnotation(tip, ep1, headstroke = head, tailstroke =tail, direction='tail2head')
-            BoardSingleton().AnnotateStrokes([head, tail],anno)
+            self.getBoard().AnnotateStrokes([head, tail],anno)
         
         #Add this stroke to the pool for future evaluation
         self._endpoints.append( (ep1, stroke) )
@@ -281,7 +281,7 @@ class ArrowMarker( BoardObserver ):
                 
     	for anno in stroke.findAnnotations(ArrowAnnotation, True):
             logger.debug("Removing annotation")
-            BoardSingleton().RemoveAnnotation(anno)
+            self.getBoard().RemoveAnnotation(anno)
 
 
 def _isPointWithHead(point, head, tip):
@@ -319,9 +319,10 @@ def _isPointWithHead(point, head, tip):
 
 class ArrowVisualizer( BoardObserver ):
     "Watches for Arrow annotations, draws them"
-    def __init__(self):
-        BoardSingleton().AddBoardObserver( self ,[])
-        BoardSingleton().RegisterForAnnotation( ArrowAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self ,[])
+        self.getBoard().RegisterForAnnotation( ArrowAnnotation, self )
         self.annotation_list = []
 
     def onAnnotationAdded( self, strokes, annotation ):
@@ -335,8 +336,8 @@ class ArrowVisualizer( BoardObserver ):
 
     def drawMyself( self ):
         for a in self.annotation_list:
-            SketchGUI.drawCircle( a.tail.X, a.tail.Y, color="#93bfdd", width=2.0, radius=4)
-            SketchGUI.drawCircle( a.tip.X, a.tip.Y, color="#cc5544" , width=2.0, radius=4)
+            self.getBoard().getGUI().drawCircle( a.tail.X, a.tail.Y, color="#93bfdd", width=2.0, radius=4)
+            self.getBoard().getGUI().drawCircle( a.tip.X, a.tip.Y, color="#cc5544" , width=2.0, radius=4)
             
 #-------------------------------------
 
