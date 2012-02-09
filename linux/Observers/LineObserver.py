@@ -29,7 +29,6 @@ import math
 from Utils import Logger
 from Utils import GeomUtils
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver
@@ -96,7 +95,7 @@ class LineVisualizer( BoardObserver ):
 
     def drawMyself( self ):
 	for a in self.annotation_list:
-            SketchGUI.drawLine( a.start_point.X, a.start_point.Y, a.end_point.X, a.end_point.Y,  color="#ddaaff", width=2.0)
+            self.getBoard().getGUI().drawLine( a.start_point.X, a.start_point.Y, a.end_point.X, a.end_point.Y,  color="#ddaaff", width=2.0)
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

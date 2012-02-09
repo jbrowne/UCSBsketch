@@ -5,7 +5,6 @@ from Utils import Logger
 from Utils import GeomUtils
 from Utils import Debugging as D
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver
@@ -234,7 +233,7 @@ class BoxVisualizer (ObserverBase.Visualizer):
         prev = None
         for cPt in a.corners + [a.corners[0]]:
             if prev != None:
-                SketchGUI.drawLine( prev.X, prev.Y, cPt.X, cPt.Y, width=4,color="#ccffcc")
+                self.getBoard().getGUI().drawLine( prev.X, prev.Y, cPt.X, cPt.Y, width=4,color="#ccffcc")
             prev = cPt
         
 class BoxMarker(BoardObserver):
@@ -433,7 +432,7 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
                 if from_node == a.active_state:
                     nodeColor = active_color
                 x, y = ( from_node.center.X, from_node.center.Y )
-                SketchGUI.drawCircle (x, y, radius=from_node.radius, color=nodeColor, width=3.0)
+                self.getBoard().getGUI().drawCircle (x, y, radius=from_node.radius, color=nodeColor, width=3.0)
 
             #GeomUtils.strokeSmooth(edge.tailstroke, width = len(edge.tailstroke.Points) / 3).drawMyself()
             for edge, to_node in connection_list:
@@ -448,7 +447,7 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
                         nodeColor = active_color
                         nodeWidth = active_width
                     x, y = ( to_node.center.X, to_node.center.Y )
-                    SketchGUI.drawCircle (x, y, radius=to_node.radius, color=nodeColor, fill="", width=nodeWidth)
+                    self.getBoard().getGUI().drawCircle (x, y, radius=to_node.radius, color=nodeColor, fill="", width=nodeWidth)
                 #Draw the smoothed tail
                 if from_node is not None:
                     if edge.direction == "tail2head": #Connect the tail more closely to the edge
@@ -479,7 +478,7 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
                         label_point.X -= edge_label_size
                         label_point.Y += edge_label_size
                         #label_point = smooth_tail.Points[len(smooth_tail.Points)/2]
-                        SketchGUI.drawText (label_point.X, label_point.Y, InText=label.text, size=edge_label_size, color=textColor)
+                        self.getBoard().getGUI().drawText (label_point.X, label_point.Y, InText=label.text, size=edge_label_size, color=textColor)
                     #endfor
                 #endif
             #end for edge
@@ -496,7 +495,7 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
             charColor = "#000000"
             if curIdx - 1== a.tape_idx:
                 charColor = active_color
-            SketchGUI.drawText (curPt.X, curPt.Y, InText=tapeChar, size=tape_label_size, color=charColor)
+            self.getBoard().getGUI().drawText (curPt.X, curPt.Y, InText=tapeChar, size=tape_label_size, color=charColor)
             
 
 

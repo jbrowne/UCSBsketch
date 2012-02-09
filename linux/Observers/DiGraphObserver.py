@@ -32,7 +32,6 @@ import math
 from Utils import Logger
 from Utils import GeomUtils
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver
@@ -313,24 +312,24 @@ class DiGraphVisualizer( ObserverBase.Visualizer ):
                        node_map[to_node] = len(node_map)
 
                     if from_node is not None:
-                       SketchGUI.drawLine( edge.tail.X, edge.tail.Y, from_node.center.X, from_node.center.Y, width=2, color="#FA8072")
+                       self.getBoard().getGUI().drawLine( edge.tail.X, edge.tail.Y, from_node.center.X, from_node.center.Y, width=2, color="#FA8072")
                     if to_node is not None:
-                       SketchGUI.drawLine( edge.tip.X, edge.tip.Y, to_node.center.X, to_node.center.Y, width=2, color="#FA8072")
+                       self.getBoard().getGUI().drawLine( edge.tip.X, edge.tip.Y, to_node.center.X, to_node.center.Y, width=2, color="#FA8072")
 
-                    SketchGUI.drawCircle( edge.tail.X, edge.tail.Y, radius=2, width=2, color="#ccffcc")
-                    SketchGUI.drawCircle( edge.tip.X, edge.tip.Y, radius=2, width=2, color="#ccffcc")
+                    self.getBoard().getGUI().drawCircle( edge.tail.X, edge.tail.Y, radius=2, width=2, color="#ccffcc")
+                    self.getBoard().getGUI().drawCircle( edge.tip.X, edge.tip.Y, radius=2, width=2, color="#ccffcc")
 
                     #x1,y1 = from_node.center.X, from_node.center.Y
                     #x2,y2 = edge.tail.X, edge.tail.Y
-                    #SketchGUI.drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
+                    #self.getBoard().getGUI().drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
                     #x1,y1 = to_node.center.X, to_node.center.Y
                     #x2,y2 = edge.tip.X, edge.tip.Y
-                    #SketchGUI.drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
+                    #self.getBoard().getGUI().drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
 
             for nodeAnno, nodeNum in node_map.items():
                 if nodeAnno is not None:
                     x1,y1 = nodeAnno.center.X, nodeAnno.center.Y
-                    SketchGUI.drawText(x1, y1, str(nodeNum))
+                    self.getBoard().getGUI().drawText(x1, y1, str(nodeNum))
 
 #-------------------------------------
 

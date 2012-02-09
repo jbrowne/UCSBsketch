@@ -27,7 +27,6 @@ example of something is a circle
 
 import math
 import sys
-from SketchFramework import SketchGUI
 
 from Utils import Logger
 from Utils import GeomUtils
@@ -124,7 +123,7 @@ class CircleVisualizer( BoardObserver ):
 
     def drawMyself( self ):
 	for a in self.annotation_list:
-            SketchGUI.drawCircle( a.center.X,a.center.Y, radius=a.radius, color="#bbbbff", width=2.0)
+            self.getBoard().getGUI().drawCircle( a.center.X,a.center.Y, radius=a.radius, color="#bbbbff", width=2.0)
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

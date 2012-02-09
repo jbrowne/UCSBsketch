@@ -24,7 +24,6 @@ from Utils import Logger
 from Utils import GeomUtils
 from Utils import Template
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver
@@ -337,8 +336,8 @@ class ArrowVisualizer( BoardObserver ):
 
     def drawMyself( self ):
         for a in self.annotation_list:
-            SketchGUI.drawCircle( a.tail.X, a.tail.Y, color="#93bfdd", width=2.0, radius=4)
-            SketchGUI.drawCircle( a.tip.X, a.tip.Y, color="#cc5544" , width=2.0, radius=4)
+            self.getBoard().getGUI().drawCircle( a.tail.X, a.tail.Y, color="#93bfdd", width=2.0, radius=4)
+            self.getBoard().getGUI().drawCircle( a.tip.X, a.tip.Y, color="#cc5544" , width=2.0, radius=4)
             
 #-------------------------------------
 

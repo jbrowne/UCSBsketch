@@ -26,7 +26,6 @@ from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver
@@ -244,7 +243,7 @@ class TextCollector( ObserverBase.Collector ):
         scaleDiffRatio = 2.0
         if from_anno.scale > 0:
             scale_diff = to_anno.scale / from_anno.scale
-            if scale_diff> scaleDiffRatio or scale_diff < 1/ float(scaleDiffRatio) :
+            if scale_diff > scaleDiffRatio or scale_diff < 1/ float(scaleDiffRatio) :
                 tc_logger.debug("Not merging %s and %s: Scale Diff is %s" % (from_anno.text, to_anno.text, scale_diff))
                 return False
             else:
@@ -342,12 +341,12 @@ class TextVisualizer( ObserverBase.Visualizer ):
             midpointX = (ul.X + br.X) / 2
             left_x = midpointX - a.scale / 2.0
             right_x = midpointX + a.scale / 2.0
-            #SketchGUI.drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
+            #self.getBoard().getGUI().drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
             y = br.Y
-            SketchGUI.drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
+            self.getBoard().getGUI().drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
             y -= 15
             for idx, text in enumerate(a.alternates):
-                SketchGUI.drawText( br.X, y, text, size=10, color="#a0a0a0" )
+                self.getBoard().getGUI().drawText( br.X, y, text, size=10, color="#a0a0a0" )
                 y -= 10
 
 #-------------------------------------

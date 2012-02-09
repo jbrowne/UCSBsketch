@@ -4,6 +4,7 @@ import threading
 import sys 
 
 from SketchFramework.Stroke import Stroke
+from SketchFramework.SketchGUI import DummyGUI
 
 from Utils import Logger
 from Utils import GeomUtils
@@ -54,6 +55,8 @@ class BoardObserver(object):
 
     def getBoard(self):
         return self._parentBoard
+    def getGUI(self):
+        return self._parentBoard._GUI
 
 #--------------------------------------------
 
@@ -63,26 +66,32 @@ class BoardObserver(object):
 
 class Board(object):
     Count = 0
-    Lock =threading.Lock()
-    "A singleton Object containing the Board and all of the strokes."
+    "A Object containing the Board and all of the strokes."
 
-    def __init__(self):
+    def __init__(self, gui = None):
         self._id = Board.Count
         Board.Count += 1
         self.Reset()
-        
+        if gui is None:
+            self._GUI = DummyGUI() #The GUI that the board observers registered to this board will be using
+        else:
+            self._GUI = gui
 
     def getID(self):
         return self._id
+    def setGUI(self, gui):
+        """Set the SketchGUI instance associated with this board"""
+        self._GUI = gui
+    def getGUI(self):   
+        """Get the SketchGUI instance associated with this board"""
+        return self._GUI
 
     def Reset(self):
-        self.Lock = Board.Lock
         self.Strokes = [] #All the strokes on the board
         self.StrokeObservers=[] #All of the stroke observers to be called onStrokeAdded
         self.AnnoObservers={} #Dict indexed by annotation type to be called onAnnotationAdded
         self.BoardObservers=[] #Generic list of all board observers. Deprecated?
         self.AnnoTargeters = {} #Dict indexed by annotation type, to a list of board observers that add that kind of annotation
-        
         #Ensure that we don't add something after its removal
         self._removed_annotations = {}
         self._removed_strokes = {}
@@ -107,6 +116,7 @@ class Board(object):
         logger.debug( "Adding Stroke: %d", newStroke.id )
         
         self.Strokes.append( newStroke )
+        newStroke.setBoard(self)
         
         for so in self.StrokeObservers:
             if newStroke not in self._removed_strokes: #Nobody has removed this stroke yet
