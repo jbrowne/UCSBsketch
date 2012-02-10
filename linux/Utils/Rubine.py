@@ -27,6 +27,164 @@ from numpy  import *
 logger = Logger.getLogger('Rubine', Logger.WARN )
 
 #------------------------------------------------------------
+class FeatureSet(object):
+    """An abstract class for running sets of feature methods on strokes"""
+    def __init__(self):
+        pass
+    def generateVector(strokeList):
+        """This method takes in a list of strokes and returns a tuple of floats for the scores of each feature"""
+        return (0.0)
+
+#------------------------------------------------------------
+class RubineFeatureSet(FeatureSet):
+    def __init__(self):
+        FeatureSet.__init__(self)
+        self._strokeFeatures = [self.f01, self.f02, self.f05, self.f06, self.f07, self.f08, self.f09, self.f10, self.f11]
+        self._bboxFeatures = [self.f03, self.f04]
+
+    def __len__(self):
+        return len(self._strokeFeatures) + len(self._bboxFeatures)
+
+    def generateVector(self, strokeList):
+        """Generate the Rubine feature vector for the list of strokes. Multiple strokes are simply concatenated."""
+        retList = []
+        if len(strokeList) > 1:
+            stroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
+        elif len(strokeList) == 1:
+            stroke = strokeList[0]
+        else:
+            return tuple([0.0] * (len(self._strokeFeatures) + len(self._bboxFeatures)) )
+        # normalize the stroke
+        ul,br = GeomUtils.strokelistBoundingBox( [stroke] )
+        sNorm = GeomUtils.strokeNormalizeSpacing(GeomUtils.strokeSmooth(stroke))
+        for point in sNorm.Points:
+            point.X -= ul.X
+            point.Y -= br.Y
+
+        for feat in self._strokeFeatures:
+            retList.append(feat(stroke))
+        for feat in self._bboxFeatures:
+            retList.append(feat( (ul, br) ))
+        return tuple(retList)
+
+
+    #-----------------------
+    # Stroke-based features
+    #-----------------------
+
+    def f01(self, stroke):
+        # The first feature is the cosine of the inital angle
+        # The second feature is the sine of the inital angle
+        pointList = stroke.Points
+        if len(pointList) > 2 and GeomUtils.pointDist(pointList[0], pointList[2]) != 0:
+            f1 = (pointList[2].X - pointList[0].X) / GeomUtils.pointDist(pointList[0], pointList[2])
+        else:
+            f1 = 0
+        return f1
+
+    def f02(self, stroke):
+        # The first feature is the cosine of the inital angle
+        # The second feature is the sine of the inital angle
+        pointList = stroke.Points
+        if len(pointList) > 2 and GeomUtils.pointDist(pointList[0], pointList[2]) != 0:
+            f2 = (pointList[2].Y - pointList[0].Y) / GeomUtils.pointDist(pointList[0], pointList[2])
+        else:
+            f2 = 0
+        return f2
+    
+
+    def f05(self, stroke):
+        # 5th is the length between the first and last point
+        pointList = stroke.Points
+        f5 = GeomUtils.pointDist(pointList[0], pointList[-1])
+        return f5
+
+    def f06(self, stroke):
+        # the 6th and 7th are the cosine and sine of the angle between the first and last point
+        pointList = stroke.Points
+        if GeomUtils.pointDist(pointList[0], pointList[-1]) != 0:
+            f6 = (pointList[-1].X - pointList[0].X) / GeomUtils.pointDist(pointList[0], pointList[-1])
+        else:
+            f6 = 0 #You might make the claim that this should be 1, since as they get closer to each other, the delta_x better approximates the pointDist(p1,p2)
+        return f6
+
+    def f07(self, stroke):
+        # the 6th and 7th are the cosine and sine of the angle between the first and last point
+        pointList = stroke.Points
+        if GeomUtils.pointDist(pointList[0], pointList[-1]) != 0:
+            f7 = (pointList[-1].Y - pointList[0].Y) / GeomUtils.pointDist(pointList[0], pointList[-1])
+        else:
+            f7 = 0
+        return f7
+
+    def f08(self, stroke):
+        # 8th and 9th are the sum of the lengths and angles
+        return GeomUtils.strokeLength(stroke)
+
+    def f09(self, stroke):
+        pointList = stroke.Points
+        f9 = 0 # angle sum
+        for i in range(len(pointList) -2):
+            dxp = pointList[i+1].X - pointList[i].X   # delta x sub p
+            dyp = pointList[i+1].Y - pointList[i].Y   # delta y sub p
+
+            if i != 0:
+                dxpOld = pointList[i].X - pointList[i-1].X   # delta x sub (p-1)
+                dypOld = pointList[i].Y - pointList[i-1].Y   # delta y sub (p-1)
+                if (dxp * dxpOld) + (dxp * dxpOld) != 0:
+                    angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
+                    f9 += angle
+        return f9
+
+    def f10(self, stroke):
+        # 10th and 11th are the sum of the absolute value of the angels and to sum of the angles squared
+        pointList = stroke.Points
+        f10 = 0 # sum of the absolute value of the angle
+        for i in range(len(pointList) -2):
+            dxp = pointList[i+1].X - pointList[i].X   # delta x sub p
+            dyp = pointList[i+1].Y - pointList[i].Y   # delta y sub p
+
+            if i != 0:
+                dxpOld = pointList[i].X - pointList[i-1].X   # delta x sub (p-1)
+                dypOld = pointList[i].Y - pointList[i-1].Y   # delta y sub (p-1)
+                if (dxp * dxpOld) + (dxp * dxpOld) != 0:
+                    angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
+                    f10 += math.fabs(angle)
+        return f10
+
+    def f11(self, stroke):
+        # 10th and 11th are the sum of the absolute value of the angels and to sum of the angles squared
+        pointList = stroke.Points
+        f11 = 0 # sum of the angle squared
+        for i in range(len(pointList) -2):
+            dxp = pointList[i+1].X - pointList[i].X   # delta x sub p
+            dyp = pointList[i+1].Y - pointList[i].Y   # delta y sub p
+
+            if i != 0:
+                dxpOld = pointList[i].X - pointList[i-1].X   # delta x sub (p-1)
+                dypOld = pointList[i].Y - pointList[i-1].Y   # delta y sub (p-1)
+                if (dxp * dxpOld) + (dxp * dxpOld) != 0:
+                    angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
+                    f11 += angle*angle
+        return f11
+    #-----------------------
+    # Bounding box-based features
+    #-----------------------
+    def f03(self, bbox):
+        # the third is the length of the diagonal of the bb
+        f3 = GeomUtils.pointDist(bbox[0], bbox[1])
+        return f3
+
+    def f04(self, bbox):
+        # 4th is the angle of the bounding box diagonal
+        ul, br = bbox
+        if (br.X - ul.X) != 0:
+            f4 = math.atan((ul.Y - br.Y)/ (br.X - ul.X))
+        else:
+            f4 = math.pi/2.0  #Should this be pi/2? (lim of f4 as delta_x -> 0)
+        return f4
+
+#------------------------------------------------------------
 
 class RubineClassifier():
     """Classifies strokes based on the Rubine classifier"""
@@ -47,6 +205,7 @@ class RubineClassifier():
         """
         self.debug = debug
         self.loadWeights(file)
+        self.featureSet = RubineFeatureSet()
 
     def loadWeights(self, file):
         """ Loads the training data in the file. File is a file name """
@@ -85,7 +244,7 @@ class RubineClassifier():
         if len(stroke.Points) < 3:
             return None
 
-        rubineVector =  getRubineVector(stroke)
+        rubineVector =  self.featureSet.generateVector([stroke])#getRubineVector(stroke)
 
         max = -100000.0
         maxIndex = 0
@@ -142,71 +301,6 @@ class RubineClassifier():
 
         #self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(self.names[maxIndex], height , 0))
 
-#------------------------------------------------------------
-
-def getRubineVector(stroke):
-    # normalize the stroke
-    p = GeomUtils.strokeNormalizeSpacing(GeomUtils.strokeSmooth(stroke)).Points
-    ul,br = GeomUtils.strokelistBoundingBox( [stroke] )
-    for point in p:
-        point.X -= ul.X
-        point.Y -= br.Y
-
-    # scale the stroke to a known length
-    sp = p
-    #sp = scalePointsToSquare(p, 100)
-
-    # The first feature is the cosine of the inital angle
-    # The second feature is the sine of the inital angle
-    if len(sp) > 2 and GeomUtils.pointDist(sp[0], sp[2]) != 0:
-        f1 = (sp[2].X - sp[0].X) / GeomUtils.pointDist(sp[0], sp[2])
-        f2 = (sp[2].Y - sp[0].Y) / GeomUtils.pointDist(sp[0], sp[2])
-    else:
-        f1 = 0
-        f2 = 0
-    
-    # the third is the length of the diagonal of the bb
-    f3 = GeomUtils.pointDist(ul, br)
-    # 4th is the angle of the bounding box diagonal
-    if (br.X - ul.X) != 0:
-        f4 = math.atan((ul.Y - br.Y)/ (br.X - ul.X))
-    else:
-        f4 = 0  #Should this be pi/2? (lim of f4 as delta_x -> 0)
-
-    #last = len(p) - 1 #Can just use index "-1"
-    # 5th is the length between the first and last point
-    f5 = GeomUtils.pointDist(sp[0], sp[-1])
-
-    # the 6th and 7th are the cosine and sine of the angle between the first and last point
-    if GeomUtils.pointDist(sp[0], sp[-1]) != 0:
-        f6 = (sp[-1].X - sp[0].X) / GeomUtils.pointDist(sp[0], sp[-1])
-        f7 = (sp[-1].Y - sp[0].Y) / GeomUtils.pointDist(sp[0], sp[-1])
-    else:
-        f6 = 0 #You might make the claim that this should be 1, since as they get closer to each other, the delta_x better approximates the pointDist(p1,p2)
-        f7 = 0
-
-    # 8th and 9th are the sum of the lengths and angles
-    # 10th and 11th are the sum of the absolute value of the angels and to sum of the angles squared
-    f8 = 0 # length sum
-    f9 = 0 # angle sum
-    f10 = 0 # sum of the absolute value of the angle
-    f11 = 0 # sum of the angle squared
-    for i in range(len(sp) -2):
-        dxp = sp[i+1].X - sp[i].X   # delta x sub p
-        dyp = sp[i+1].Y - sp[i].Y   # delta y sub p
-
-        f8 += math.sqrt(dxp**2 + dyp**2)
-
-        if i != 0:
-            dxpOld = sp[i].X - sp[i-1].X   # delta x sub (p-1)
-            dypOld = sp[i].Y - sp[i-1].Y   # delta y sub (p-1)
-            if (dxp * dxpOld) + (dxp * dxpOld) != 0:
-                angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
-                f9 += angle
-                f10 += math.fabs(angle)
-                f11 += angle*angle
-
-    return [f1, f2, f3, f4, f5, f6, f7, f8, f9, f10 ,f11]
 
 #------------------------------------------------------------
 class RubineTrainer():
@@ -236,6 +330,7 @@ class RubineTrainer():
         """Initiates the rubine trainer."""
         self.debug = debug
         self.reset()
+        self.featureSet = RubineFeatureSet()
 
     def reset(self):
         """ Resets the trainer """
@@ -282,7 +377,7 @@ class RubineTrainer():
         if self.debug:
             print "Stroke added to class: " + self.names[i]
 
-        feature = getRubineVector(stroke)
+        feature = self.featureSet.generateVector([stroke])#getRubineVector(stroke)
         self.features[i].append(feature)
 
     def _getCovMatrixForClass(self, c, averages):
