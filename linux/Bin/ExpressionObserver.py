@@ -22,10 +22,9 @@ from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -78,14 +77,15 @@ l_logger = Logger.getLogger('EqualsMarker', Logger.WARN)
 
 class ExpressionObserver( BoardObserver ):
     "Watches for binry numbers and equation"
-    def __init__(self):
-        BoardSingleton().AddBoardObserver( self, [ExpressionAnnotation] )
-        BoardSingleton().RegisterForAnnotation( PlusAnnotation, self )
-        BoardSingleton().RegisterForAnnotation( MinusAnnotation, self )
-        BoardSingleton().RegisterForAnnotation( DivideAnnotation, self )
-        BoardSingleton().RegisterForAnnotation( MultAnnotation, self )
-        BoardSingleton().RegisterForAnnotation( NumAnnotation, self )
-        BoardSingleton().RegisterForAnnotation( ExpressionAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [ExpressionAnnotation] )
+        self.getBoard().RegisterForAnnotation( PlusAnnotation, self )
+        self.getBoard().RegisterForAnnotation( MinusAnnotation, self )
+        self.getBoard().RegisterForAnnotation( DivideAnnotation, self )
+        self.getBoard().RegisterForAnnotation( MultAnnotation, self )
+        self.getBoard().RegisterForAnnotation( NumAnnotation, self )
+        self.getBoard().RegisterForAnnotation( ExpressionAnnotation, self )
 
     expressionAnnotations = []
     opAnnotations = []
@@ -130,11 +130,11 @@ class ExpressionObserver( BoardObserver ):
                 e.right = right
                 e.op = op
                 self.opAnnotations.remove(op)
-                BoardSingleton().AnnotateStrokes(s, e)
+                self.getBoard().AnnotateStrokes(s, e)
                 #annotation.scale = ul.Y - br.Y
                 #annotation.number = annotation.number + num.number
-                #BoardSingleton().UpdateAnnotation(annotation, s)
-                #BoardSingleton().RemoveAnnotation(num)
+                #self.getBoard().UpdateAnnotation(annotation, s)
+                #self.getBoard().RemoveAnnotation(num)
                 return
 
             # This expression can't be added to any of the other parts
@@ -146,7 +146,7 @@ class ExpressionObserver( BoardObserver ):
         elif annotation.isType(NumAnnotation):
             e = ExpressionAnnotation(annotation.scale)
             e.number = annotation
-            BoardSingleton().AnnotateStrokes(strokes, e)
+            self.getBoard().AnnotateStrokes(strokes, e)
 
         elif annotation.isType(PlusAnnotation):
             self.opAnnotations.append(annotation)
@@ -163,10 +163,10 @@ class ExpressionObserver( BoardObserver ):
         print annotation
 
         if annotation.isType(NumAnnotation):
-            annos = BoardSingleton().FindAnnotations(strokelist = annotation.Strokes)
+            annos = self.getBoard().FindAnnotations(strokelist = annotation.Strokes)
             for a in annos:
                 if a.isType(ExpressionAnnotation) and (a.number == annotation):
-                    BoardSingleton().RemoveAnnotation(a)
+                    self.getBoard().RemoveAnnotation(a)
                     print "removed"
                     break
         if annotation.isType(ExpressionAnnotation):
@@ -193,10 +193,10 @@ class ExpressionObserver( BoardObserver ):
 
         
         if annotation.isType(NumAnnotation):
-            annos = BoardSingleton().FindAnnotations(strokelist = annotation.Strokes)
+            annos = self.getBoard().FindAnnotations(strokelist = annotation.Strokes)
             for a in annos:
                 if a.isType(ExpressionAnnotation) and (a.number == annotation):
-                    BoardSingleton().UpdateAnnotation(a, annotation.Strokes)
+                    self.getBoard().UpdateAnnotation(a, annotation.Strokes)
                     break
         
     def findOnRight( self, anno, list):
@@ -271,10 +271,10 @@ class ExpressionObserver( BoardObserver ):
         strokes = anno.left.Strokes + anno.op.Strokes + anno.right.Strokes
         anno.parent = newParent
         
-        BoardSingleton().UpdateAnnotation(anno, new_strokes=strokes)
+        self.getBoard().UpdateAnnotation(anno, new_strokes=strokes)
 
         strokes = newParent.left.Strokes + newParent.op.Strokes + newParent.right.Strokes
-        BoardSingleton().UpdateAnnotation(newParent, new_strokes=strokes)
+        self.getBoard().UpdateAnnotation(newParent, new_strokes=strokes)
 
         return self.compound(newParent)
 
@@ -304,10 +304,10 @@ class ExpressionObserver( BoardObserver ):
         strokes = anno.left.Strokes + anno.op.Strokes + anno.right.Strokes
         anno.parent = newParent
         
-        BoardSingleton().UpdateAnnotation(anno, new_strokes=strokes)
+        self.getBoard().UpdateAnnotation(anno, new_strokes=strokes)
 
         strokes = newParent.left.Strokes + newParent.op.Strokes + newParent.right.Strokes
-        BoardSingleton().UpdateAnnotation(newParent, new_strokes=strokes)
+        self.getBoard().UpdateAnnotation(newParent, new_strokes=strokes)
 
         return self.reverseCompound(newParent)
 
@@ -315,8 +315,8 @@ class ExpressionObserver( BoardObserver ):
 
 class ExpressionVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, ExpressionAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__(self, board, ExpressionAnnotation )
 
     def onAnnotationRemoved(self, annotation):
         "Watches for annotations to be removed" 
@@ -337,12 +337,12 @@ class ExpressionVisualizer( ObserverBase.Visualizer ):
         midpointX = (ul.X + br.X) / 2
         left_x = midpointX - a.scale / 2.0
         right_x = midpointX + a.scale / 2.0
-        SketchGUI.drawBox(ul, br, color="#a0a0a0");
+        self.getBoard().getGUI().drawBox(ul, br, color="#a0a0a0");
         #print "Drawing " + a.type + " with number " + str(a.number) + " and scale " + str(int(a.scale))
         if a.parent == None:
             if a.getValue().is_integer():
-                SketchGUI.drawText( br.X + 10, ul.Y, str(int(a.getValue())), size= int(a.scale), color="#a0a0a0" )
+                self.getBoard().getGUI().drawText( br.X + 10, ul.Y, str(int(a.getValue())), size= int(a.scale), color="#a0a0a0" )
             else:
-                SketchGUI.drawText( br.X + 10, ul.Y, str(a.getValue()), size= int(a.scale), color="#a0a0a0" )
+                self.getBoard().getGUI().drawText( br.X + 10, ul.Y, str(a.getValue()), size= int(a.scale), color="#a0a0a0" )
 
 #-------------------------------------

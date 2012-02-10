@@ -32,10 +32,9 @@ import math
 from Utils import Logger
 from Utils import GeomUtils
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from Observers import CircleObserver
@@ -45,7 +44,7 @@ from Observers import ObserverBase
 from xml.etree import ElementTree as ET
 
 
-logger = Logger.getLogger('DiGraphObserver', Logger.WARN)
+logger = Logger.getLogger('DiGraphObserver', Logger.DEBUG)
 node_log = Logger.getLogger('DiGraphNode', Logger.DEBUG)
 
 #-------------------------------------
@@ -62,11 +61,12 @@ class DiGraphNodeAnnotation(CircleObserver.CircleAnnotation):
 class NodeMarker( BoardObserver ):
     "Watches for Circle, and annotates them with the circularity, center and the radius"
     CLOSED_DIST_THRESH = 0.1 #Stroke endpoints are % away from each other means closed
-    def __init__(self):
+    def __init__(self, board):
         # TODO: we may wish to add the ability to expose/centralize these thresholds
         # so that they can be tuned differently for various enviornments
-        BoardSingleton().AddBoardObserver( self, [DiGraphNodeAnnotation] )
-        BoardSingleton().RegisterForStroke( self )
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [DiGraphNodeAnnotation] )
+        self.getBoard().RegisterForStroke( self )
 
     def onStrokeAdded( self, stroke ):
         "Watches for Strokes with Circularity > threshold to Annotate"
@@ -82,15 +82,15 @@ class NodeMarker( BoardObserver ):
         epDist = GeomUtils.pointDistanceSquared(ep1.X, ep1.Y, ep2.X, ep2.Y)
         if epDist <= distCutoff:
             avgDist = GeomUtils.averageDistance( stroke.Center, stroke.Points )
-            BoardSingleton().AnnotateStrokes([stroke], DiGraphNodeAnnotation(0, stroke.Center, avgDist))
+            self.getBoard().AnnotateStrokes([stroke], DiGraphNodeAnnotation(0, stroke.Center, avgDist))
         else:
-            node_log.debug("Not a node: distance %s > %s" % (epDist, distCutoff))
+            node_log.debug("Not a node: endpoint distance %s > %s" % (epDist, distCutoff))
 
 
     def onStrokeRemoved(self, stroke):
 	"When a stroke is removed, remove circle annotation if found"
     	for anno in stroke.findAnnotations(DiGraphNodeAnnotation, True):
-            BoardSingleton().RemoveAnnotation(anno)
+            self.getBoard().RemoveAnnotation(anno)
 
 
 #-------------------------------------
@@ -250,25 +250,29 @@ class DiGraphAnnotation(Annotation):
 
 class DiGraphMarker( ObserverBase.Collector ):
 
-    def __init__( self ):
+    def __init__( self, board ):
         # this will register everything with the board, and we will get the proper notifications
-        ObserverBase.Collector.__init__( self, \
+        ObserverBase.Collector.__init__( self, board, \
             [DiGraphNodeAnnotation, ArrowObserver.ArrowAnnotation], DiGraphAnnotation )
-        NodeMarker()
+        NodeMarker(board)
 
     def collectionFromItem( self, strokes, anno ):
         "turn the circle/arrow annotation given into a digraph"          
         #Prefer adding strokes as arrows over nodes
+        digraph_anno = None
         if anno.isType( DiGraphNodeAnnotation ):
-            if len(BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=ArrowObserver.ArrowAnnotation) ) == 0:
+            if len(self.getBoard().FindAnnotations(strokelist=strokes, anno_type=ArrowObserver.ArrowAnnotation) ) == 0:
+                logger.debug("Node anno found, adding to set")
                 digraph_anno = DiGraphAnnotation( node_set=set([anno]) )
+            else:   
+                logger.debug("Node anno found, NOT adding to set, since it's also an arrow")
         if anno.isType( ArrowObserver.ArrowAnnotation ):
             digraph_anno = DiGraphAnnotation( edge_set=set([anno]) )
 
-            circleAnnos = BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=DiGraphNodeAnnotation)
+            circleAnnos = self.getBoard().FindAnnotations(strokelist=strokes, anno_type=DiGraphNodeAnnotation)
             for circle_anno in circleAnnos:
-                BoardSingleton().RemoveAnnotation(circle_anno)
-                BoardSingleton().AnnotateStrokes(circle_anno.Strokes, circle_anno)
+                self.getBoard().RemoveAnnotation(circle_anno)
+                self.getBoard().AnnotateStrokes(circle_anno.Strokes, circle_anno)
 
         return digraph_anno
 
@@ -297,8 +301,8 @@ class DiGraphMarker( ObserverBase.Collector ):
 
 class DiGraphVisualizer( ObserverBase.Visualizer ):
     "Watches for DiGraph annotations, draws them"
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, DiGraphAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__( self, board, DiGraphAnnotation )
 
     def drawAnno( self, a ):
         if len(a.connectMap) > 0:
@@ -312,31 +316,31 @@ class DiGraphVisualizer( ObserverBase.Visualizer ):
                        node_map[to_node] = len(node_map)
 
                     if from_node is not None:
-                       SketchGUI.drawLine( edge.tail.X, edge.tail.Y, from_node.center.X, from_node.center.Y, width=2, color="#FA8072")
+                       self.getBoard().getGUI().drawLine( edge.tail.X, edge.tail.Y, from_node.center.X, from_node.center.Y, width=2, color="#FA8072")
                     if to_node is not None:
-                       SketchGUI.drawLine( edge.tip.X, edge.tip.Y, to_node.center.X, to_node.center.Y, width=2, color="#FA8072")
+                       self.getBoard().getGUI().drawLine( edge.tip.X, edge.tip.Y, to_node.center.X, to_node.center.Y, width=2, color="#FA8072")
 
-                    SketchGUI.drawCircle( edge.tail.X, edge.tail.Y, radius=2, width=2, color="#ccffcc")
-                    SketchGUI.drawCircle( edge.tip.X, edge.tip.Y, radius=2, width=2, color="#ccffcc")
+                    self.getBoard().getGUI().drawCircle( edge.tail.X, edge.tail.Y, radius=2, width=2, color="#ccffcc")
+                    self.getBoard().getGUI().drawCircle( edge.tip.X, edge.tip.Y, radius=2, width=2, color="#ccffcc")
 
                     #x1,y1 = from_node.center.X, from_node.center.Y
                     #x2,y2 = edge.tail.X, edge.tail.Y
-                    #SketchGUI.drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
+                    #self.getBoard().getGUI().drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
                     #x1,y1 = to_node.center.X, to_node.center.Y
                     #x2,y2 = edge.tip.X, edge.tip.Y
-                    #SketchGUI.drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
+                    #self.getBoard().getGUI().drawLine( x1,y1,x2,y2, width=2,color="#ccffcc")
 
             for nodeAnno, nodeNum in node_map.items():
                 if nodeAnno is not None:
                     x1,y1 = nodeAnno.center.X, nodeAnno.center.Y
-                    SketchGUI.drawText(x1, y1, str(nodeNum))
+                    self.getBoard().getGUI().drawText(x1, y1, str(nodeNum))
 
 #-------------------------------------
 
 class DiGraphExporter ( ObserverBase.Visualizer ):
     "Watches for DiGraph annotations, draws them"
-    def __init__(self, filename = "graph.dot"):
-        ObserverBase.Visualizer.__init__( self, DiGraphAnnotation )
+    def __init__(self, board, filename = "graph.dot"):
+        ObserverBase.Visualizer.__init__( self, board, DiGraphAnnotation )
         self._fname = filename
 
     def drawAnno( self, a ):

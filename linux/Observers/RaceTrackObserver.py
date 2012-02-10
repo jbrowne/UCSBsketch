@@ -4,13 +4,12 @@ import math
 import sys
 import random
 import pdb
-from SketchFramework import SketchGUI
 
 from Utils import Logger
 from Utils import GeomUtils
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 from Observers import ObserverBase
 
@@ -39,7 +38,7 @@ class SplitStrokeVisualizer( ObserverBase.Visualizer ):
         color = random.choice(colormap.keys())
 
         for s in a.getComponentStrokes():
-            SketchGUI.drawStroke(s, width = 2, color = color)
+            self.getBoard().getGUI().drawStroke(s, width = 2, color = color)
 
 #-------------------------------------
 class SplitStrokeAnnotation(Annotation):
@@ -111,13 +110,13 @@ class SplitStrokeMarker( ObserverBase.Collector ):
 
     def __init__( self ):
         # this will register everything with the board, and we will get the proper notifications
-        BoardSingleton().RegisterForStroke(self)
+        self.getBoard().RegisterForStroke(self)
         ObserverBase.Collector.__init__( self, [], SplitStrokeAnnotation)
 
     def onStrokeAdded(self, stroke):
         ss_logger.debug("Stroke Added")
         splitStrokAnno = SplitStrokeAnnotation(strokelist=[stroke])
-        BoardSingleton().AnnotateStrokes([stroke], splitStrokAnno)
+        self.getBoard().AnnotateStrokes([stroke], splitStrokAnno)
 
     def collectionFromItem( self, strokes, anno ):
         return anno
@@ -168,12 +167,12 @@ class SplitStrokeMarker( ObserverBase.Collector ):
         for anno in ssAnnos:
             addBackAnnos.update( anno.splitAtStroke(stroke) )
             ss_logger.debug("Removing annotation %s" % (anno))
-            BoardSingleton().RemoveAnnotation(anno)
+            self.getBoard().RemoveAnnotation(anno)
 
         for anno in addBackAnnos:
             if len(anno.Points) > 0:
                 ss_logger.debug("Adding back split annotation %s" % (anno))
-                BoardSingleton().AnnotateStrokes(anno.getComponentStrokes(), anno)
+                self.getBoard().AnnotateStrokes(anno.getComponentStrokes(), anno)
 
 
 def linesPointAtEachother(linepair1, linepair2):
@@ -215,10 +214,10 @@ class RaceTrackVisualizer( ObserverBase.Visualizer ):
         for wall in a.rightwalls: #Strokes
             rtv_logger.debug("Drawing right wall")
             wall = GeomUtils.strokeSmooth(wall, width = 6, preserveEnds = True)
-            SketchGUI.drawStroke(wall, width = 2, color = right_color)
+            self.getBoard().getGUI().drawStroke(wall, width = 2, color = right_color)
         for wall in a.leftwalls: #Strokes
             rtv_logger.debug("Drawing left wall")
-            SketchGUI.drawStroke(wall, width = 2, color = left_color)
+            self.getBoard().getGUI().drawStroke(wall, width = 2, color = left_color)
 
 
 #-------------------------------------
@@ -228,7 +227,7 @@ class RaceTrackMarker( BoardObserver ):
     def __init__(self):
         self.maybeWalls = set([]) #A set of strokes things that aren't part of a racetrack yet
         self.wallInfo = {} #A dict indexed by  strokes for useful info on partial walls
-        BoardSingleton().RegisterForStroke( self )
+        self.getBoard().RegisterForStroke( self )
 
     def onStrokeAdded( self, stroke ):
         #If it's a closed figure, it is its own wall
@@ -260,7 +259,7 @@ class RaceTrackMarker( BoardObserver ):
 
             rtm_logger.debug("Found containment with another stroke")
             rtAnno = RaceTrackAnnotation(rightwalls = [outStk], leftwalls = [inStk]) 
-            BoardSingleton().AnnotateStrokes([stroke, testStroke], rtAnno)
+            self.getBoard().AnnotateStrokes([stroke, testStroke], rtAnno)
             del(self.wallInfo[testStroke])
             addToWalls = False
             break
@@ -326,7 +325,7 @@ class RaceTrackMarker( BoardObserver ):
 
     	for anno in stroke.findAnnotations(RaceTrackAnnotation):
             otherStrokes.update(anno.Strokes)
-            BoardSingleton().RemoveAnnotation(anno)
+            self.getBoard().RemoveAnnotation(anno)
 
         otherStrokes.remove(stroke)
 

@@ -140,7 +140,7 @@ class RubineClassifier():
 
         return self.names[maxIndex]
 
-        #BoardSingleton().AnnotateStrokes( [stroke],  RubineAnnotation(self.names[maxIndex], height , 0))
+        #self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(self.names[maxIndex], height , 0))
 
 #------------------------------------------------------------
 

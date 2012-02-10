@@ -18,7 +18,7 @@ import pdb
 from Utils import Logger
 from Utils import GeomUtils
 from SketchFramework.Point import Point
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 logger = Logger.getLogger('DiGraphObserver', Logger.WARN )
@@ -27,8 +27,9 @@ logger = Logger.getLogger('DiGraphObserver', Logger.WARN )
 class DebugObserver( BoardObserver ):
     "Watches for all annotations, and draws them"
 
-    def __init__(self):
-        BoardSingleton().AddBoardObserver( self, [] )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [] )
 	self.watchSet = set([]) # set of annotation types to track
 	self.seenBefore = {} # set of particular annotation that we have already drawn
 
@@ -41,14 +42,13 @@ class DebugObserver( BoardObserver ):
         # FIXME: does this tie us to the tk front-end?  If so, what should
         # we put into the GUI API to enable this sort of animation? is it mostly 
         # "update" that is needed?
-        from SketchFramework import SketchGUI as gui
-        canvas = gui.SketchGUISingleton()
+        canvas = self.getBoard().getGUI() 
         color_levels = { 0: "#FF6633", 1: "#FF00FF", 2: "#3366FF", 3: "#00CC00",}
         scale = 18  # pixels for text size
 
         # start with a list of all the annotations
         allAnnoSet = set([])
-        for stroke in BoardSingleton().Strokes:
+        for stroke in self.getBoard().Strokes:
             for anno in stroke.findAnnotations(None):
                 if anno.isType( list(self.watchSet) ):
                     allAnnoSet.add( anno )
@@ -102,7 +102,6 @@ class DebugObserver( BoardObserver ):
             
             gui.drawBox(tl,br,color=color_levels[nestlevel % len(color_levels)])
             gui.drawText(tl.X, br.Y+scale, size = 12, InText=labeltext)
-#            SketchGUI.Singleton().Redraw() 
 
 def _nestingBox(bottomright_list, topleft_list, scale = 0):
     topleft = Point(0,0,0)

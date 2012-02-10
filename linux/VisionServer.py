@@ -29,7 +29,7 @@ from xml.etree import ElementTree as ET
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardSingleton
+from SketchFramework.Board import Board
 from SketchFramework.NetworkReceiver import ServerThread, Message
 from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 
@@ -48,7 +48,7 @@ from Observers.ObserverBase import Animator
 
 # Constants
 WIDTH = 1024
-HEIGHT = 3 * WIDTH / 4
+HEIGHT = int(4.8 * WIDTH / 8)
 
 MID_W = WIDTH/2
 MID_H = HEIGHT/2
@@ -252,6 +252,9 @@ class SketchResponseThread(threading.Thread):
                 if in_msg.getType() == Message.TYPE_IMG:
                     logger.debug("Processing image")
                     xml_response = self.processNewImage(in_msg.getData())
+                    fp = open("xmlout.xml", "w")
+                    print >> fp, ET.tostring(xml_response)
+                    fp.close()
                     respMsg = Message(Message.TYPE_XML, ET.tostring(xml_response))
                     self._send_q.put(respMsg)
                 elif in_msg.getType() == Message.TYPE_XML:
@@ -264,7 +267,7 @@ class SketchResponseThread(threading.Thread):
             self._recv_q.task_done()
 
     def processNewImage(self, imageData):
-        """Take in image data, process it and return a string of the resulting board XML"""
+        """Take in image data, process iself._Boardt and return a string of the resulting board XML"""
         logger.debug("Processing net image")
         stks = imageBufferToStrokes(imageData)
         logger.debug("Processed net image, converting strokes")
@@ -288,27 +291,27 @@ class SketchResponseThread(threading.Thread):
 
     def resetBoard(self):
         "Clear all strokes and board observers from the board (logically and visually)"
-        self._Board = BoardSingleton(reset = True)
-        CircleObserver.CircleMarker()
-        #CircleObserver.CircleVisualizer()
-        ArrowObserver.ArrowMarker()
-        #ArrowObserver.ArrowVisualizer()
-        #LineObserver.LineMarker()
-        #LineObserver.LineVisualizer()
-        TextObserver.TextCollector()
-        #TextObserver.TextVisualizer()
-        DiGraphObserver.DiGraphMarker()
-        #DiGraphObserver.DiGraphVisualizer()
-        #DiGraphObserver.DiGraphExporter()
-        TuringMachineObserver.TuringMachineCollector()
-        #TuringMachineObserver.TuringMachineVisualizer()
-        #TuringMachineObserver.TuringMachineExporter()
+        self._Board = Board()
+        CircleObserver.CircleMarker(self._Board)
+        #CircleObserver.CircleVisualizer(self._Board)
+        ArrowObserver.ArrowMarker(self._Board)
+        #ArrowObserver.ArrowVisualizer(self._Board)
+        #LineObserver.LineMarker(self._Board)
+        #LineObserver.LineVisualizer(self._Board)
+        TextObserver.TextCollector(self._Board)
+        TextObserver.TextVisualizer(self._Board)
+        DiGraphObserver.DiGraphMarker(self._Board)
+        #DiGraphObserver.DiGraphVisualizer(self._Board)
+        #DiGraphObserver.DiGraphExporter(self._Board)
+        TuringMachineObserver.TuringMachineCollector(self._Board)
+        #TuringMachineObserver.TuringMachineVisualizer(self._Board)
+        #TuringMachineObserver.TuringMachineExporter(self._Board)
         
-        #TemplateObserver.TemplateMarker()
-        #TemplateObserver.TemplateVisualizer()
+        #TemplateObserver.TemplateMarker(self._Board)
+        #TemplateObserver.TemplateVisualizer(self._Board)
         
         
-        d = DebugObserver.DebugObserver()
+        d = DebugObserver.DebugObserver(self._Board)
         #d.trackAnnotation(TestAnimObserver.TestAnnotation)
         #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
         #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
@@ -357,69 +360,58 @@ class ImgProcThread (threading.Thread):
 class NetSketchGUI(_SketchGUI):
     "A _SketchGUI subclass that handles network communication and image processing."
 
-    Singleton = None
     def __init__(self):
        "Set up members for this GUI"
-       NetSketchGUI.Singleton = self
 
        #Board related init
        self._Board = None
-       self.ResetBoard()
 
-       self._setupNetworkDispatcher()
        # Private data members
        self._serverThread = None
        self._recv_q = None
        self._send_q = None
        self._netDispatchThread = None
+       self._setupNetworkDispatcher()
 
        self._strokeQueue = Queue.Queue()
-       """
-       self._xmlResponseQueue = None
-       self._imgProcThread = None
-       self._setupImageServer()
-       """
 
        self._drawQueue = []
 
        self._onBoard = set([])
        self._onBoardDrawOrder = []
 
-       self.run()
 
     def _setupNetworkDispatcher(self):
         self._serverThread = ServerThread(port = 30000)
         self._recv_q = self._serverThread.getRequestQueue()
         self._send_q = self._serverThread.getResponseQueue()
-
         self._netDispatchThread = SketchResponseThread(self._recv_q, self._send_q)
         self._netDispatchThread.start()
-
         self._serverThread.start()
 
     def ResetBoard(self):
         "Clear all strokes and board observers from the board (logically and visually)"
-        self._Board = BoardSingleton(reset = True)
-        CircleObserver.CircleMarker()
-        #CircleObserver.CircleVisualizer()
-        ArrowObserver.ArrowMarker()
-        #ArrowObserver.ArrowVisualizer()
-        #LineObserver.LineMarker()
-        #LineObserver.LineVisualizer()
-        TextObserver.TextCollector()
-        #TextObserver.TextVisualizer()
-        DiGraphObserver.DiGraphMarker()
-        #DiGraphObserver.DiGraphVisualizer()
-        #DiGraphObserver.DiGraphExporter()
-        TuringMachineObserver.TuringMachineCollector()
-        #TuringMachineObserver.TuringMachineVisualizer()
-        #TuringMachineObserver.TuringMachineExporter()
+        self._Board = Board(gui = self)
+        CircleObserver.CircleMarker(self._Board)
+        #CircleObserver.CircleVisualizer(self._Board)
+        ArrowObserver.ArrowMarker(self._Board)
+        #ArrowObserver.ArrowVisualizer(self._Board)
+        #LineObserver.LineMarker(self._Board)
+        #LineObserver.LineVisualizer(self._Board)
+        TextObserver.TextCollector(self._Board)
+        #TextObserver.TextVisualizer(self._Board)
+        DiGraphObserver.DiGraphMarker(self._Board)
+        #DiGraphObserver.DiGraphVisualizer(self._Board)
+        #DiGraphObserver.DiGraphExporter(self._Board)
+        TuringMachineObserver.TuringMachineCollector(self._Board)
+        #TuringMachineObserver.TuringMachineVisualizer(self._Board)
+        #TuringMachineObserver.TuringMachineExporter(self._Board)
         
-        #TemplateObserver.TemplateMarker()
-        #TemplateObserver.TemplateVisualizer()
+        #TemplateObserver.TemplateMarker(self._Board)
+        #TemplateObserver.TemplateVisualizer(self._Board)
         
         
-        d = DebugObserver.DebugObserver()
+        d = DebugObserver.DebugObserver(self._Board)
         #d.trackAnnotation(TestAnimObserver.TestAnnotation)
         #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
         #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
@@ -436,19 +428,6 @@ class NetSketchGUI(_SketchGUI):
         #d.trackAnnotation(TextObserver.TextAnnotation)
         #d.trackAnnotation(BarAnnotation)
         
-
-
-    def _setupImageServer(self):
-        "Set up the server thread to start listening for image data, which it puts into its response queue. Then the imgprocthread converts image data to strokes, which are enqueued in self._strokeQueue"
-        self._serverThread = ServerThread(port = 30000)
-        img_recv_queue = self._serverThread.getRequestQueue()
-        self._xmlResponseQueue = self._serverThread.getResponseQueue()
-
-        self._imgProcThread = ImgProcThread(img_recv_queue, self._strokeQueue)
-        self._imgProcThread.start()
-
-        self._serverThread.start()
-
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
         "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"
         drawAction = DrawCircle(x,y,radius, color, fill, width)
@@ -479,10 +458,11 @@ class NetSketchGUI(_SketchGUI):
         Add these strokes to the board, and build the xml view of the board, then queue the
         response to send back"""
         while True:
+
             logger.debug("Waiting on queue")
             try:
                 
-                self.ResetBoard()
+                #self.ResetBoard()
                 strokeList = self._strokeQueue.get(True, 300000)
                 for stk in strokeList:
                     self._Board.AddStroke(stk)
@@ -544,10 +524,9 @@ class NetSketchGUI(_SketchGUI):
 
             
 
-def SketchGUISingleton():
-    if NetSketchGUI.Singleton == None:
-        NetSketchGUI()
-    return NetSketchGUI.Singleton
+def main():
+    NetSketchGUI().run()
+    
 
-def run():
-    NetSketchGUI.Singleton = NetSketchGUI()
+if __name__ == "__main__":
+    main()

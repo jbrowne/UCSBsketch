@@ -3,13 +3,12 @@ import time
 import math
 import sys
 import pdb
-from SketchFramework import SketchGUI
 
 from Utils import Logger
 from Utils import GeomUtils
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnimateAnnotation
 from Observers import ObserverBase
 
@@ -34,12 +33,12 @@ class TestAnnotation(AnimateAnnotation):
 
 class TestMarker( BoardObserver ):
     def __init__(self):
-        BoardSingleton().RegisterForStroke( self )
+        self.getBoard().RegisterForStroke( self )
     def onStrokeAdded(self, stroke):
-        BoardSingleton().AnnotateStrokes([stroke], TestAnnotation())
+        self.getBoard().AnnotateStrokes([stroke], TestAnnotation())
     def onStrokeRemoved(self, stroke):
         for anno in stroke.findAnnotations(TestAnnotation):
-            BoardSingleton().RemoveAnnotation(anno)
+            self.getBoard().RemoveAnnotation(anno)
 
 class TestAnimator( ObserverBase.Animator):
     def __init__(self, fps = 1):
@@ -57,7 +56,7 @@ class TestAnimator( ObserverBase.Animator):
             for i, point in enumerate(GeomUtils.strokeNormalizeSpacing(stk, numpoints = len(stk.Points)).Points):
                 if prevPt != None:
                     color = self.colors[anno.pattern[ (i + anno.idx) % len(anno.pattern) ] ]
-                    SketchGUI.drawLine(prevPt.X, prevPt.Y, point.X, point.Y, color=color, width = 3)
+                    self.getBoard().getGUI().drawLine(prevPt.X, prevPt.Y, point.X, point.Y, color=color, width = 3)
                 prevPt = point
         if anno == self.trackedAnno:
             dt = time.time() - self.lastDraw

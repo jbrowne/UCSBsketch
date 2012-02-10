@@ -21,10 +21,9 @@ from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -51,24 +50,24 @@ l_logger = Logger.getLogger('DivideMarker', Logger.WARN)
 class DivideMarker( BoardObserver ):
     """Looks for Divide signes"""
     
-    def __init__(self):
-        BoardObserver.__init__(self)
-        BoardSingleton().AddBoardObserver( self, [DivideAnnotation])
-        BoardSingleton().RegisterForAnnotation( DirectedLine.BT_LineAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [DivideAnnotation])
+        self.getBoard().RegisterForAnnotation( DirectedLine.BT_LineAnnotation, self )
     def onAnnotationAdded( self, strokes, annotation ):
         "Checks to see if an divide sign has been added"
 
         ul,br = GeomUtils.strokelistBoundingBox(strokes)
         height = ul.Y - br.Y
-        BoardSingleton().AnnotateStrokes( strokes, DivideAnnotation(height))
+        self.getBoard().AnnotateStrokes( strokes, DivideAnnotation(height))
         return
 
 #-------------------------------------
 
 class DivideVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, DivideAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__( self, board, DivideAnnotation )
 
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
@@ -84,9 +83,9 @@ class DivideVisualizer( ObserverBase.Visualizer ):
         midpointX = (ul.X + br.X) / 2
         left_x = midpointX - a.scale / 2.0
         right_x = midpointX + a.scale / 2.0
-        SketchGUI.drawBox(ul, br, color="#a0a0a0");
+        self.getBoard().getGUI().drawBox(ul, br, color="#a0a0a0");
         
-        SketchGUI.drawText( br.X - 15, br.Y, "/", size=15, color="#a0a0a0" )
+        self.getBoard().getGUI().drawText( br.X - 15, br.Y, "/", size=15, color="#a0a0a0" )
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

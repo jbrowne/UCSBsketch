@@ -26,10 +26,9 @@ from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -62,10 +61,10 @@ class BinAnnotation(Annotation):
 l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
 class _BinMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
-    def __init__(self):
-        BoardObserver.__init__(self)
-        BoardSingleton().AddBoardObserver( self )
-        BoardSingleton().RegisterForStroke( self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self )
+        self.getBoard().RegisterForStroke( self )
     def onStrokeAdded(self, stroke):
         "Tags 1's and 0's as letters (TextAnnotation)"
         closedDistRatio = 0.22
@@ -91,7 +90,7 @@ class _BinMarker( BoardObserver ):
             height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
             oAnnotation = BinAnnotation("0", height)
             l_logger.debug("Annotating %s with %s" % ( stroke, oAnnotation))
-            BoardSingleton().AnnotateStrokes( [stroke],  oAnnotation)
+            self.getBoard().AnnotateStrokes( [stroke],  oAnnotation)
 
         elif len(stroke.Points) >= 2 \
             and max(curvatures) < 0.5 \
@@ -101,7 +100,7 @@ class _BinMarker( BoardObserver ):
                     height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y
                     oneAnnotation = BinAnnotation("1", height)
                     l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation.text))
-                    BoardSingleton().AnnotateStrokes( [stroke],  oneAnnotation)
+                    self.getBoard().AnnotateStrokes( [stroke],  oneAnnotation)
                 elif stroke.Points[0].Y < stroke.Points[-1].Y + strokeLen / 2.0 \
                 and stroke.Points[0].Y > stroke.Points[-1].Y - strokeLen / 2.0:
                     # we don't care about "-" (yet)
@@ -127,7 +126,7 @@ class _BinMarker( BoardObserver ):
         all_text_strokes = set([])
         for ta in all_text_annos:
             all_text_strokes.update(ta.Strokes)
-            BoardSingleton().RemoveAnnotation(ta)
+            self.getBoard().RemoveAnnotation(ta)
 
         for s in all_text_strokes:
             if s is not stroke:
@@ -138,9 +137,9 @@ tc_logger = Logger.getLogger("TextCollector", Logger.WARN)
 
 class BinCollector( ObserverBase.Collector ):
     "Watches for strokes that look like text"
-    def __init__(self, circularity_threshold=0.90):
+    def __init__(self, board, circularity_threshold=0.90):
         _BinMarker()
-        ObserverBase.Collector.__init__( self, [], BinAnnotation  )
+        ObserverBase.Collector.__init__(self, board, [], BinAnnotation  )
 
     horizDistRatio = 1.0
 
@@ -274,8 +273,8 @@ class BinCollector( ObserverBase.Collector ):
 
 class BinVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, BinAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__( self, board, BinAnnotation )
 
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
@@ -285,9 +284,9 @@ class BinVisualizer( ObserverBase.Visualizer ):
         midpointX = (ul.X + br.X) / 2
         left_x = midpointX - a.scale / 2.0
         right_x = midpointX + a.scale / 2.0
-        #SketchGUI.drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
+        #self.getBoard().getGUI().drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
         y = br.Y
-        SketchGUI.drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
+        self.getBoard().getGUI().drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

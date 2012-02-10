@@ -17,9 +17,9 @@ Description:
 HEIGHT = 800
 WIDTH = 1280
 from Point import Point
+from Utils import Logger
 #from SketchFramework.Stroke import Stroke
-#from SketchFramework.Board import BoardSingleton
-#from SketchSystem import initialize, standAloneMain
+
 class _SketchGUI(object):
     HEIGHT = 800
     WIDTH = 1280
@@ -66,6 +66,21 @@ class _SketchGUI(object):
                 self.drawLine(prev_p.X, prev_p.Y, next_p.X, next_p.Y, width=width, color=color)
             prev_p = next_p
 
+    
+
+dummylog = Logger.getLogger("DummyGUI", Logger.DEBUG)
+class DummyGUI (_SketchGUI):
+    """A Dummy GUI subclass that is only used as a black hole for method calls"""
+    def getDimensions(self):
+        return (0, 0)
+    def __init__(self):
+        dummylog.info("GUI Object created")
+    def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
+        dummylog.warn("Circle to be drawn")
+    def drawLine(self, x1, y1, x2, y2, width=2, color="#000000"):
+        dummylog.warn("Line to be drawn")
+    def drawText (self, x, y, InText="", size=10, color="#000000"):
+        dummylog.warn("Text to be drawn: %s" % (InText))
     
 def SketchGUISingleton():
     "Returns the GUI instance we're currently working with."

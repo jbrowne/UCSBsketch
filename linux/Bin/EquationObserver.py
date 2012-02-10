@@ -22,10 +22,9 @@ from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -57,11 +56,12 @@ l_logger = Logger.getLogger('EqualsMarker', Logger.WARN)
 
 class EquationObserver( BoardObserver ):
     "Watches for binry numbers and equation"
-    def __init__(self):
-        BoardSingleton().AddBoardObserver( self )
-        BoardSingleton().RegisterForAnnotation( EqualsAnnotation, self )
-        BoardSingleton().RegisterForAnnotation( BinAnnotation, self )
-        #BoardSingleton().RegisterForAnnotation( EquationAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self )
+        self.getBoard().RegisterForAnnotation( EqualsAnnotation, self )
+        self.getBoard().RegisterForAnnotation( BinAnnotation, self )
+        #self.getBoard().RegisterForAnnotation( EquationAnnotation, self )
 
     binAnnotations = []
     equalsAnnotations = []
@@ -99,7 +99,7 @@ class EquationObserver( BoardObserver ):
                 self.equalsAnnotations.remove(a)
                 eAnno = EquationAnnotation(annotation.scale, "X", int(annotation.text,2))
                 self.equationAnnotations.append(eAnno)
-                BoardSingleton().AnnotateStrokes( a.Strokes + strokes, eAnno )
+                self.getBoard().AnnotateStrokes( a.Strokes + strokes, eAnno )
                 return
             # No match, so just add it to the list
 
@@ -130,7 +130,7 @@ class EquationObserver( BoardObserver ):
                 self.binAnnotations.remove(a)
                 eAnno = EquationAnnotation(a.scale, "X", int(a.text,2))
                 self.equationAnnotations.append(eAnno)
-                BoardSingleton().AnnotateStrokes( a.Strokes + strokes, eAnno )
+                self.getBoard().AnnotateStrokes( a.Strokes + strokes, eAnno )
                 return
             # No match, so just add it to the list
             self.equalsAnnotations.append(annotation)
@@ -147,11 +147,11 @@ class EquationObserver( BoardObserver ):
             self.equalsAnnotations.remove(annotation)
         else:
             pass
-            #annos = BoardSingleton().FindAnnotations(strokelist = annotation.Strokes);
+            #annos = self.getBoard().FindAnnotations(strokelist = annotation.Strokes);
             #for a in annos:
             #    if a.isType(EquationAnnotation):
             #        self.equationAnnotations.remove(a)
-            #        BoardSingleton().RemoveAnnotation(a)
+            #        self.getBoard().RemoveAnnotation(a)
 
 
     def onAnnotationUpdated( self, annotation ):
@@ -161,7 +161,7 @@ class EquationObserver( BoardObserver ):
         '''
 
         if annotation.isType(BinAnnotation):
-            annos = BoardSingleton().FindAnnotations(strokelist = annotation.Strokes);
+            annos = self.getBoard().FindAnnotations(strokelist = annotation.Strokes);
             #print annos
             for a in annos:
                 if a.isType(EquationAnnotation):
@@ -172,19 +172,19 @@ class EquationObserver( BoardObserver ):
                             list.append(i)
                     self.equationAnnotations.append(eAnno)
                     #print list
-                    BoardSingleton().AnnotateStrokes( list, eAnno )
+                    self.getBoard().AnnotateStrokes( list, eAnno )
                     #print annotation.Strokes + a.Strokes
-                    #BoardSingleton().AnnotateStrokes( annotation.Strokes + a.Strokes, eAnno )
+                    #self.getBoard().AnnotateStrokes( annotation.Strokes + a.Strokes, eAnno )
                     self.equationAnnotations.remove(a)
-                    BoardSingleton().RemoveAnnotation(a)
+                    self.getBoard().RemoveAnnotation(a)
             
 
 #-------------------------------------
 
 class EquationVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, EquationAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__(self, board, EquationAnnotation )
 
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
@@ -200,9 +200,9 @@ class EquationVisualizer( ObserverBase.Visualizer ):
         midpointX = (ul.X + br.X) / 2
         left_x = midpointX - a.scale / 2.0
         right_x = midpointX + a.scale / 2.0
-        SketchGUI.drawBox(ul, br, color="#a0a0a0");
+        self.getBoard().getGUI().drawBox(ul, br, color="#a0a0a0");
         #print "Drawing " + a.type + " with number " + str(a.number) + " and scale " + str(int(a.scale))
         if a.type == "X": 
-            SketchGUI.drawText( br.X + 10, ul.Y, str(a.number), size= int(a.scale), color="#a0a0a0" )
+            self.getBoard().getGUI().drawText( br.X + 10, ul.Y, str(a.number), size= int(a.scale), color="#a0a0a0" )
 
 #-------------------------------------

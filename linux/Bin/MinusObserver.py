@@ -21,10 +21,9 @@ from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -51,24 +50,24 @@ l_logger = Logger.getLogger('MinusMarker', Logger.WARN)
 class MinusMarker( BoardObserver ):
     """Looks for Minus signes"""
     
-    def __init__(self):
-        BoardObserver.__init__(self)
-        BoardSingleton().AddBoardObserver( self, [MinusAnnotation])
-        BoardSingleton().RegisterForAnnotation( DirectedLine.H_LineAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [MinusAnnotation])
+        self.getBoard().RegisterForAnnotation( DirectedLine.H_LineAnnotation, self )
     def onAnnotationAdded( self, strokes, annotation ):
         "Checks to see if an minus sign has been added"
 
         ul,br = GeomUtils.strokelistBoundingBox(strokes)
         width = br.X - ul.X
-        BoardSingleton().AnnotateStrokes( strokes, MinusAnnotation(width))
+        self.getBoard().AnnotateStrokes( strokes, MinusAnnotation(width))
         return
 
 #-------------------------------------
 
 class MinusVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, MinusAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__(self, board, MinusAnnotation )
 
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
@@ -84,9 +83,9 @@ class MinusVisualizer( ObserverBase.Visualizer ):
         midpointX = (ul.X + br.X) / 2
         left_x = midpointX - a.scale / 2.0
         right_x = midpointX + a.scale / 2.0
-        SketchGUI.drawBox(ul, br, color="#a0a0a0");
+        self.getBoard().getGUI().drawBox(ul, br, color="#a0a0a0");
         
-        SketchGUI.drawText( br.X - 15, br.Y, "-", size=15, color="#a0a0a0" )
+        self.getBoard().getGUI().drawText( br.X - 15, br.Y, "-", size=15, color="#a0a0a0" )
 
 #-------------------------------------
 # if executed by itself, run all the doc tests
