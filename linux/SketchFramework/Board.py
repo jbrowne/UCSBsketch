@@ -124,7 +124,7 @@ class Board(object):
 
     def RemoveStroke( self, oldStroke ):
         "Input: Stroke oldStroke.  Removes a Stroke from the board and calls any Stroke Observers as needed"
-        logger.debug( "Removing stroke" )
+        logger.debug( "Removing stroke %s" % (oldStroke.id) )
         
 
         self._removed_strokes[oldStroke] = True

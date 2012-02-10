@@ -1002,6 +1002,30 @@ def linePointsTowards(linept1, linept2, target, radius):
 
 
     
+def pointDistanceFromLine(point, lineseg):
+    """Returns the Euclidean distance of the point from an infinite line formed by extending the lineseg.
+    point: Point object
+    lineseg: tuple( Point, Point) making up a linesegment
+    """
+
+    assert len(lineseg) == 2, "pointDistanceFromLine called with malformed line segment"
+    ep1 = lineseg[0]
+    ep2 = lineseg[1]
+
+    assert ep1.X != ep2.X or ep1.Y != ep2.Y, "pointDistanceFromLine called with 0-length line segment"
+    if ep1.X == ep2.X: #Vertical line segment
+        return math.abs(point.X - ep1.X)
+    elif ep1.Y == ep2.Y:
+        return math.abs(point.Y - ep1.Y)
+    else:
+        inv_slope = - (ep1.X - ep2.X) / float(ep1.Y - ep2.Y) #Perpendicular slope!
+        point2 = Point( point.X + 10, point.Y + (inv_slope * 10) )
+        distancePoint = getLinesIntersection(lineseg, (point, point2), infinite1 = True, infinite2 = True)
+
+        return pointDistance(point, distancePoint)
+        
+        
+
 #With respect to the horizontal.  0 deg == horizontal line
 def angleOfOrientation(inStroke):
     logger.warning("angleOfOrientation is deprecated, use strokeOrientation")
