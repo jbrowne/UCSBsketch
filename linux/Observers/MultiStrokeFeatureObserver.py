@@ -17,10 +17,9 @@ from Utils import Logger
 
 from SketchFramework import Point
 from SketchFramework import Stroke
-from SketchFramework import SketchGUI
 
 from SketchFramework.Annotation import Annotation
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 
 
 logger = Logger.getLogger('MultiStrokeObserver', Logger.DEBUG )
@@ -38,8 +37,8 @@ class MultiStrokeMarker( BoardObserver ):
     "Compares all strokes with templates and annotates strokes with any template within some threshold."
     def __init__(self):
         
-        BoardSingleton().AddBoardObserver( self , [MultiStrokeAnnotation])
-        BoardSingleton().RegisterForStroke( self )
+        self.getBoard().AddBoardObserver( self , [MultiStrokeAnnotation])
+        self.getBoard().RegisterForStroke( self )
         self._features = {} # To be: { stroke : (feature_vector) }
         self._matchVector = None
         self.overlaps = {} 
@@ -63,7 +62,7 @@ class MultiStrokeMarker( BoardObserver ):
             score = scoreVector(self._matchVector, strokeVector)
             logger.debug("  Distance %s from baseline" % (score) )
             if score < 0.02:
-                BoardSingleton().AnnotateStrokes([stroke], MultiStrokeAnnotation("Match"))
+                self.getBoard().AnnotateStrokes([stroke], MultiStrokeAnnotation("Match"))
 
             for stk in self.overlaps.get(stroke, []):
                 multiVect = addVectors( [self._features[stroke], self._features[stk] ] )
@@ -71,13 +70,13 @@ class MultiStrokeMarker( BoardObserver ):
                 score = scoreVector(self._matchVector, multiVect)
                 logger.debug("  Distance %s from baseline" % (score) )
                 if score < 0.02:
-                    BoardSingleton().AnnotateStrokes([stroke, stk], MultiStrokeAnnotation("Match"))
+                    self.getBoard().AnnotateStrokes([stroke, stk], MultiStrokeAnnotation("Match"))
 
 
     def onStrokeRemoved(self, stroke):
         "When a stroke is removed, remove circle annotation if found"
         for anno in stroke.findAnnotations(MultiStrokeAnnotation, True):
-            BoardSingleton().RemoveAnnotation(anno)
+            self.getBoard().RemoveAnnotation(anno)
 
 def generateFeatureVector(stroke):
     finalVector = {}

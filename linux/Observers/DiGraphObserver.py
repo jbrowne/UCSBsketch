@@ -261,7 +261,7 @@ class DiGraphMarker( ObserverBase.Collector ):
         #Prefer adding strokes as arrows over nodes
         digraph_anno = None
         if anno.isType( DiGraphNodeAnnotation ):
-            if len(BoardSingleton().FindAnnotations(strokelist=strokes, anno_type=ArrowObserver.ArrowAnnotation) ) == 0:
+            if len(self.getBoard().FindAnnotations(strokelist=strokes, anno_type=ArrowObserver.ArrowAnnotation) ) == 0:
                 logger.debug("Node anno found, adding to set")
                 digraph_anno = DiGraphAnnotation( node_set=set([anno]) )
             else:   
