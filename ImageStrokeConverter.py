@@ -52,7 +52,7 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
-NORMWIDTH = 1000
+NORMWIDTH = 1024
 DEBUGSCALE = 1
 #***************************************************
 # Intended module interface functions 
@@ -250,6 +250,7 @@ def pointsOverlap(pt1, pt2, img, pt1Thickness = None, pt2Thickness = None, check
    """Checks to see if two points cover each other with their thickness and are not separatred by white"""
    global CENTERVAL
    assert (pt1Thickness != None and pt2Thickness != None) or img != None, "Error, cannot determine overlap without thickness!"
+   okSeparation = 1 #How many pixels can be invalid in the separation check
    distSqr = pointsDistSquared(pt1, pt2) 
 
    if pt1Thickness != None and pt2Thickness != None:
@@ -263,9 +264,14 @@ def pointsOverlap(pt1, pt2, img, pt1Thickness = None, pt2Thickness = None, check
       return False
 
    if checkSeparation:
+       separation = 0
        for x,y in linePixels(pt1, pt2):
           if getImgVal(x,y,img) != CENTERVAL:
-             return False
+             if separation < okSeparation - 1:
+                separation += 1
+             else:
+                return False
+             
    return True
 
 
@@ -384,7 +390,7 @@ def _deletePointFromGraph(point, graphDict):
     any references from its children"""
     if point in graphDict:
         ptDict = graphDict[point]
-        for kpt in ptDict['kids']:
+        for kpt in list(ptDict['kids']):
             if point in graphDict[kpt]['kids']: 
                 graphDict[kpt]['kids'].remove(point)
         del(graphDict[point])
@@ -1076,6 +1082,105 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
 
    return ( numChanged, retPoints, outImg )
 
+def cleanContours(pointSet, img):
+   global BGVAL, CENTERVAL, FILLEDVAL
+
+   smoothingError = 2.0 #pixels
+   #Preprocess: get all of the contour pixels
+   linkedContourPoints = {} #Dict mapping <point> : <set(kids)>
+   for p in pointSet:
+      isContour = False
+      (i,j) = p
+      if getImgVal(i, j, img) == CENTERVAL:
+         for npt in getEightNeighbors(p):
+            (ni, nj) = npt
+            if getImgVal(ni, nj, img) != CENTERVAL:
+               isContour = True
+               break
+         if isContour:
+            p_kidSet = set()
+            for npt in getEightNeighbors(p):
+               if npt in linkedContourPoints:
+                  linkedContourPoints[npt].add(p)
+                  p_kidSet.add(npt)
+            linkedContourPoints[p] = p_kidSet
+
+   DEBUGIMG = cv.CloneMat(img)
+   cv.Set(DEBUGIMG, 255)
+   for pt in linkedContourPoints:
+      setImgVal(pt[0], pt[1], 160, DEBUGIMG)
+      
+   while len(linkedContourPoints) > 0:
+      thisContour = {}
+      seedPt, kidset = linkedContourPoints.items()[0]
+      print "Seed %s, kidset %s" % (seedPt, kidset)
+      for k in kidset:
+         linkedContourPoints[k].remove(seedPt)
+      del(linkedContourPoints[seedPt])
+
+      if len(kidset) > 0:
+         pointList = [ seedPt ]
+         procStack = [ list(kidset)[0] ]
+         while len(procStack) > 0:
+            point = procStack.pop()
+            print "Processing point %s" % ( str(point))
+            for k in linkedContourPoints[point]:
+               if k in linkedContourPoints and k not in procStack:
+                  linkedContourPoints[k].remove(point)
+                  procStack.append(k)
+
+            if True or len(pointList) < 20:
+               pointList.append(point)
+
+               print "Point %s, kidset %s" % (point, linkedContourPoints[point])
+               for k in linkedContourPoints[point]:
+                  print "Point %s, kidset %s" % (k, linkedContourPoints[k])
+                  linkedContourPoints[k].remove(point)
+               del(linkedContourPoints[point])
+            else:
+               break
+
+         for point in pointList:
+            setImgVal(point[0], point[1], 0, DEBUGIMG)
+         print "Saving Contours"
+         saveimg(DEBUGIMG)
+            
+
+
+
+
+   
+
+
+
+   exit(1)
+
+               
+
+def pointDistanceFromLine(point, lineseg):
+    """Returns the Euclidean distance of the point from an infinite line formed by extending the lineseg.
+    point: point tuple ( <x>, <y> )
+    lineseg: tuple( point, point) making up a linesegment
+    """
+
+    assert len(lineseg) == 2, "pointDistanceFromLine called with malformed line segment"
+    ep1 = lineseg[0]
+    ep2 = lineseg[1]
+
+    assert ep1[0] != ep2[0] or ep1[1] != ep2[1], "pointDistanceFromLine called with 0-length line segment"
+    if ep1[0] == ep2[0]: #Vertical line segment
+        return math.abs(point[0] - ep1[0])
+    elif ep1[1] == ep2[1]:
+        return math.abs(point[1] - ep1[1])
+    else:
+        inv_slope = - (ep1[0] - ep2[0]) / float(ep1[1] - ep2[1]) #Perpendicular slope!
+        point2 = ( point[0] + 10, point[1] + (inv_slope * 10) )
+        distancePoint = getLinesIntersection(lineseg, (point, point2))
+
+        return math.sqrt(pointsDistSquared(point, distancePoint) )
+
+
+
 def erodeBlobsPoints (pointSet, img, minFill = 1, maxFill = 9 ):
    numChanged = 0
    retPoints = set()
@@ -1367,7 +1472,7 @@ def removeBackground(cv_img):
    #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
    denoise_k = 5 / 1000.0
    smooth_k  = 3 / 100.0
-   ink_thresh = 90
+   ink_thresh = 54
    width = cv_img.cols
 
    denoise_k = max (1, int(denoise_k * width))
@@ -1386,51 +1491,49 @@ def removeBackground(cv_img):
    #Create histogram for single channel (0..255 range), into 255 bins
    bg_img = gray_img
    emph_img = bg_img
-   while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows:
-      #printHistogramList(getHistogramList(bg_img), granularity = 5)
 
+   #Generate the "background image"
+   while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows:
       print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
       bg_img = smooth(bg_img, ksize=smooth_k, t='median')
       smooth_k = int(smooth_k * 1.1)
       if smooth_k % 2 == 0:
          smooth_k += 1
-
    bg_img = invert(bg_img)
-
    if(DEBUG):
       saveimg(gray_img)
-  
+
+   #Remove the "background" data from the original image
    cv.AddWeighted(gray_img, 0.5, bg_img, 0.5, 0.0, gray_img )
    if(DEBUG):
       saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
-   gray_img = invert(gray_img)
 
-   #gray_img = smooth(gray_img, ksize=3, t='median')
+   #Convert the black ink to white and amplify!
+   gray_img = invert(gray_img)
    if(DEBUG):
       saveimg(gray_img)
-   for i in [3]: #xrange(3):
-      gray_img2 = smooth(gray_img, ksize=i, t='median')
-      gamma = (i * 2 - 2)* -128 - 100
+   for i in [3, 2]: #xrange(3):
+      gray_img2 = smooth(gray_img, ksize=3, t='median')
+      gamma = ( (i * 2 - 2)* -128) - 127
       cv.AddWeighted(gray_img, i, gray_img2, i, gamma, gray_img )
       if(DEBUG):
          saveimg(gray_img)
    gray_img = invert(gray_img)
    if(DEBUG):
       saveimg(gray_img)
-   #gray_img = smooth(gray_img, ksize=denoise_k)
-   #saveimg(gray_img)
-   #gray_img = smooth(gray_img, ksize=3, t='gauss')
-   if(DEBUG):
-      saveimg(gray_img)
+
+
+
+   #Binarize the amplified ink image
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
    if(DEBUG):
       saveimg(gray_img)
+
    #_, _, gray_img = erodeBlobsPoints(AllPtsIter(gray_img.cols, gray_img.rows), gray_img)
    #show(gray_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
 
-   #exit(1)
    return gray_img
 
 
@@ -1461,7 +1564,8 @@ def blobsToStrokes(img):
    isHollowed = False
 
    chartFile = open("pointsData.txt", "w")
-   numChanged, pointSet, img = erodeBlobsPoints(pointSet, img, maxFill = 6)
+   #cleanContours(pointSet, img)
+   #numChanged, pointSet, img = erodeBlobsPoints(pointSet, img, maxFill = 6)
    while changed1 or changed2:
       passnum += 1
       print "Pass %s" % (passnum)
@@ -1567,6 +1671,9 @@ def saveimg(cv_img, name = None, outdir = "./temp/", title=""):
 def main(args):
    global SQUARE_ERROR, PRUNING_ERROR, DEBUG
    DEBUG = True
+
+   #debugTester(args)
+
    if len (args) < 2:
       print( "Usage: %s <image_file> [output_file]" % (args[0]))
       exit(1)
@@ -1593,6 +1700,14 @@ def main(args):
 
 
 
+def debugTester(args):
+   print " px, py, x1, y1, x2, y2 "
+   pt = ( int (args[1]), int(args[2]) )
+   ls1 = ( int (args[3]), int(args[4]) )
+   ls2 = ( int (args[5]), int(args[6]) )
+
+   print pointDistanceFromLine( pt, (ls1, ls2) )
+   exit(0)
 
 if __name__ == "__main__":
    import sys
