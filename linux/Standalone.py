@@ -69,7 +69,7 @@ def _initializeBoard(board):
     """
 
     if board is not None:
-        RubineObserver.RubineMarker(board, "rubine.dat", debug=False)
+        RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
         #Rubine.RubineVisualizer(board)
 
         DirectedLine.DirectedLineMarker(board)

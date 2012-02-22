@@ -323,11 +323,11 @@ class RubineTrainer():
     def reset(self):
         """ Resets the trainer """
         self.count = -1
-        self.features = []
+        self.features = [] #Lists of example stroke feature vectors indexed by gesture class
 
-        self.weights = []
-        self.names = []
-        self.weight0 = 0
+        self.weights = [] #Vectors of feature weights indexed by gesture class
+        self.names = [] #Names of each gesture, indexed by gesture class
+        self.weight0 = [] #List of "zero" weights indexed by class
 
         self.covarianceMatrixInverse = []
         self.averages = []
@@ -365,20 +365,28 @@ class RubineTrainer():
         if self.debug:
             print "Stroke added to class: " + self.names[i]
 
-        feature = self.featureSet.generateVector([stroke])#getRubineVector(stroke)
-        self.features[i].append(feature)
+        strokeFeatureVector = self.featureSet.generateVector([stroke])#getRubineVector(stroke)
+        self.features[i].append(strokeFeatureVector)
 
     def _getCovMatrixForClass(self, c, averages):
         """ Calculates the covariance matrix for a class. For Internal use only """
-        cmc = mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
-        for i in range(len(self.features[c][0])):
-            for j in range(len(self.features[c][0])):
-                for e in self.features[c]:
-                    cmc[i,j] += (e[i] - averages[c][i]) * ( e[j] - averages[c][j])
+        numFeatures = len(self.features[c][0])
+        cmc = mat( zeros( (numFeatures, numFeatures))  ) 
+
+        #cmc = mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
+        #for i in range(len(self.features[c][0])): #Number of features
+            #for j in range(len(self.features[c][0])):
+
+        for f_i in range (numFeatures):
+            for f_j in range (numFeatures):
+                for sVect in self.features[c]:
+                    cmc[f_i,f_j] += (sVect[f_i] - averages[c][f_i]) * ( sVect[f_j] - averages[c][f_j])
         return cmc
 
     def _getAverageForClass(self, examples):
-        """ Calculates the averages for a class. For Internal use only """
+        """ Given list of example stroke feature vectors, calculates the averages 
+        feature values for a class. Returns list of averages indexed by feature 
+        number. For Internal use only """
         averages = zeros(len(examples[0]))
         for e in examples: 
             for i in range(len(e)):
@@ -392,35 +400,37 @@ class RubineTrainer():
     def calculateWeights(self):
         """ Creates teh training data based on the current classes. Call this before saving the weights """
         self.averages = []
-        cm =  mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
+        numFeatures = len(self.features[0][0])
+        cm =  mat(zeros((numFeatures, numFeatures)))
         cmc = [] # covariance matrix for each class
-        for c in self.features: # the gesture classes
-            self.averages.append(self._getAverageForClass(c))
+        for fVectList in self.features: # the gesture classes
+            self.averages.append(self._getAverageForClass(fVectList))
             
-        dividor = -len(self.features)
-        for c in range(len(self.features)):
-            dividor += len(self.features[c])
+        numClasses = len(self.features)
+        dividor = - numClasses # - number of classes
+        for c in range(numClasses):
+            dividor += len(self.features[c]) #number of examples for class c
             cmc.append(self._getCovMatrixForClass(c, self.averages))
 
-        for i in range(len(self.features[0][0])):
-            for j in range(len(self.features[0][0])):
-                for c in range(len(self.features)):
-                    cm[i,j] += (cmc[c])[i,j] # / (len(self.features[0]) - 1)
-                cm[i,j] /= dividor
+        for f_i in range(numFeatures):
+            for f_j in range(numFeatures):
+                for c in range(numClasses):
+                    cm[f_i,f_j] += (cmc[c])[f_i,f_j] # / (len(self.features[0]) - 1)
+                cm[f_i,f_j] /= dividor
 
         #print cm
         #print linalg.det(cm)
         cm = cm.I
         self.covarianceMatrixInverse = cm
 
-        self.weight0 = zeros(len(self.features))
-        for c in range(len(self.features)):
-            self.weights.append(zeros(len(self.features[c][0])))
-            for j in range(len(self.features[0][0])):
-                for i in range(len(self.features[0][0])):
-                    self.weights[c][j] += cm[i,j] * self.averages[c][i]
-                self.weight0[c] +=  self.weights[c][j] * self.averages[c][j]
-            self.weight0[c] /= -2
+        self.weight0 = zeros(numClasses)
+        for c in range(numClasses):
+            self.weights.append(zeros( numFeatures ))
+            for f_j in range(numFeatures):
+                for f_i in range(numFeatures):
+                    self.weights[c][f_j] += cm[f_i,f_j] * self.averages[c][f_i]
+                self.weight0[c] +=  self.weights[c][f_j] * self.averages[c][f_j]
+            self.weight0[c] /= -2.0
 
         # normalize the weights
         maxWeight = 0.0
@@ -444,12 +454,15 @@ class RubineTrainer():
     def saveWeights(self, fileName):
         """ Saves the current trainning data to a file given by fileName. This file can then be loaded by the rubine classifier """
         
+        self.calculateWeights()
+
         if self.debug:
             print "Saving training data to file: " + fileName
         
         TB = ET.TreeBuilder()
         TB.start("rubine", {})
 
+        pdb.set_trace()
         for i in range(self.count + 1):
             TB.start("class", {'name':self.names[i]})
             TB.start("weight0", {})

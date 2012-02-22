@@ -60,12 +60,10 @@ class RubineAnnotation(Annotation):
 class RubineMarker( BoardObserver ):
     """Classifies strokes based on the Rubine classifier"""
 
-    classifier = None
-
-    def __init__(self, board, file, debug=False):
-        """ Initiates the Rubine classifier. file is the name of a file containing the training data to be used. """
+    def __init__(self, board, fname, debug=False):
+        """ Initiates the Rubine classifier. fname is the name of a file containing the training data to be used. """
         BoardObserver.__init__(self, board)
-        self.classifier = Rubine.RubineClassifier(file, debug)
+        self.classifier = Rubine.RubineClassifier(fname, debug)
         self.getBoard().AddBoardObserver( self , [RubineAnnotation])
         self.getBoard().RegisterForStroke( self )
 
@@ -77,6 +75,7 @@ class RubineMarker( BoardObserver ):
             return
         height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y        
         self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(name, height , 0))
+
 
 #------------------------------------------------------------
 
