@@ -189,13 +189,6 @@ class RubineFeatureSet(FeatureSet):
 class RubineClassifier():
     """Classifies strokes based on the Rubine classifier"""
 
-    weights = []
-    names = []
-    weight0 = []
-
-    covarianceMatrixInverse = []
-    averages = []
-    debug = False
 
     def __init__(self, file, debug=False):
         """ Initiates the rubin classifier.
@@ -204,8 +197,14 @@ class RubineClassifier():
 
         """
         self.debug = debug
-        self.loadWeights(file)
         self.featureSet = RubineFeatureSet()
+        self.weights = []
+        self.names = []
+        self.weight0 = []
+
+        self.covarianceMatrixInverse = []
+        self.averages = []
+        self.loadWeights(file)
 
     def loadWeights(self, file):
         """ Loads the training data in the file. File is a file name """
@@ -314,17 +313,6 @@ class RubineTrainer():
             This file can then be used to initate the rubine classifier
     """
 
-    count = -1
-
-    features = []
-
-    weights = []
-    names = []
-    weight0 = []
-
-    covarianceMatrixInverse = []
-    averages = []
-    debug = False
 
     def __init__(self, debug = False):
         """Initiates the rubine trainer."""
@@ -334,15 +322,15 @@ class RubineTrainer():
 
     def reset(self):
         """ Resets the trainer """
-        count = -1
-        features = []
+        self.count = -1
+        self.features = []
 
-        weights = []
-        names = []
-        weight0 = 0
+        self.weights = []
+        self.names = []
+        self.weight0 = 0
 
-        covarianceMatrixInverse = []
-        averages = []
+        self.covarianceMatrixInverse = []
+        self.averages = []
 
     def newClass(self, name = None):
         """ Creates a new class for the trainer. Name must be a string.
