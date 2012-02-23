@@ -120,7 +120,10 @@ def standAloneMain():
     GUI.run()
 
 if __name__ == '__main__':
-    
+   
+
+    # to aviod loading all the obsevers when using the data manager,
+    # pass the command line arg, "Test"
     if (len(sys.argv) > 1):
         if sys.argv[1] == "test":
             SketchSystem.globtest = True
