@@ -31,77 +31,86 @@ from Observers import TestAnimObserver
 from Observers import RubineObserver
 from Bin import BinObserver, EqualsObserver, PlusObserver, MinusObserver, DivideObserver, MultObserver, ExpressionObserver, EquationObserver, DirectedLine
 from Observers import NumberObserver
+import SketchSystem
+import DataManager
+
+globtest = False
 
 def initialize(Board):
     " This function calls the board and board observer initialization code. Interface code should import this function"
 
     Board.Reset()
-    
-    #TestAnimObserver.TestMarker()
-    #TestAnimObserver.TestAnimator(fps = 1 / 3.0)
-    #RaceTrackObserver.SplitStrokeMarker()
-    #RaceTrackObserver.SplitStrokeVisualizer()
-    #RaceTrackObserver.RaceTrackMarker()
-    #RaceTrackObserver.RaceTrackVisualizer()
-    #CircleObserver.CircleMarker()
-    #CircleObserver.CircleVisualizer()
-    #ArrowObserver.ArrowMarker()
-    #ArrowObserver.ArrowVisualizer()
-    LineObserver.LineMarker()
-    LineObserver.LineVisualizer()
-    #TextObserver.TextCollector()
-    #TextObserver.TextVisualizer()
-    #DiGraphObserver.DiGraphMarker()
-    #DiGraphObserver.DiGraphVisualizer()
-    #DiGraphObserver.DiGraphExporter()
-    #TuringMachineObserver.TuringMachineCollector()
-    #TuringMachineObserver.TuringMachineAnimator()
-    #TuringMachineObserver.TuringMachineExporter()
-    
-    #TemplateObserver.TemplateMarker()
-    #TemplateObserver.TemplateVisualizer()
-
-    RubineObserver.RubineMarker("rubine.dat", debug=False)
-    #Rubine.RubineVisualizer()
-
-    DirectedLine.DirectedLineMarker()
-
-    NumberObserver.NumCollector()
-    NumberObserver.NumVisualizer()
-
-    #BinObserver.BinCollector()
-    #BinObserver.BinVisualizer()
-    EqualsObserver.EqualsMarker()
-    EqualsObserver.EqualsVisualizer()
-    PlusObserver.PlusMarker()
-    PlusObserver.PlusVisualizer()
-    MinusObserver.MinusMarker()
-    MinusObserver.MinusVisualizer()
-    DivideObserver.DivideMarker()
-    DivideObserver.DivideVisualizer()
-    MultObserver.MultMarker()
-    MultObserver.MultVisualizer()
-    ExpressionObserver.ExpressionObserver()
-    ExpressionObserver.ExpressionVisualizer()
-    #EquationObserver.EquationObserver()
-    #EquationObserver.EquationVisualizer()
-    
     #d = DebugObserver.DebugObserver()
-    #d.trackAnnotation(TestAnimObserver.TestAnnotation)
-    #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
-    #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
-    #d.trackAnnotation(LineObserver.LineAnnotation)
-    #d.trackAnnotation(ArrowObserver.ArrowAnnotation)
-    #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
-    #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
-    #d.trackAnnotation(CircleObserver.CircleAnnotation)
-    #d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
-    #d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
-    
-    #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
-    #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
-    #d.trackAnnotation(TextObserver.TextAnnotation)
-    #d.trackAnnotation(BarAnnotation)
+   # d.trackAnnotation(DataManager.DataManager.)
+
+    if SketchSystem.globtest:
+        pass
+    else:
+        #TestAnimObserver.TestMarker()
+        #TestAnimObserver.TestAnimator(fps = 1 / 3.0)
+        #RaceTrackObserver.SplitStrokeMarker()
+        #RaceTrackObserver.SplitStrokeVisualizer()
+        #RaceTrackObserver.RaceTrackMarker()
+        #RaceTrackObserver.RaceTrackVisualizer()
+        #CircleObserver.CircleMarker()
+        #CircleObserver.CircleVisualizer()
+        #ArrowObserver.ArrowMarker()
+        #ArrowObserver.ArrowVisualizer()
+        LineObserver.LineMarker()
+        LineObserver.LineVisualizer()
+        #TextObserver.TextCollector()
+        #TextObserver.TextVisualizer()
+        #DiGraphObserver.DiGraphMarker()
+        #DiGraphObserver.DiGraphVisualizer()
+        #DiGraphObserver.DiGraphExporter()
+        #TuringMachineObserver.TuringMachineCollector()
+        #TuringMachineObserver.TuringMachineAnimator()
+        #TuringMachineObserver.TuringMachineExporter()
+        
+        #TemplateObserver.TemplateMarker()
+        #TemplateObserver.TemplateVisualizer()
+
+        RubineObserver.RubineMarker("rubine.dat", debug=False)
+        #Rubine.RubineVisualizer()
+
+        DirectedLine.DirectedLineMarker()
+
+        NumberObserver.NumCollector()
+        NumberObserver.NumVisualizer()
+
+        #BinObserver.BinCollector()
+        #BinObserver.BinVisualizer()
+        EqualsObserver.EqualsMarker()
+        EqualsObserver.EqualsVisualizer()
+        PlusObserver.PlusMarker()
+        PlusObserver.PlusVisualizer()
+        MinusObserver.MinusMarker()
+        MinusObserver.MinusVisualizer()
+        DivideObserver.DivideMarker()
+        DivideObserver.DivideVisualizer()
+        MultObserver.MultMarker()
+        MultObserver.MultVisualizer()
+        ExpressionObserver.ExpressionObserver()
+        ExpressionObserver.ExpressionVisualizer()
+        #EquationObserver.EquationObserver()
+        #EquationObserver.EquationVisualizer()
+        
+        #
+        #d.trackAnnotation(TestAnimObserver.TestAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
+        #d.trackAnnotation(LineObserver.LineAnnotation)
+        #d.trackAnnotation(ArrowObserver.ArrowAnnotation)
+        #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
+        #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
+        #d.trackAnnotation(CircleObserver.CircleAnnotation)
+        #d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
+        #d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
+        
+        #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
+        #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
+        #d.trackAnnotation(TextObserver.TextAnnotation)
+        #d.trackAnnotation(BarAnnotation)
     
 
 def standAloneMain():
@@ -110,6 +119,11 @@ def standAloneMain():
     #GUI.LoadApp()
     GUI.run()
 
-if __name__ == '__main__':   
+if __name__ == '__main__':
+    
+    if (len(sys.argv) > 1):
+        if sys.argv[1] == "test":
+            SketchSystem.globtest = True
+
     standAloneMain()
  

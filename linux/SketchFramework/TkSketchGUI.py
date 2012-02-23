@@ -207,6 +207,120 @@ class TkSketchFrame(Frame):
         self.rubine_menu.add_command(label="New Class", command = (lambda :self.trainer.newClass() or self.Redraw()), underline=1 )
         self.rubine_menu.add_command(label="Save Weights", command = (lambda :self.trainer.saveWeights("rubine.dat") or self.Redraw()), underline=1 )
         #self.rubine_menu.add_command(label="Load Weights", command = (lambda :trainer.loadWeights() or self.Redraw()), underline=1 )
+
+        
+        # code that loads the data manager
+        self.dataManager_menu = Menu(top_menu)
+        top_menu.add_cascade(label="Data Manager", menu=self.dataManager_menu)
+        self.dataManager_menu.add_command(label="Load Data Manager", command = (lambda :self.loadDataManaer() or self.Redraw()), underline=1 )
+        self.dataManager_menu.add_command(label="Next Participant", command = (lambda :self.nextParticipant() or self.Redraw()), underline=1 )
+        self.dataManager_menu.add_command(label="Prev Participant", command = (lambda :self.prevParticipant() or self.Redraw()), underline=1 )
+        self.dataManager_menu.add_command(label="Next Diagram", command = (lambda :self.nextDiagram() or self.Redraw()), underline=1 )
+        self.dataManager_menu.add_command(label="Prev Diagram", command = (lambda :self.prevDiagram() or self.Redraw()), underline=1 )
+
+    def nextParticipant(self):
+        if self.participant + 1 >= len(self.dataset.participants):
+            self.participant = 0
+        else:
+            self.participant += 1
+        self.displayDataManager()
+
+    def prevParticipant(self):
+        if self.participant - 1 <= -1:
+            self.participant = len(self.dataset.participants) - 1
+        else:
+            self.participant -= 1
+        self.displayDataManager()
+
+    def nextDiagram(self):
+        p = self.participant
+        if self.diagram + 1 >= len(self.dataset.participants[p].diagrams):
+            self.diagram = 0
+        else:
+            self.diagram += 1
+        self.displayDataManager()
+
+    def prevDiagram(self):
+        p = self.participant
+        if self.diagram - 1 <= -1:
+            self.diagram = len(self.dataset.participants[p].diagrams) - 1
+        else:
+            self.diagram -= 1
+        self.displayDataManager()
+        
+    def loadDataManaer(self):
+        import DataManager
+        DataManager.DataManagerVisualizer()
+
+        # the string is the xml file you want to load.
+        self.dataset = DataManager.loadDataset("UI_Org_Graph_raw_small.xml")
+        self.participant = 0
+        self.diagram = 0
+        self.displayDataManager()
+
+    def displayDataManager(self):
+        from Utils import GeomUtils
+        import DataManager
+       
+        self.ResetBoard()
+        print self.dataset.participants[self.participant].diagrams[self.diagram].type
+
+        xMax = 0
+        yMax = 0
+        xMin = sys.maxint
+        yMin = sys.maxint
+
+        par = self.participant
+        dig = self.diagram
+
+
+        # Finds the min and max points so we can scale the data to fit on the screen
+        for inkStroke in self.dataset.participants[par].diagrams[dig].InkStrokes:
+            stroke = inkStroke.stroke
+            ul,br = GeomUtils.strokelistBoundingBox([stroke])
+            if ul.X > xMax:
+                xMax = ul.X
+            elif br.X < xMin:
+                xMin = br.X
+
+            if ul.Y > yMax:
+                yMax = ul.Y
+            elif br.Y < yMin:
+                yMin = br.Y
+
+        # Find the distance that the strokes take up
+        # the "+ 20" is so we can have a 10 pixle buffer around the edges
+        xDiff = xMax - xMin + 20
+        yDiff = yMax - yMin + 20
+
+        # And create a scale factor
+        xFactor = WIDTH / xDiff
+        yFactor = HEIGHT / yDiff
+
+        #print str(xMin) + " : " + str(xMax) + " : " + str(xDiff)
+        #print str(yMin) + " : " + str(yMax) + " : " + str(yDiff)
+
+        for inkStroke in self.dataset.participants[par].diagrams[dig].InkStrokes:
+            #print inkStroke.id
+            stroke = inkStroke.stroke
+            points = []
+            
+            # scale each point to it's new position
+            for p in stroke.Points:
+                x = (p.X - xMin) * xFactor + 10 # the "+10 is for the 10 pixle boarder
+                # y axis points in the data manager are inverted compaired to our screen
+                # so we invert them
+                y = HEIGHT - ((p.Y - yMin) * yFactor + 10)
+                points.append(Point(x,y))
+
+            # create a new stroke out of the scaled points and add it to the board.
+            s = Stroke(points)
+            self.Board.AddStroke(s)
+            self.StrokeList.append(s)
+            # Annotate the stroke wit the type given in the data manager
+            BoardSingleton().AnnotateStrokes( [s],  DataManager.DataManagerAnnotation(inkStroke.label.type))
+
+        
         
     def startTraining(self): 
         self.isTraining = True
