@@ -19,7 +19,6 @@ from SketchFramework import Point
 from SketchFramework import Stroke
 from SketchFramework import SketchGUI
 from SketchFramework.Annotation import Annotation
-from SketchFramework.Board import BoardObserver, BoardSingleton
 
 
 logger = Logger.getLogger('TemplateDict', Logger.WARN )

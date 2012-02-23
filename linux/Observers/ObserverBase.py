@@ -32,7 +32,7 @@ from Utils import Logger
 from Utils import GeomUtils
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver, Board
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 logger = Logger.getLogger('ObserverBase', Logger.WARN )
@@ -40,9 +40,10 @@ logger = Logger.getLogger('ObserverBase', Logger.WARN )
 
 class Visualizer( BoardObserver ):
     "Watches for annotations, draws them"
-    def __init__(self, anno_type):
-        BoardSingleton().AddBoardObserver( self , [])
-        BoardSingleton().RegisterForAnnotation( anno_type, self )
+    def __init__(self, board, anno_type):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self , [])
+        self.getBoard().RegisterForAnnotation( anno_type, self )
         self.annotation_list = []
 
     def onAnnotationAdded( self, strokes, annotation ):
@@ -71,13 +72,13 @@ class Animator( Visualizer ):
     "Watches for annotations, animates them at about the specified fps. The annotation must "
     CALLTIMES = {} #Maps an annotation to the last time it was "stepped"
 
-    def __init__(self, anno_type = None, fps = 1):
+    def __init__(self, board, anno_type = None, fps = 1):
         anim_logger.debug("Initializing: Watch for %s" % (anno_type))
         if not hasattr(anno_type, "step"):
             anim_logger.error("%s must implement 'step'" % (anno_type.__name__))
             raise NotImplementedError
 
-        Visualizer.__init__(self, anno_type)
+        Visualizer.__init__(self, board, anno_type)
 
         self.fps = fps
 
@@ -108,11 +109,12 @@ class Collector( BoardObserver ):
     # mergeCollections takes two collections and merges them into one if possible.
     # If this collector adds annotations other than the collection_annotype, list them in other_target_annos
 
-    def __init__(self, item_annotype_list, collection_annotype, other_target_annos = []):
-        BoardSingleton().AddBoardObserver( self , [collection_annotype])
+    def __init__(self, board, item_annotype_list, collection_annotype, other_target_annos = []):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self , [collection_annotype])
         for annotype in item_annotype_list:
-            BoardSingleton().RegisterForAnnotation( annotype, self )
-        BoardSingleton().RegisterForAnnotation( collection_annotype, self )
+            self.getBoard().RegisterForAnnotation( annotype, self )
+        self.getBoard().RegisterForAnnotation( collection_annotype, self )
         self.all_collections = set([])   
         self.item_annotype_list = item_annotype_list      # types of the "items"  (e.g. CircleAnnotation, ArrowAnnotation)
         self.collection_annotype = collection_annotype    # type of the "collection" (e.g. DiGraphAnnotation)
@@ -126,7 +128,7 @@ class Collector( BoardObserver ):
                     collection = self.collectionFromItem( strokes, annotation )
                     if collection is not None:
                         self.all_collections.add( collection )
-                        BoardSingleton().AnnotateStrokes( strokes, collection )
+                        self.getBoard().AnnotateStrokes( strokes, collection )
         self._merge_all_collections()
 
     def onAnnotationRemoved( self, annotation ):
@@ -154,7 +156,7 @@ class Collector( BoardObserver ):
 
             #Remove any collections that may depend on this annotation
             for anno in all_collection_annos:
-                BoardSingleton().RemoveAnnotation(anno)
+                self.getBoard().RemoveAnnotation(anno)
 
             #Rebuild the annotations as needed from the remaining parts
             for anno in all_item_annos:
@@ -175,8 +177,8 @@ class Collector( BoardObserver ):
                     # calculate the new set of strokes for the collection
                     new_strokes = list( set(from_anno.Strokes).union( set(to_anno.Strokes) ) )
                     # now tell the board about what is happening
-                    BoardSingleton().UpdateAnnotation( to_anno, new_strokes )
-                    BoardSingleton().RemoveAnnotation( from_anno )
+                    self.getBoard().UpdateAnnotation( to_anno, new_strokes )
+                    self.getBoard().RemoveAnnotation( from_anno )
                     # we just removed the "from" anno so we don't need to try and merge 
                     # it any more. Just pop out of this inner loop and get a new "from"
                     break

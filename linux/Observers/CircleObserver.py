@@ -27,13 +27,12 @@ example of something is a circle
 
 import math
 import sys
-from SketchFramework import SketchGUI
 
 from Utils import Logger
 from Utils import GeomUtils
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -64,11 +63,12 @@ class CircleAnnotation(Annotation):
 
 class CircleMarker( BoardObserver ):
     "Watches for Circle, and annotates them with the circularity, center and the radius"
-    def __init__(self, circularity_threshold=0.90):
+    def __init__(self, board, circularity_threshold=0.90):
         # TODO: we may wish to add the ability to expose/centralize these thresholds
         # so that they can be tuned differently for various enviornments
-        BoardSingleton().AddBoardObserver( self , [CircleAnnotation])
-        BoardSingleton().RegisterForStroke( self )
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self , [CircleAnnotation])
+        self.getBoard().RegisterForStroke( self )
 	self.threshold = circularity_threshold;
 
     def onStrokeAdded( self, stroke ):
@@ -88,21 +88,22 @@ class CircleMarker( BoardObserver ):
             cen = stroke.Center
             avgDist = GeomUtils.averageDistance( cen, stroke.Points )
             anno = CircleAnnotation( circ_norm, cen, avgDist )
-            BoardSingleton().AnnotateStrokes( [stroke],  anno)
+            self.getBoard().AnnotateStrokes( [stroke],  anno)
 
 
     def onStrokeRemoved(self, stroke):
 	"When a stroke is removed, remove circle annotation if found"
     	for anno in stroke.findAnnotations(CircleAnnotation, True):
-            BoardSingleton().RemoveAnnotation(anno)
+            self.getBoard().RemoveAnnotation(anno)
 
 #-------------------------------------
 
 class CircleVisualizer( BoardObserver ):
     "Watches for Circle annotations, draws them"
-    def __init__(self):
-        BoardSingleton().AddBoardObserver( self, [] )
-        BoardSingleton().RegisterForAnnotation( CircleAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [] )
+        self.getBoard().RegisterForAnnotation( CircleAnnotation, self )
         self.annotation_list = []
 
     def onAnnotationAdded( self, strokes, annotation ):
@@ -122,7 +123,7 @@ class CircleVisualizer( BoardObserver ):
 
     def drawMyself( self ):
 	for a in self.annotation_list:
-            SketchGUI.drawCircle( a.center.X,a.center.Y, radius=a.radius, color="#bbbbff", width=2.0)
+            self.getBoard().getGUI().drawCircle( a.center.X,a.center.Y, radius=a.radius, color="#bbbbff", width=2.0)
 
 #-------------------------------------
 # if executed by itself, run all the doc tests
