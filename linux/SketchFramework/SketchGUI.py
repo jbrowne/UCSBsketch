@@ -19,7 +19,6 @@ WIDTH = 1280
 from Point import Point
 from Utils import Logger
 #from SketchFramework.Stroke import Stroke
-#from SketchFramework.Board import BoardSingleton
 
 class _SketchGUI(object):
     HEIGHT = 800

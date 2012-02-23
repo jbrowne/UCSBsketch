@@ -44,19 +44,17 @@ class Stroke(AnnotatableObject):
             if all(type(i)==tuple for i in points):
                 points = [ Point(x,y) for (x,y) in points ]
             # turning smoothing off is very handy for testing
-            """
-            if smoothing: 
-                # get rid of redundant points
-                rfree = [ points[0] ]
-                rfree.extend( [ b for (a,b) in zip(points[:-1],points[1:]) if (a.X!=b.X or a.Y!=b.Y or a.T!=b.T)] )
-                logger.debug( "redundant points: %d", len(points) - len(rfree) )
-                logger.debug( "raw points: %s", [str(i) for i in points] )
-                # smooth over the rest
-                from Utis.GeomUtils import smooth
-                points = smooth( rfree  )
-            """
-            for p in points:
-                self.addPoint(p)
+            self.Points = points
+            xlist = [p.X for p in points]
+            ylist = [p.Y for p in points]
+            ( left , right ) = min(xlist), max(xlist)
+            ( bottom, top ) = min(ylist), max(ylist)
+            self.BoundTopLeft = Point(left, top)
+            self.BoundBottomRight = Point(right, bottom)
+
+            self.X = (left + right) / 2
+            self.Y = (top + bottom) / 2
+            self.Center = Point(self.X, self.Y)
 
     def xml(self):
         root = ET.Element("Stroke")

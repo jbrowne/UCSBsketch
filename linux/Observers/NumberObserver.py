@@ -25,10 +25,9 @@ from Utils import GeomUtils
 from Observers import ObserverBase
 from Observers import RubineObserver
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -61,22 +60,22 @@ class NumAnnotation(Annotation):
 l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
 class _NumMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
-    def __init__(self):
-        BoardObserver.__init__(self)
-        BoardSingleton().AddBoardObserver( self, [NumAnnotation] )
-        BoardSingleton().RegisterForAnnotation( RubineObserver.RubineAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [NumAnnotation] )
+        self.getBoard().RegisterForAnnotation( RubineObserver.RubineAnnotation, self )
     
     def onAnnotationAdded( self, strokes, annotation ):
-        BoardSingleton().AnnotateStrokes(strokes, NumAnnotation(annotation.type, annotation.scale) )        
+        self.getBoard().AnnotateStrokes(strokes, NumAnnotation(annotation.type, annotation.scale) )        
 
 #-------------------------------------
 tc_logger = Logger.getLogger("TextCollector", Logger.WARN)
 
 class NumCollector( ObserverBase.Collector ):
     "Watches for strokes that look like text"
-    def __init__(self, circularity_threshold=0.90):
-        _NumMarker()
-        ObserverBase.Collector.__init__( self, [], NumAnnotation  )
+    def __init__(self, board, circularity_threshold=0.90):
+        _NumMarker(board)
+        ObserverBase.Collector.__init__(self, board, [], NumAnnotation  )
 
     horizDistRatio = 1.0
 
@@ -212,8 +211,8 @@ class NumCollector( ObserverBase.Collector ):
 
 class NumVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, NumAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__(self, board, NumAnnotation )
 
     def onAnnotationRemoved(self, annotation):
         "Watches for annotations to be removed"
@@ -228,9 +227,9 @@ class NumVisualizer( ObserverBase.Visualizer ):
         midpointX = (ul.X + br.X) / 2
         left_x = midpointX - a.scale / 2.0
         right_x = midpointX + a.scale / 2.0
-        #SketchGUI.drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
+        #self.getBoard().getGUI().drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
         y = br.Y
-        SketchGUI.drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
+        self.getBoard().getGUI().drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

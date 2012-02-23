@@ -21,10 +21,9 @@ from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -64,10 +63,10 @@ l_logger = Logger.getLogger('DirectedLineMarker', Logger.WARN)
 class DirectedLineMarker( BoardObserver ):
     """Takes a line and annotates it with direction"""
 
-    def __init__(self):
-        BoardObserver.__init__(self)
-        BoardSingleton().AddBoardObserver( self, [H_LineAnnotation, V_LineAnnotation, TB_LineAnnotation, BT_LineAnnotation] )
-        BoardSingleton().RegisterForAnnotation( LineObserver.LineAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [H_LineAnnotation, V_LineAnnotation, TB_LineAnnotation, BT_LineAnnotation] )
+        self.getBoard().RegisterForAnnotation( LineObserver.LineAnnotation, self )
 
     def onAnnotationAdded( self, strokes, annotation ):
         threshold = 10
@@ -85,14 +84,14 @@ class DirectedLineMarker( BoardObserver ):
         print a
 
         if a > 0 - threshold and a < 0 + threshold:
-            BoardSingleton().AnnotateStrokes( strokes, H_LineAnnotation(l, a, sp ,ep) )
+            self.getBoard().AnnotateStrokes( strokes, H_LineAnnotation(l, a, sp ,ep) )
             print "H-Line"
         elif a > 90 - threshold or a < -90 + threshold:
-            BoardSingleton().AnnotateStrokes( strokes, V_LineAnnotation(l, a, sp ,ep) )
+            self.getBoard().AnnotateStrokes( strokes, V_LineAnnotation(l, a, sp ,ep) )
             print "V-Line"
         elif a > 45 - d_threshold and a < 45 + d_threshold:
-            BoardSingleton().AnnotateStrokes( strokes, BT_LineAnnotation(l, a, sp ,ep) )
+            self.getBoard().AnnotateStrokes( strokes, BT_LineAnnotation(l, a, sp ,ep) )
             print "BT-Line"
         elif a > -45 - d_threshold and a < -45 + d_threshold:
-            BoardSingleton().AnnotateStrokes( strokes, TB_LineAnnotation(l, a, sp ,ep) )
+            self.getBoard().AnnotateStrokes( strokes, TB_LineAnnotation(l, a, sp ,ep) )
             print "TB-Line"

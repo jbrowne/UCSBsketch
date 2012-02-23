@@ -54,7 +54,7 @@ class LineMarker( BoardObserver ):
         BoardObserver.__init__(self, board)
         self.getBoard().AddBoardObserver( self , [LineAnnotation])
         self.getBoard().RegisterForStroke( self )
-	    self.threshold = linearity_threshold;
+	self.threshold = linearity_threshold;
 
     def onStrokeAdded( self, stroke ):
         "Watches for Strokes with Circularity > threshold to Annotate"

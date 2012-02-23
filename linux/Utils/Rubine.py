@@ -27,17 +27,168 @@ from numpy  import *
 logger = Logger.getLogger('Rubine', Logger.WARN )
 
 #------------------------------------------------------------
+class FeatureSet(object):
+    """An abstract class for running sets of feature methods on strokes"""
+    def __init__(self):
+        pass
+    def generateVector(strokeList):
+        """This method takes in a list of strokes and returns a tuple of floats for the scores of each feature"""
+        return (0.0)
+
+#------------------------------------------------------------
+class RubineFeatureSet(FeatureSet):
+    def __init__(self):
+        FeatureSet.__init__(self)
+        self._strokeFeatures = [self.f01, self.f02, self.f05, self.f06, self.f07, self.f08, self.f09, self.f10, self.f11]
+        self._bboxFeatures = [self.f03, self.f04]
+
+    def __len__(self):
+        return len(self._strokeFeatures) + len(self._bboxFeatures)
+
+    def generateVector(self, strokeList):
+        """Generate the Rubine feature vector for the list of strokes. Multiple strokes are simply concatenated."""
+        retList = []
+        if len(strokeList) > 1:
+            stroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
+        elif len(strokeList) == 1:
+            stroke = strokeList[0]
+        else:
+            return tuple([0.0] * (len(self._strokeFeatures) + len(self._bboxFeatures)) )
+        # normalize the stroke
+        ul,br = GeomUtils.strokelistBoundingBox( [stroke] )
+        sNorm = GeomUtils.strokeNormalizeSpacing(GeomUtils.strokeSmooth(stroke))
+        for point in sNorm.Points:
+            point.X -= ul.X
+            point.Y -= br.Y
+
+        for feat in self._strokeFeatures:
+            retList.append(feat(stroke))
+        for feat in self._bboxFeatures:
+            retList.append(feat( (ul, br) ))
+        return tuple(retList)
+
+
+    #-----------------------
+    # Stroke-based features
+    #-----------------------
+
+    def f01(self, stroke):
+        # The first feature is the cosine of the inital angle
+        # The second feature is the sine of the inital angle
+        pointList = stroke.Points
+        if len(pointList) > 2 and GeomUtils.pointDist(pointList[0], pointList[2]) != 0:
+            f1 = (pointList[2].X - pointList[0].X) / GeomUtils.pointDist(pointList[0], pointList[2])
+        else:
+            f1 = 0
+        return f1
+
+    def f02(self, stroke):
+        # The first feature is the cosine of the inital angle
+        # The second feature is the sine of the inital angle
+        pointList = stroke.Points
+        if len(pointList) > 2 and GeomUtils.pointDist(pointList[0], pointList[2]) != 0:
+            f2 = (pointList[2].Y - pointList[0].Y) / GeomUtils.pointDist(pointList[0], pointList[2])
+        else:
+            f2 = 0
+        return f2
+    
+
+    def f05(self, stroke):
+        # 5th is the length between the first and last point
+        pointList = stroke.Points
+        f5 = GeomUtils.pointDist(pointList[0], pointList[-1])
+        return f5
+
+    def f06(self, stroke):
+        # the 6th and 7th are the cosine and sine of the angle between the first and last point
+        pointList = stroke.Points
+        if GeomUtils.pointDist(pointList[0], pointList[-1]) != 0:
+            f6 = (pointList[-1].X - pointList[0].X) / GeomUtils.pointDist(pointList[0], pointList[-1])
+        else:
+            f6 = 0 #You might make the claim that this should be 1, since as they get closer to each other, the delta_x better approximates the pointDist(p1,p2)
+        return f6
+
+    def f07(self, stroke):
+        # the 6th and 7th are the cosine and sine of the angle between the first and last point
+        pointList = stroke.Points
+        if GeomUtils.pointDist(pointList[0], pointList[-1]) != 0:
+            f7 = (pointList[-1].Y - pointList[0].Y) / GeomUtils.pointDist(pointList[0], pointList[-1])
+        else:
+            f7 = 0
+        return f7
+
+    def f08(self, stroke):
+        # 8th and 9th are the sum of the lengths and angles
+        return GeomUtils.strokeLength(stroke)
+
+    def f09(self, stroke):
+        pointList = stroke.Points
+        f9 = 0 # angle sum
+        for i in range(len(pointList) -2):
+            dxp = pointList[i+1].X - pointList[i].X   # delta x sub p
+            dyp = pointList[i+1].Y - pointList[i].Y   # delta y sub p
+
+            if i != 0:
+                dxpOld = pointList[i].X - pointList[i-1].X   # delta x sub (p-1)
+                dypOld = pointList[i].Y - pointList[i-1].Y   # delta y sub (p-1)
+                if (dxp * dxpOld) + (dxp * dxpOld) != 0:
+                    angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
+                    f9 += angle
+        return f9
+
+    def f10(self, stroke):
+        # 10th and 11th are the sum of the absolute value of the angels and to sum of the angles squared
+        pointList = stroke.Points
+        f10 = 0 # sum of the absolute value of the angle
+        for i in range(len(pointList) -2):
+            dxp = pointList[i+1].X - pointList[i].X   # delta x sub p
+            dyp = pointList[i+1].Y - pointList[i].Y   # delta y sub p
+
+            if i != 0:
+                dxpOld = pointList[i].X - pointList[i-1].X   # delta x sub (p-1)
+                dypOld = pointList[i].Y - pointList[i-1].Y   # delta y sub (p-1)
+                if (dxp * dxpOld) + (dxp * dxpOld) != 0:
+                    angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
+                    f10 += math.fabs(angle)
+        return f10
+
+    def f11(self, stroke):
+        # 10th and 11th are the sum of the absolute value of the angels and to sum of the angles squared
+        pointList = stroke.Points
+        f11 = 0 # sum of the angle squared
+        for i in range(len(pointList) -2):
+            dxp = pointList[i+1].X - pointList[i].X   # delta x sub p
+            dyp = pointList[i+1].Y - pointList[i].Y   # delta y sub p
+
+            if i != 0:
+                dxpOld = pointList[i].X - pointList[i-1].X   # delta x sub (p-1)
+                dypOld = pointList[i].Y - pointList[i-1].Y   # delta y sub (p-1)
+                if (dxp * dxpOld) + (dxp * dxpOld) != 0:
+                    angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
+                    f11 += angle*angle
+        return f11
+    #-----------------------
+    # Bounding box-based features
+    #-----------------------
+    def f03(self, bbox):
+        # the third is the length of the diagonal of the bb
+        f3 = GeomUtils.pointDist(bbox[0], bbox[1])
+        return f3
+
+    def f04(self, bbox):
+        # 4th is the angle of the bounding box diagonal
+        ul, br = bbox
+        if (br.X - ul.X) != 0:
+            f4 = math.atan((ul.Y - br.Y)/ (br.X - ul.X))
+        else:
+            f4 = math.pi/2.0  #Should this be pi/2? (lim of f4 as delta_x -> 0)
+        return f4
+
+#------------------------------------------------------------
 
 class RubineClassifier():
     """Classifies strokes based on the Rubine classifier"""
 
-    weights = []
-    names = []
-    weight0 = []
-
-    covarianceMatrixInverse = []
-    averages = []
-    debug = False
 
     def __init__(self, file, debug=False):
         """ Initiates the rubin classifier.
@@ -46,6 +197,13 @@ class RubineClassifier():
 
         """
         self.debug = debug
+        self.featureSet = RubineFeatureSet()
+        self.weights = []
+        self.names = []
+        self.weight0 = []
+
+        self.covarianceMatrixInverse = []
+        self.averages = []
         self.loadWeights(file)
 
     def loadWeights(self, file):
@@ -85,7 +243,7 @@ class RubineClassifier():
         if len(stroke.Points) < 3:
             return None
 
-        rubineVector =  getRubineVector(stroke)
+        rubineVector =  self.featureSet.generateVector([stroke])#getRubineVector(stroke)
 
         max = -100000.0
         maxIndex = 0
@@ -140,73 +298,8 @@ class RubineClassifier():
 
         return self.names[maxIndex]
 
-        #BoardSingleton().AnnotateStrokes( [stroke],  RubineAnnotation(self.names[maxIndex], height , 0))
+        #self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(self.names[maxIndex], height , 0))
 
-#------------------------------------------------------------
-
-def getRubineVector(stroke):
-    # normalize the stroke
-    p = GeomUtils.strokeNormalizeSpacing(GeomUtils.strokeSmooth(stroke)).Points
-    ul,br = GeomUtils.strokelistBoundingBox( [stroke] )
-    for point in p:
-        point.X -= ul.X
-        point.Y -= br.Y
-
-    # scale the stroke to a known length
-    sp = p
-    #sp = scalePointsToSquare(p, 100)
-
-    # The first feature is the cosine of the inital angle
-    # The second feature is the sine of the inital angle
-    if len(sp) > 2 and GeomUtils.pointDist(sp[0], sp[2]) != 0:
-        f1 = (sp[2].X - sp[0].X) / GeomUtils.pointDist(sp[0], sp[2])
-        f2 = (sp[2].Y - sp[0].Y) / GeomUtils.pointDist(sp[0], sp[2])
-    else:
-        f1 = 0
-        f2 = 0
-    
-    # the third is the length of the diagonal of the bb
-    f3 = GeomUtils.pointDist(ul, br)
-    # 4th is the angle of the bounding box diagonal
-    if (br.X - ul.X) != 0:
-        f4 = math.atan((ul.Y - br.Y)/ (br.X - ul.X))
-    else:
-        f4 = 0  #Should this be pi/2? (lim of f4 as delta_x -> 0)
-
-    #last = len(p) - 1 #Can just use index "-1"
-    # 5th is the length between the first and last point
-    f5 = GeomUtils.pointDist(sp[0], sp[-1])
-
-    # the 6th and 7th are the cosine and sine of the angle between the first and last point
-    if GeomUtils.pointDist(sp[0], sp[-1]) != 0:
-        f6 = (sp[-1].X - sp[0].X) / GeomUtils.pointDist(sp[0], sp[-1])
-        f7 = (sp[-1].Y - sp[0].Y) / GeomUtils.pointDist(sp[0], sp[-1])
-    else:
-        f6 = 0 #You might make the claim that this should be 1, since as they get closer to each other, the delta_x better approximates the pointDist(p1,p2)
-        f7 = 0
-
-    # 8th and 9th are the sum of the lengths and angles
-    # 10th and 11th are the sum of the absolute value of the angels and to sum of the angles squared
-    f8 = 0 # length sum
-    f9 = 0 # angle sum
-    f10 = 0 # sum of the absolute value of the angle
-    f11 = 0 # sum of the angle squared
-    for i in range(len(sp) -2):
-        dxp = sp[i+1].X - sp[i].X   # delta x sub p
-        dyp = sp[i+1].Y - sp[i].Y   # delta y sub p
-
-        f8 += math.sqrt(dxp**2 + dyp**2)
-
-        if i != 0:
-            dxpOld = sp[i].X - sp[i-1].X   # delta x sub (p-1)
-            dypOld = sp[i].Y - sp[i-1].Y   # delta y sub (p-1)
-            if (dxp * dxpOld) + (dxp * dxpOld) != 0:
-                angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
-                f9 += angle
-                f10 += math.fabs(angle)
-                f11 += angle*angle
-
-    return [f1, f2, f3, f4, f5, f6, f7, f8, f9, f10 ,f11]
 
 #------------------------------------------------------------
 class RubineTrainer():
@@ -220,34 +313,24 @@ class RubineTrainer():
             This file can then be used to initate the rubine classifier
     """
 
-    count = -1
-
-    features = []
-
-    weights = []
-    names = []
-    weight0 = []
-
-    covarianceMatrixInverse = []
-    averages = []
-    debug = False
 
     def __init__(self, debug = False):
         """Initiates the rubine trainer."""
         self.debug = debug
         self.reset()
+        self.featureSet = RubineFeatureSet()
 
     def reset(self):
         """ Resets the trainer """
-        count = -1
-        features = []
+        self.count = -1
+        self.features = [] #Lists of example stroke feature vectors indexed by gesture class
 
-        weights = []
-        names = []
-        weight0 = 0
+        self.weights = [] #Vectors of feature weights indexed by gesture class
+        self.names = [] #Names of each gesture, indexed by gesture class
+        self.weight0 = [] #List of "zero" weights indexed by class
 
-        covarianceMatrixInverse = []
-        averages = []
+        self.covarianceMatrixInverse = []
+        self.averages = []
 
     def newClass(self, name = None):
         """ Creates a new class for the trainer. Name must be a string.
@@ -282,20 +365,28 @@ class RubineTrainer():
         if self.debug:
             print "Stroke added to class: " + self.names[i]
 
-        feature = getRubineVector(stroke)
-        self.features[i].append(feature)
+        strokeFeatureVector = self.featureSet.generateVector([stroke])#getRubineVector(stroke)
+        self.features[i].append(strokeFeatureVector)
 
     def _getCovMatrixForClass(self, c, averages):
         """ Calculates the covariance matrix for a class. For Internal use only """
-        cmc = mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
-        for i in range(len(self.features[c][0])):
-            for j in range(len(self.features[c][0])):
-                for e in self.features[c]:
-                    cmc[i,j] += (e[i] - averages[c][i]) * ( e[j] - averages[c][j])
+        numFeatures = len(self.features[c][0])
+        cmc = mat( zeros( (numFeatures, numFeatures))  ) 
+
+        #cmc = mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
+        #for i in range(len(self.features[c][0])): #Number of features
+            #for j in range(len(self.features[c][0])):
+
+        for f_i in range (numFeatures):
+            for f_j in range (numFeatures):
+                for sVect in self.features[c]:
+                    cmc[f_i,f_j] += (sVect[f_i] - averages[c][f_i]) * ( sVect[f_j] - averages[c][f_j])
         return cmc
 
     def _getAverageForClass(self, examples):
-        """ Calculates the averages for a class. For Internal use only """
+        """ Given list of example stroke feature vectors, calculates the averages 
+        feature values for a class. Returns list of averages indexed by feature 
+        number. For Internal use only """
         averages = zeros(len(examples[0]))
         for e in examples: 
             for i in range(len(e)):
@@ -309,35 +400,37 @@ class RubineTrainer():
     def calculateWeights(self):
         """ Creates teh training data based on the current classes. Call this before saving the weights """
         self.averages = []
-        cm =  mat(zeros((len(self.features[0][0]),len(self.features[0][0]))))
+        numFeatures = len(self.features[0][0])
+        cm =  mat(zeros((numFeatures, numFeatures)))
         cmc = [] # covariance matrix for each class
-        for c in self.features: # the gesture classes
-            self.averages.append(self._getAverageForClass(c))
+        for fVectList in self.features: # the gesture classes
+            self.averages.append(self._getAverageForClass(fVectList))
             
-        dividor = -len(self.features)
-        for c in range(len(self.features)):
-            dividor += len(self.features[c])
+        numClasses = len(self.features)
+        dividor = - numClasses # - number of classes
+        for c in range(numClasses):
+            dividor += len(self.features[c]) #number of examples for class c
             cmc.append(self._getCovMatrixForClass(c, self.averages))
 
-        for i in range(len(self.features[0][0])):
-            for j in range(len(self.features[0][0])):
-                for c in range(len(self.features)):
-                    cm[i,j] += (cmc[c])[i,j] # / (len(self.features[0]) - 1)
-                cm[i,j] /= dividor
+        for f_i in range(numFeatures):
+            for f_j in range(numFeatures):
+                for c in range(numClasses):
+                    cm[f_i,f_j] += (cmc[c])[f_i,f_j] # / (len(self.features[0]) - 1)
+                cm[f_i,f_j] /= dividor
 
         #print cm
         #print linalg.det(cm)
         cm = cm.I
         self.covarianceMatrixInverse = cm
 
-        self.weight0 = zeros(len(self.features))
-        for c in range(len(self.features)):
-            self.weights.append(zeros(len(self.features[c][0])))
-            for j in range(len(self.features[0][0])):
-                for i in range(len(self.features[0][0])):
-                    self.weights[c][j] += cm[i,j] * self.averages[c][i]
-                self.weight0[c] +=  self.weights[c][j] * self.averages[c][j]
-            self.weight0[c] /= -2
+        self.weight0 = zeros(numClasses)
+        for c in range(numClasses):
+            self.weights.append(zeros( numFeatures ))
+            for f_j in range(numFeatures):
+                for f_i in range(numFeatures):
+                    self.weights[c][f_j] += cm[f_i,f_j] * self.averages[c][f_i]
+                self.weight0[c] +=  self.weights[c][f_j] * self.averages[c][f_j]
+            self.weight0[c] /= -2.0
 
         # normalize the weights
         maxWeight = 0.0
@@ -361,12 +454,15 @@ class RubineTrainer():
     def saveWeights(self, fileName):
         """ Saves the current trainning data to a file given by fileName. This file can then be loaded by the rubine classifier """
         
+        self.calculateWeights()
+
         if self.debug:
             print "Saving training data to file: " + fileName
         
         TB = ET.TreeBuilder()
         TB.start("rubine", {})
 
+        pdb.set_trace()
         for i in range(self.count + 1):
             TB.start("class", {'name':self.names[i]})
             TB.start("weight0", {})

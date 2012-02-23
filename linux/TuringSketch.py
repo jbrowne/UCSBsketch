@@ -15,7 +15,6 @@ from tkMessageBox import *
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardSingleton
 from SketchFramework.ImageStrokeConverter import imageToStrokes
 from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection
@@ -181,17 +180,17 @@ class TkSketchFrame(Frame):
     def SetTapeString(self):
         text = self.StringText.get()
         print "Setting text to %s" % (text)
-        for tm_anno in BoardSingleton().FindAnnotations( anno_type = TuringMachineObserver.TuringMachineAnnotation):
+        for tm_anno in self.getBoard().FindAnnotations( anno_type = TuringMachineObserver.TuringMachineAnnotation):
             tm_anno.setTapeString(text)
         
 
     def StepMachines(self):
-        for tm_anno in BoardSingleton().FindAnnotations( anno_type = TuringMachineObserver.TuringMachineAnnotation):
+        for tm_anno in self.getBoard().FindAnnotations( anno_type = TuringMachineObserver.TuringMachineAnnotation):
             tm_anno.simulateStep()
 
     def RestartMachines(self):
         self.SetTapeString()
-        for tm_anno in BoardSingleton().FindAnnotations( anno_type = TuringMachineObserver.TuringMachineAnnotation):
+        for tm_anno in self.getBoard().FindAnnotations( anno_type = TuringMachineObserver.TuringMachineAnnotation):
             tm_anno.restartSimulation()
 
         
@@ -254,7 +253,7 @@ class TkSketchFrame(Frame):
 
     def RebuildObjectMenu(self):
         "Search the board for existing objects, and add a menu entry to manipulate it (drawAll)"
-        observers = BoardSingleton().GetBoardObservers()
+        observers = self.getBoard().GetBoardObservers()
         draw_vars = {}
         for obs in observers:
             key = obs.__class__

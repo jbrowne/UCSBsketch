@@ -45,7 +45,7 @@ MID_W = WIDTH/2
 MID_H = HEIGHT/2
 
    
-logger = Logger.getLogger("NetSketchGUI", Logger.DEBUG)
+logger = Logger.getLogger("DebugSketchGUI", Logger.DEBUG)
 
 
 

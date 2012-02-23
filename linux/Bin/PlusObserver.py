@@ -21,10 +21,9 @@ from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
 
-from SketchFramework import SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver, BoardSingleton
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 from xml.etree import ElementTree as ET
@@ -53,11 +52,11 @@ class PlusMarker( BoardObserver ):
     possibleAnnotations_H = []
     possibleAnnotations_V = []
 
-    def __init__(self):
-        BoardObserver.__init__(self)
-        BoardSingleton().AddBoardObserver( self, [PlusAnnotation])
-        BoardSingleton().RegisterForAnnotation( DirectedLine.H_LineAnnotation, self )
-        BoardSingleton().RegisterForAnnotation( DirectedLine.V_LineAnnotation, self )
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver( self, [PlusAnnotation])
+        self.getBoard().RegisterForAnnotation( DirectedLine.H_LineAnnotation, self )
+        self.getBoard().RegisterForAnnotation( DirectedLine.V_LineAnnotation, self )
     def onAnnotationAdded( self, strokes, annotation ):
         "Checks to see if an plus sign has been added"
 
@@ -108,14 +107,14 @@ class PlusMarker( BoardObserver ):
 
             annos = s.findAnnotations()
 
-            annos += BoardSingleton().FindAnnotations(strokelist = strokes)
+            annos += self.getBoard().FindAnnotations(strokelist = strokes)
 
             for i in annos:
-                BoardSingleton().RemoveAnnotation(i)
+                self.getBoard().RemoveAnnotation(i)
 
             ul,br = GeomUtils.strokelistBoundingBox( strokes + [s] )
             height = ul.Y - br.Y
-            BoardSingleton().AnnotateStrokes( strokes + [s],  PlusAnnotation(height))
+            self.getBoard().AnnotateStrokes( strokes + [s],  PlusAnnotation(height))
             return
 
 
@@ -128,8 +127,8 @@ class PlusMarker( BoardObserver ):
 
 class PlusVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, PlusAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__(self, board, PlusAnnotation )
 
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
@@ -145,9 +144,9 @@ class PlusVisualizer( ObserverBase.Visualizer ):
         midpointX = (ul.X + br.X) / 2
         left_x = midpointX - a.scale / 2.0
         right_x = midpointX + a.scale / 2.0
-        SketchGUI.drawBox(ul, br, color="#a0a0a0");
+        self.getBoard().getGUI().drawBox(ul, br, color="#a0a0a0");
         
-        SketchGUI.drawText( br.X - 15, br.Y, "+", size=15, color="#a0a0a0" )
+        self.getBoard().getGUI().drawText( br.X - 15, br.Y, "+", size=15, color="#a0a0a0" )
 
 #-------------------------------------
 # if executed by itself, run all the doc tests
