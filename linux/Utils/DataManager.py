@@ -104,6 +104,7 @@ def loadDataset(file):
     # create the initial daata set
     dataset = Dataset()
     
+    maxmaxX = maxmaxY = 0
     # iterate through each participant
     MyParticipants = et.find("MyParticipants").findall("MyParticipant");
     for participant in MyParticipants:
@@ -112,9 +113,11 @@ def loadDataset(file):
         #sys.stdout.flush()
         for diagram in participant.find("MyDiagrams").findall("MyDiagram"):
             d = Diagram(diagram.find("MyTemplate").find("Name").text)
-            maxY = 0
+            maxX = maxY = 0
             print d.type
             sys.stdout.flush()
+
+            strokeDict = {}
 
             for stroke in diagram.find("InkRaw").findall("Stk"):
                 points = []
@@ -124,10 +127,9 @@ def loadDataset(file):
                     x = int(point.find("X").text)
                     y = int(point.find("Y").text)
                     maxY = max(y, maxY)
+                    maxX = max(x, maxX)
                     points.append(Point(x,y))
-                s = Stroke(id = stkId, points = points)
-                iStroke = InkStroke(int(stroke.find("Id").text), s)
-                d.InkStrokes.append(iStroke)
+                strokeDict[stkId] = points
 
             for labels in diagram.find("MyStrokeLabels").findall("MyStrokeLabel"):
                 id = int(labels.find("ID").text)
@@ -153,12 +155,19 @@ def loadDataset(file):
 
                 bbox = labels.find("MyBoundingBoxes")
                 x = int(bbox.find("X").text)
-                y = int(bbox.find("Y").text)
+                y = maxY - int(bbox.find("Y").text)
                 height = int(bbox.find("Height").text)
                 width = int(bbox.find("Width").text)
                 label.boundingBox = BoundingBox(x,y, 0, 0)
 
                 d.groupLabels.append(label)
+
+            print "Diagram size: %s x %s" % (maxX, maxY)
+            for stkId, points in strokeDict.items():
+                for pt in points:
+                    pt.Y = maxY - pt.Y
+                iStroke = InkStroke(stkId, Stroke(id = stkId, points=points))
+                d.InkStrokes.append(iStroke)
 
             p.diagrams.append(d)
  

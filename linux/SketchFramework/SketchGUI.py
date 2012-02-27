@@ -60,6 +60,7 @@ class _SketchGUI(object):
         self.drawLine(bottomleft.X, bottomleft.Y, topleft.X, topleft.Y, color=color, width=width)
     
     def drawStroke(self, stroke, width = 2, color="#000000", erasable = False):
+        """Draw a stroke on the board with width and color as specified."""
         prev_p = None
         for next_p in stroke.Points:
             if prev_p is not None:

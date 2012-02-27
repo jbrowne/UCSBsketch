@@ -351,13 +351,9 @@ class TkSketchFrame(Frame, _SketchGUI):
 
         # Find the distance that the strokes take up
         # the "+ 20" is so we can have a 10 pixle buffer around the edges
-        xDiff = xMax - xMin + 20
-        yDiff = yMax - yMin + 20
 
-        setBoardScale(xDiff, yDiff)
+        setBoardScale(xMax, yMax)
 
-        #print str(xMin) + " : " + str(xMax) + " : " + str(xDiff)
-        #print str(yMin) + " : " + str(yMax) + " : " + str(yDiff)
 
         labelStrokeMap = {} #Maps groupLabel : set(strokes)
         for inkStroke in self.dataset.participants[par].diagrams[dig].InkStrokes:
@@ -402,9 +398,13 @@ class TkSketchFrame(Frame, _SketchGUI):
             self.StrokeQueue.task_done()
 
     def LoadStrokes(self):
+      maxX = maxY = 0
       for stroke in self.StrokeLoader.loadStrokes():
+         maxX = max(stroke.BoundBottomRight.X, maxX)
+         maxY = max(stroke.BoundTopLeft.Y, maxY)
          self.Board.AddStroke(stroke)
          self.StrokeList.append(stroke)
+      setBoardScale(maxX, maxY)
 
     def SaveStrokes(self):
       self.StrokeLoader.saveStrokes(self.StrokeList)
@@ -482,22 +482,18 @@ class TkSketchFrame(Frame, _SketchGUI):
                 
                 
     def CanvasMiddleMouseDown(self, event):
-        x = event.x
-        y = event.y
-        #self.BoardCanvas.create_oval(x,y,x,y,activewidth="1", fill="black", outline = "black")
-        
-        if self.p_x != None and self.p_y != None:
-            p_x = self.p_x
-            p_y = self.p_y
-            self.BoardCanvas.create_line(p_x, p_y, x ,y, fill = "blue", width=2)
-
-        x = event.x
-        y = HEIGHT - event.y
+        x, y = _p2b(event.x, event.y)
         t = time.time()
         self.CurrentPointList.append(Point(x,y,t))
+        
+        if self.p_x != None and self.p_y != None:
+            px = self.p_x
+            py = self.p_y
+            self.drawLine(px, py, x, y, width=2, color="blue")
+        self.p_x = x
+        self.p_y = y
 
-        self.p_x = event.x
-        self.p_y = event.y
+
 
     def CanvasMiddleMouseUp(self, event):
         suggestStrokes = set()
@@ -519,22 +515,19 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.Redraw()
 
     def CanvasRightMouseDown(self, event):
-        x = event.x
-        y = event.y
-        #self.BoardCanvas.create_oval(x,y,x,y,activewidth="1", fill="black", outline = "black")
         
-        if self.p_x != None and self.p_y != None:
-            p_x = self.p_x
-            p_y = self.p_y
-            self.BoardCanvas.create_line(p_x, p_y, x ,y, fill = "gray", width=2)
-
-        x = event.x
-        y = HEIGHT - event.y
+        x, y = _p2b(event.x, event.y)
         t = time.time()
         self.CurrentPointList.append(Point(x,y,t))
+        if self.p_x != None and self.p_y != None:
+            px = self.p_x
+            py = self.p_y
+            self.drawLine(px, py, x, y, width=2, color="gray")
 
         self.p_x = x
-        self.p_y = HEIGHT - y
+        self.p_y = y
+
+
 
     def CanvasRightMouseUp(self, event):
         delStrokes = set([])
@@ -552,21 +545,17 @@ class TkSketchFrame(Frame, _SketchGUI):
     def CanvasMouseDown(self, event):
         "Draw a line connecting the points of a stroke as it is being drawn"
         
-        x = event.x
-        y = event.y
-        #self.BoardCanvas.create_oval(x,y,x,y,activewidth="1", fill="black", outline = "black")
         
-        if self.p_x != None and self.p_y != None:
-            p_x = self.p_x
-            p_y = self.p_y
-            self.BoardCanvas.create_line(p_x, p_y, x ,y, fill = "black", width=2)
-
-        self.p_x = x
-        self.p_y = y
-
         x, y = _p2b(event.x, event.y)
         t = time.time()
         self.CurrentPointList.append(Point(x,y,t))
+        if self.p_x != None and self.p_y != None:
+            px = self.p_x
+            py = self.p_y
+            self.drawLine(px, py, x, y, width=2, color="#000000")
+
+        self.p_x = x
+        self.p_y = y
 
 
     def AddCurrentStroke(self):
@@ -610,13 +599,25 @@ class TkSketchFrame(Frame, _SketchGUI):
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
          "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"
          x, y = _b2p(x,y)
-         self.BoardCanvas.create_oval(x-radius,y-radius,x+radius,y+radius,width=width, fill=fill, outline = color)
+         self.BoardCanvas.create_oval(x-radius,y-radius,x+radius,y+radius,width=width, fill=fill, outline = "#BBBBBB")
+         self.BoardCanvas.create_oval(x-radius,y-radius,x+radius,y+radius,width=width-1, fill=fill, outline = color)
          
     def drawLine(self, x1, y1, x2, y2, width=2, color="#000000"):
          "Draw a line on the canvas from (x1,y1) to (x2,y2). Color should be 24 bit RGB string #RRGGBB"
          x1, y1 = _b2p(x1,y1)
          x2, y2 = _b2p(x2, y2)
+         self.BoardCanvas.create_line(x1, y1, x2 ,y2, fill="#BBBBBB", width = width+1)
          self.BoardCanvas.create_line(x1, y1, x2 ,y2, fill=color, width = width)
+
+    def drawStroke(self, stroke, width = 2, color="#000000", erasable = False):
+        if len(stroke.Points) > 0:
+            prevPt = stroke.Points[0]
+            px, py = _b2p(prevPt.X, prevPt.Y)
+            for pt in stroke.Points[1:]:
+                x, y = _b2p(pt.X, pt.Y)
+                self.BoardCanvas.create_line(px, py, x ,y, fill="#BBBBBB", width = width) #Fake anti-aliasing
+                self.BoardCanvas.create_line(px, py, x ,y, fill=color, width = width - 1)
+                (px, py) = (x,y)
 
     def drawText (self, x, y, InText="", size=10, color="#000000"):
         "Draw some text (InText) on the canvas at (x,y). Color as defined by 24 bit RGB string #RRGGBB"
