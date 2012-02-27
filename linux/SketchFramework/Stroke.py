@@ -19,12 +19,16 @@ class Stroke(AnnotatableObject):
     def __repr__(self):
         return "<Stroke %s>" % (str(self.id))
     
-    def __init__(self, points=None, board=None):#, smoothing=False): DEPRECATED
+    def __init__(self, points=None, id = None, board=None):#, smoothing=False): DEPRECATED
         # call parent constructor
         AnnotatableObject.__init__(self) 
         # give each stroke a unique id
-        self.id = Stroke.Number
-        Stroke.Number += 1
+        if id != None:
+            self.id = id
+            Stroke.Number = max(Stroke.Number, id) + 1
+        else:
+            self.id = Stroke.Number
+            Stroke.Number += 1
 
         self.Points = []
         self.BoundTopLeft = Point( 0, 0 )

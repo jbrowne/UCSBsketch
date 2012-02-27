@@ -24,7 +24,6 @@ from xml.etree import ElementTree as ET
 import pdb
 
 from SketchFramework import SketchGUI
-from SketchFramework.Board import BoardObserver, BoardSingleton
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 
@@ -113,16 +112,20 @@ def loadDataset(file):
         #sys.stdout.flush()
         for diagram in participant.find("MyDiagrams").findall("MyDiagram"):
             d = Diagram(diagram.find("MyTemplate").find("Name").text)
+            maxY = 0
             print d.type
             sys.stdout.flush()
 
             for stroke in diagram.find("InkRaw").findall("Stk"):
                 points = []
+                
+                stkId = int(stroke.find("Id").text)
                 for point in stroke.find("Points").findall("p"):
                     x = int(point.find("X").text)
                     y = int(point.find("Y").text)
+                    maxY = max(y, maxY)
                     points.append(Point(x,y))
-                s = Stroke(points)
+                s = Stroke(id = stkId, points = points)
                 iStroke = InkStroke(int(stroke.find("Id").text), s)
                 d.InkStrokes.append(iStroke)
 
@@ -175,8 +178,8 @@ class DataManagerAnnotation(Annotation):
 
 class DataManagerVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, DataManagerAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__( self, board, DataManagerAnnotation )
 
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
@@ -186,15 +189,8 @@ class DataManagerVisualizer( ObserverBase.Visualizer ):
         br.X += spaceing
         br.Y -= spaceing
 
-        logger.debug(a.Strokes)
-        height = ul.Y - br.Y
-        midpointY = (ul.Y + br.Y) / 2
-        midpointX = (ul.X + br.X) / 2
-        left_x = midpointX - a.scale / 2.0
-        right_x = midpointX + a.scale / 2.0
-        SketchGUI.drawBox(ul, br, color="#a0a0a0");
-        
-        SketchGUI.drawText( br.X - 15, br.Y, a.text, size=15, color="#a0a0a0" )
+        self.getBoard().getGUI().drawBox(ul, br, color="#a0a0a0");
+        self.getBoard().getGUI().drawText( br.X - 15, br.Y, a.text, size=15, color="#a0a0a0" )
 
 def standAloneMain():
     "for testing"
