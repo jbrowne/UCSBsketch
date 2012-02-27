@@ -1152,6 +1152,7 @@ def centroid(inPoints):
 
 def area(inPoints):
     "Input: List inPoints.  Returns a double of the area of the set of points.  If Area is zero, also indicates perfect line."
+    print "Using GeomUtils.area... Not sure it actually does what it says..."
     curArea = 0.0
     currentPoint = None
     nextPoint = None

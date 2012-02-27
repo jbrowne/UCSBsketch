@@ -36,6 +36,139 @@ class FeatureSet(object):
         return (0.0)
 
 #------------------------------------------------------------
+class BCPFeatureSet(FeatureSet):
+    """Feature set found to be best for Rubine's classifier in
+    Blagojevic, et al. "The Power of Automatic Feature Selection: 
+    Rubine on Steroids" 2010"""
+    def __init__(self):
+        FeatureSet.__init__(self)
+        self.strokeFeatures = (  self.f1_12, #All features take parameter (stroke)
+                        )
+
+
+    def generateVector(self, strokeList):
+        """Assemble the vector of feature scores from a list of strokes, presumed to
+        make up a single symbol."""
+        retVector = []
+
+        #Set up the common data
+        if len(strokeList) > 1:
+            stroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
+        elif len(strokeList) == 1:
+            stroke = strokeList[0]
+        convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
+        strokeLength = GeomUtils.strokeLength(stroke)
+        boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+
+        #Generate the vector
+        retVector = (self.f1_12(stroke) , \
+                     self.f2_7(strokeLength, convexHull) , \
+                     self.f2_8(strokeLength, boundingBox) , \
+                     self.f7_2(boundingBox) , \
+                     self.f7_7(convexHull, boundingBox) , \
+                     self.f7_10(strokeLength) , \
+                     self.f7_13(strokeLength) , \
+                     self.f7_16(convexHull) , \
+                     self.f7_17(convexHull) \
+                    )
+
+        return retVector
+    #-----------------------------------------------
+    #   Features common to all symbol classes
+    #-----------------------------------------------
+    def f1_12(self, stroke):
+        """Distance from the first point of the stroke to the 
+        last point of the stroke [Rub91]"""
+        return GeomUtils.pointDist(stroke.Points[0], stroke.Points[-1])
+
+    def f1_16(self, stroke):
+        """Number of fragments in a stroke, according to its corners [BSH04]"""
+        raise NotImplemented
+        return 1.0
+
+    def f2_7(self, strokeLen, cvxHull):
+        """Stroke length / perimeter of the stroke's convex hull [FPJ02]"""
+        cvx_perimeter = GeomUtils.strokeLength(cvxHull)
+        if cvx_perimeter > 0.0:
+            return strokeLen / cvx_perimeter
+        else:
+            return 1.0
+
+    def f2_8(self, strokeLen, bbox):
+        """Length of the stroke divided by the length of the bounding box
+        diagonal. Adapted from [Rub91]"""
+        diagDist = GeomUtils.pointDist( bbox[0], bbox[1])
+        if diagDist > 0:
+            return strokeLen / float(diagDist)
+        else:
+            return 1.0
+
+    def f5_1(self, stroke):
+        """Number of self intersections at the endpoints of the stroke, adapted
+        from [Qin05]"""
+        raise NotImplemented
+        return 1.0
+
+    def f7_2(self, bbox):
+        """Aspect: ( 45*pi/180 - angle of bounding box diagonal ) [LLR*00] """
+        left = bbox[0].X
+        top = bbox[0].Y
+        right = bbox[1].X
+        bottom = bbox[1].Y
+        if right - left != 0:
+            diagAngle = math.atan( (top - bottom) / float(right - left) )
+        else:
+            diagAngle = 1.570795 #pi / 2.0
+        return 0.785398 - diagAngle #45 * pi / 180
+    
+    def f7_7(self, cvxHull, bbox):
+        """Ratio of area of convex hull to area of the enclosing rect of the 
+        stroke [FPJ02]"""
+        left = bbox[0].X
+        top = bbox[0].Y
+        right = bbox[1].X
+        bottom = bbox[1].Y
+
+        cvxArea = GeomUtils.area(cvxHull.Points)
+        bboxArea = GeomUtils.area([Point(left, bottom),
+                                   Point(left, top),
+                                   Point(right, top),
+                                   Point(right, bottom)])
+        return cvxArea / bboxArea
+    
+    def f7_10(self, strokeLen):
+        """Total length of the stroke [Rub91]"""
+        return strokeLen
+
+    def f7_13(self, strokeLen):
+        """Log of the total length of the stroke. [LLR*00, MFN93]"""
+        if strokeLen > 0.0:
+            return math.log(strokeLen)
+        else:
+            return 0.0
+
+    def f7_16(self, cvxHull):
+        """Perimeter efficiency: 2 * sqrt( pi * convex hull area ) / convex hull perimeter
+        [LC02]"""
+        cvxArea = GeomUtils.area(cvxHull.Points)
+        cvxPerim = GeomUtils.strokeLength(cvxHull)
+
+        if cvxPerim > 0.0:
+            return 2 * math.sqrt( math.pi * cvxArea) / cvxPerim 
+        else:
+            return 1.0
+
+    def f7_17(self, cvxHull):
+        """Ratio of perimeter to area of the stroke's convex hull [FPJ02]"""
+        cvxArea = GeomUtils.area(cvxHull.Points)
+        cvxPerim = GeomUtils.strokeLength(cvxHull)
+        if cvxPerim > 0.0:
+            return cvxArea / float(cvxPerim)
+        else:
+            return 1.0
+
+
+#------------------------------------------------------------
 class RubineFeatureSet(FeatureSet):
     def __init__(self):
         FeatureSet.__init__(self)
@@ -197,7 +330,8 @@ class RubineClassifier():
 
         """
         self.debug = debug
-        self.featureSet = RubineFeatureSet()
+        #self.featureSet = RubineFeatureSet()
+        self.featureSet = BCPFeatureSet()
         self.weights = []
         self.names = []
         self.weight0 = []
@@ -233,9 +367,6 @@ class RubineClassifier():
             for j in range(len(cols)):
                 self.covarianceMatrixInverse[i,j] = float(cols[j].text)
 
-    def sortByFeatureWeight(self, item):
-        """ Internal Use Only """
-        return item[0]
 
     def classifyStroke(self, stroke):
         """ Attempts to classify a stroke using the given training data """
@@ -243,7 +374,7 @@ class RubineClassifier():
         if len(stroke.Points) < 3:
             return None
 
-        rubineVector =  self.featureSet.generateVector([stroke])#getRubineVector(stroke)
+        rubineVector =  self.featureSet.generateVector([stroke])
 
         max = -100000.0
         maxIndex = 0
@@ -259,7 +390,7 @@ class RubineClassifier():
 
         max = math.fabs(max)
 
-        featureWeights.sort(key = self.sortByFeatureWeight)
+        featureWeights.sort(key = (lambda x: x[0]) )
         #print featureWeights[len(featureWeights)-1][1]
         sum = 0
         '''
@@ -291,6 +422,7 @@ class RubineClassifier():
             print str(delta) + " : " + str(len(self.weights[0]) * len(self.weights[0]) * 0.5)
 
         if delta > len(self.weights[0]) * len(self.weights[0]) * 0.5:
+            print "REJECT"
             return None# pass # print "DON'T RECOGNISE!"
         
         if self.debug:
@@ -318,7 +450,7 @@ class RubineTrainer():
         """Initiates the rubine trainer."""
         self.debug = debug
         self.reset()
-        self.featureSet = RubineFeatureSet()
+        self.featureSet = BCPFeatureSet()
 
     def reset(self):
         """ Resets the trainer """
@@ -462,7 +594,6 @@ class RubineTrainer():
         TB = ET.TreeBuilder()
         TB.start("rubine", {})
 
-        pdb.set_trace()
         for i in range(self.count + 1):
             TB.start("class", {'name':self.names[i]})
             TB.start("weight0", {})

@@ -287,7 +287,19 @@ class TkSketchFrame(Frame, _SketchGUI):
 
 
 if __name__ == "__main__":
-    TkSketchFrame()
+    args = sys.argv
+    if len(args) <= 1:
+        #Just start the GUI for the trainer
+        TkSketchFrame()
+    elif len(args) == 3:
+        #Load labeled data and train on it
+        raise Exception("Functionality not Implemented")
+        infname = args[1]
+        outfname = args[2]
+    else:
+        print "Usage: %s [infile] [outfile]"
+        exit(1)
+
 
 
 
