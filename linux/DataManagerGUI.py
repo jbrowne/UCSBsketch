@@ -26,6 +26,7 @@ import Queue
 import StringIO
 import Image
 import traceback
+import cPickle as pickle
 from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkMessageBox import *
@@ -314,15 +315,23 @@ class TkSketchFrame(Frame, _SketchGUI):
         if fname == "":
            return
 
-        try:
-            self.dataset = DataManager.loadDataset(fname)
-            self.participant = 0
-            self.diagram = 0
-            self.displayDataManager()
-        except Exception as e:
-           print traceback.format_exc()
-           logger.debug( "Error loading data from file '%s':\n %s" % (fname, e))
-           return
+        elif fname.strip().split(".")[-1] == "p":
+            try:
+                self.dataset = pickle.load(open(fname, "rb"))
+            except Exception as e:
+               print traceback.format_exc()
+               logger.debug( "Error loading data from file '%s':\n %s" % (fname, e))
+               return
+        else:
+            try:
+                self.dataset = DataManager.loadDataset(fname)
+            except Exception as e:
+               print traceback.format_exc()
+               logger.debug( "Error loading data from file '%s':\n %s" % (fname, e))
+               return
+        self.participant = 0
+        self.diagram = 0
+        self.displayDataManager()
         logger.debug( "Loaded data from '%s'" % (fname))
 
     def displayDataManager(self):
@@ -341,7 +350,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
 
         # Finds the min and max points so we can scale the data to fit on the screen
-        for inkStroke in self.dataset.participants[par].diagrams[dig].InkStrokes:
+        for stkNum, inkStroke in self.dataset.participants[par].diagrams[dig].InkStrokes.items():
             stroke = inkStroke.stroke
             ul,br = GeomUtils.strokelistBoundingBox([stroke])
             xMax = max(ul.X, br.X, xMax)
@@ -356,7 +365,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
 
         labelStrokeMap = {} #Maps groupLabel : set(strokes)
-        for inkStroke in self.dataset.participants[par].diagrams[dig].InkStrokes:
+        for stkNum, inkStroke in self.dataset.participants[par].diagrams[dig].InkStrokes.items():
             #print inkStroke.id
             stroke = inkStroke.stroke
             for groupLabel in self.dataset.participants[par].diagrams[dig].groupLabels:

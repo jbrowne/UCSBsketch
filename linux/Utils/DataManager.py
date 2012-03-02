@@ -52,7 +52,7 @@ class Diagram():
         """ Initiates the Diagram.
         """
         self.type = type # string
-        self.InkStrokes = []
+        self.InkStrokes = {} #ID: InkStroke
         self.strokeLabels = []
         self.groupLabels = []
 
@@ -167,7 +167,7 @@ def loadDataset(file):
                 for pt in points:
                     pt.Y = maxY - pt.Y
                 iStroke = InkStroke(stkId, Stroke(id = stkId, points=points))
-                d.InkStrokes.append(iStroke)
+                d.InkStrokes[stkId] = iStroke
 
             p.diagrams.append(d)
  

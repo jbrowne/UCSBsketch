@@ -35,8 +35,8 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import Board
 from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke
-from Utils import Logger
-from Utils.Rubine import RubineTrainer
+from Utils import Logger, DataManager
+from Utils.Rubine import RubineTrainer, RubineFeatureSet, BCPFeatureSet
 
 
 
@@ -137,7 +137,9 @@ class TkSketchFrame(Frame, _SketchGUI):
         if self.ClassNameEntry.get().strip() != "":
             name = self.ClassNameEntry.get().strip()
 
-        self._strokeTrainer.newClass(name = name)
+        name = self._strokeTrainer.newClass(name = name)
+        self.currentSymClass = name
+        print "Now training class %s" % (self.currentSymClass)
         self.ResetBoard()
 
     def SaveTrainingWeights(self):
@@ -243,7 +245,7 @@ class TkSketchFrame(Frame, _SketchGUI):
             stroke = Stroke( self.CurrentPointList )#, smoothing=True )
             self.StrokeList.append(stroke)
             self.CurrentPointList = []
-            self._strokeTrainer.addStroke(stroke)
+            self._strokeTrainer.addStroke(stroke, self.currentSymClass)
             
         
     def CanvasMouseUp(self, event):
@@ -285,20 +287,11 @@ class TkSketchFrame(Frame, _SketchGUI):
             prev = p
 
 
+    
 
 if __name__ == "__main__":
-    args = sys.argv
-    if len(args) <= 1:
-        #Just start the GUI for the trainer
-        TkSketchFrame()
-    elif len(args) == 3:
-        #Load labeled data and train on it
-        raise Exception("Functionality not Implemented")
-        infname = args[1]
-        outfname = args[2]
-    else:
-        print "Usage: %s [infile] [outfile]"
-        exit(1)
+    #Just start the GUI for the trainer
+    TkSketchFrame()
 
 
 

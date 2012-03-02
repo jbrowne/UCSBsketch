@@ -70,8 +70,9 @@ def _initializeBoard(board):
 
     if board is not None:
         RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
-        #Rubine.RubineVisualizer(board)
+        RubineObserver.RubineVisualizer(board)
 
+        """
         DirectedLine.DirectedLineMarker(board)
 
         NumberObserver.NumCollector(board)
@@ -94,7 +95,6 @@ def _initializeBoard(board):
         #EquationObserver.EquationObserver(board)
         #EquationObserver.EquationVisualizer(board)
 
-        """
         CircleObserver.CircleMarker(board)
         CircleObserver.CircleVisualizer(board)
         ArrowObserver.ArrowMarker(board)

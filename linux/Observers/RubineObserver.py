@@ -63,7 +63,7 @@ class RubineMarker( BoardObserver ):
     def __init__(self, board, fname, debug=False):
         """ Initiates the Rubine classifier. fname is the name of a file containing the training data to be used. """
         BoardObserver.__init__(self, board)
-        self.classifier = Rubine.RubineClassifier(fname, debug)
+        self.classifier = Rubine.RubineClassifier(fname, featureSet = Rubine.RubineFeatureSet(), debug = debug)
         self.getBoard().AddBoardObserver( self , [RubineAnnotation])
         self.getBoard().RegisterForStroke( self )
 
@@ -81,8 +81,8 @@ class RubineMarker( BoardObserver ):
 
 class RubineVisualizer( ObserverBase.Visualizer ):
 
-    def __init__(self):
-        ObserverBase.Visualizer.__init__( self, RubineAnnotation )
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__( self, board,  RubineAnnotation )
 
     def drawAnno( self, a ):
         ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
