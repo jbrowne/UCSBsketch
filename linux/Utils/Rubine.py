@@ -48,7 +48,7 @@ class BCPFeatureSet(FeatureSet):
         FeatureSet.__init__(self)
 
     def __len__(self):
-        return 9
+        return 10
 
     def generateVector(self, strokeList):
         """Assemble the vector of feature scores from a list of strokes, presumed to
@@ -70,6 +70,7 @@ class BCPFeatureSet(FeatureSet):
         retVector = (self.f1_12(stroke) , \
                      self.f2_7(strokeLength, convexHull) , \
                      self.f2_8(strokeLength, boundingBox) , \
+                     self.f5_1(stroke), \
                      self.f7_2(boundingBox) , \
                      self.f7_7(convexHull, boundingBox) , \
                      self.f7_10(strokeLength) , \
@@ -113,8 +114,16 @@ class BCPFeatureSet(FeatureSet):
     def f5_1(self, stroke):
         """Number of self intersections at the endpoints of the stroke, adapted
         from [Qin05]"""
-        raise NotImplemented
-        return 1.0
+        selfIntersections = 0
+        for i in range(len(stroke.Points)-1):
+            seg1 = (stroke.Points[i], stroke.Points[i+1])
+            for j in range(i+1, len(stroke.Points)-1):
+                seg2 = (stroke.Points[j], stroke.Points[j+1])
+                cross = GeomUtils.getLinesIntersection( seg1, seg2 )
+                if cross is not None:
+                    selfIntersections += 1
+        return selfIntersections
+ 
 
     def f7_2(self, bbox):
         """Aspect: ( 45*pi/180 - angle of bounding box diagonal ) [LLR*00] """
