@@ -124,7 +124,7 @@ def openDataset(infname):
 def trainingMain(args):
     if len(args) >= 1:
         infname = args[0]
-        trainer = Rubine.RubineTrainer(featureSet = Rubine.RubineFeatureSet() )
+        trainer = Rubine.RubineClassifier(featureSet = Rubine.RubineFeatureSet() )
         dataSet = openDataset(infname)
 
         if len(args) > 1:
@@ -151,10 +151,9 @@ def allMain(args):
 
                 tag = "SymbolClass-%s_Feature-%s" % (DIAGNUM, type(featureSet).__name__)
                 classifierFname = "BatchRubineData_%s.xml"%(tag)
-                trainer = Rubine.RubineTrainer(featureSet = featureSet)
                 classifier = Rubine.RubineClassifier(featureSet = featureSet)
-                batchTraining(trainer, dataSet, classifierFname)
-                classifier.loadWeights(classifierFname)
+                batchTraining(classifier, dataSet, classifierFname)
+                #classifier.loadWeights(classifierFname)
                 results = batchClassify(dataSet, classifier)
                 resultsFile = open("Results_%s.txt" % (tag), "w")
                 printResults(results, resultsFile)

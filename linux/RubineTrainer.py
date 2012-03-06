@@ -34,9 +34,9 @@ from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import Board
 from Utils.StrokeStorage import StrokeStorage
-from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke
+from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke, strokeSmooth, strokeLength
 from Utils import Logger, DataManager
-from Utils.Rubine import RubineTrainer, RubineFeatureSet, BCPFeatureSet
+from Utils.Rubine import RubineClassifier, RubineFeatureSet, BCPFeatureSet
 
 
 
@@ -98,7 +98,7 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.StrokeList = []
         self.StrokeLoader = StrokeStorage()
         self.ResetBoard()
-        self._strokeTrainer = RubineTrainer(debug = True)
+        self._strokeTrainer = RubineClassifier(debug = True)
         self.NewTrainingClass()
 
         self.Redraw()
@@ -261,7 +261,7 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.BoardCanvas.delete(ALL)
         strokes = self.StrokeList
         for s in strokes:
-           self.drawStroke(s)
+           self.drawStroke( strokeSmooth(s, width = max(int(strokeLength(s) * 0.01), 1) ))
 
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
          "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"

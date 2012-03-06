@@ -371,18 +371,19 @@ def strokeGetPointsCurvature( inStroke ):
        curvature_list.append(endPointCurvature)
 
     for point in inStroke.Points:
-        if prev_vect == None:
-            if prev_pt is not None:
-                prev_vect = (point.X - prev_pt.X, point.Y - prev_pt.Y)
-            prev_pt = point
-            continue
-        vector = [point.X - prev_pt.X, point.Y - prev_pt.Y]
-        if vector == (0.0, 0.0) or prev_vect == (0.0, 0.0):
-            curvature = 0.0
-        else:
-            curvature = vectorDistance(vector, prev_vect)
-        curvature_list.append(curvature)
-        prev_vect = vector
+	if prev_pt != point:
+	    if prev_vect == None:
+		if prev_pt is not None:
+		    prev_vect = (point.X - prev_pt.X, point.Y - prev_pt.Y)
+		prev_pt = point
+		continue
+	    vector = [point.X - prev_pt.X, point.Y - prev_pt.Y]
+	    if vector == (0.0, 0.0) or prev_vect == (0.0, 0.0):
+		curvature = 0.0
+	    else:
+		curvature = vectorDistance(vector, prev_vect)
+	    curvature_list.append(curvature)
+	    prev_vect = vector
         prev_pt = point
 
     if len(inStroke.Points) > 1: #Nonsense curvature for the last point

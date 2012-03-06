@@ -31,6 +31,16 @@ class Point(AnnotatableObject):
 
     def __repr__(self):
         return "P(%s,%s)" % (self.X, self.Y)
+
+    def __eq__(self, other):
+        if other is not None and self.X == other.X and self.Y == other.Y:
+            return  True
+        return False
+    def __ne__(self, other):
+        if not (self == other):
+            return True
+        return False
+
     def __str__(self):
         return "(" + ("%.1f" % self.X) + "," + ("%.1f" % self.Y) + ")"
         #return "(" + str(self.X) + "," + str(self.Y) + ")"
