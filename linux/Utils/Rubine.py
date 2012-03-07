@@ -47,9 +47,10 @@ class BCPFeatureSet(FeatureSet):
     Rubine on Steroids" 2010"""
     def __init__(self):
         FeatureSet.__init__(self)
+        self.rubineSet = RubineFeatureSet()
 
     def __len__(self):
-        return 11
+        return 10
 
     def generateVector(self, strokeList):
         """Assemble the vector of feature scores from a list of strokes, presumed to
@@ -79,13 +80,13 @@ class BCPFeatureSet(FeatureSet):
                      self.f7_2(boundingBox) , \
                      self.f7_7(convexHull, boundingBox) , \
                      self.f7_10(strokeLength) , \
-                     self.f7_13(strokeLength) , \
                      self.f7_16(convexHull) , \
                      self.f7_17(convexHull) \
                     )
 
         assert len(self) == len(retVector)
         return retVector
+
     #-----------------------------------------------
     #   Features common to all symbol classes
     #-----------------------------------------------
@@ -96,13 +97,14 @@ class BCPFeatureSet(FeatureSet):
 
     def f1_16(self, curvatures):
         """Number of fragments in a stroke, according to its corners [BSH04]"""
+        thresh = 0.1
         segments = 1
         increasing = False
         prev = None
         curMax = 0
         for curv in curvatures[1:-1]:
             if prev != None:
-                if curv < curMax - 0.1 and increasing:
+                if curv < curMax - thresh and increasing:
                     segments += 1
                     increasing = False
                     curMax = 0.0
@@ -183,12 +185,6 @@ class BCPFeatureSet(FeatureSet):
         """Total length of the stroke [Rub91]"""
         return strokeLen
 
-    def f7_13(self, strokeLen):
-        """Log of the total length of the stroke. [LLR*00, MFN93]"""
-        if strokeLen > 0.0:
-            return math.log(strokeLen)
-        else:
-            return 0.0
 
     def f7_16(self, cvxHull):
         """Perimeter efficiency: 2 * sqrt( pi * convex hull area ) / convex hull perimeter
@@ -210,6 +206,196 @@ class BCPFeatureSet(FeatureSet):
         else:
             return 1.0
 
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Features that work great for Basic Shapes
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    def f1_01(self):
+        """The number of bezier cusps. [PPG 07]"""
+        return 1.0
+
+    def f1_03(self):
+        """The number of polyline cusps [PPG 07]"""
+        return 1.0
+
+    def f1_07(self, bbox):
+        """Angle of bbox diagonal. [Rubine]"""
+        return self.rubineSet.f04(bbox)
+
+    def f1_09(self):
+        """Cosine of the angle from first point to last point [Rubine91]"""
+        return self.rubineSet.f01(stroke)
+
+    def f1_17(self, stroke, bbox):
+        """Openness: Distance from 1st to last point of stroke / size 
+        of strokes bbox. [LLR00]"""
+        bboxSize = GeomUtils.pointDist(bbox[0], bbox[1])
+        ptDist = GeomUtils.pointDist(stroke.Points[0], stroke.Points[-1])
+        if ptDist > 0:
+            openness = bboxSize / float(ptDist)
+        else:
+            openness = 0
+        logger.debug("Openness: %s" % (openness))
+        return openness
+
+    def f1_23(self):
+        """Total angle / sum of |Angle at each point| [LLR00]"""
+        return 1.0
+
+    def f4_01(self):
+        """Divider result. Results of text/shape divider on current stroke"""
+        return 1.0
+
+    def f7_05(self, bbox):
+        """Height of bounding box [FPJ02]"""
+        bboxHeight = bbox[0]Y - bbox[1].Y
+        logger.debug("BoundingBox Height %s" % (bboxHeight))
+        return bboxHeight
+
+    def f7_11(self, bbox):
+        """Log area. Log of the stroke's bounding box area[LLR00]"""
+        h = bbox[0].Y - bbox[1].Y
+        w = bbox[1].X - bbox[0].X
+        logBboxArea = math.log( h*w)
+        logger.debug("Log Bbox Area: %s" % (logBboxArea))
+        return logBboxArea
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Features that work great for Class Diagrams
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    #def f1_03(self) Also in Basic Shapes
+
+    def f1_04(self, stroke):
+        """Sum of the absolute value of the angle at each point [Rubine91]"""
+        return self.rubineSet.f09(stroke)
+
+    #def f1_07(self) Also in Basic Shapes
+
+    def f1_11(self, curvatures):
+        """Curviness. Sum of absolute value of the angle at each stroke point below 19deg 
+            of threshold [LLR01]"""
+        curviness = 0.0
+        for curv in curvatures:
+            if curv > 19 * math.pi / 180.0:
+                curviness += curv
+        logger.debug("Curviness: %s" % (curviness))
+        return curviness
+            
+
+    def f1_13(self):
+        """Orthogonal distance squared between the least squares fited line
+        and the stroke points / stroke length [PRD08, SSD01]"""
+        return 1.0
+
+    #def f7_11(self) Also in Basic Shapes
+
+    def f7_13(self, strokeLen):
+        """Log of the total length of the stroke. [LLR*00, MFN93]"""
+        if strokeLen > 0.0:
+            return math.log(strokeLen)
+        else:
+            return 0.0
+
+    def f7_14(self, strokeLen):
+        """Log of the length of the longest side of the stroke's bounding box [MFN93]"""
+        return 1.0
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Features that work great for Graphs
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    #def f1_04(self, strokeLen): Also in Class
+
+    def f1_06(self, stroke, curvatures):
+        """The total absolute curvature of the largest fragment [BSH04]"""
+        thresh = 0.1
+        segments = []
+        increasing = False
+        prev = None
+        curMax = 0
+        segEnd = 1
+        segStart = 1
+        for i in range(1, len(curvatures) - 1)
+            curv = curvatures[i]:
+            if prev != None:
+                if curv < curMax - thresh and increasing:
+                    increasing = False
+                    curMax = 0.0
+                    segments.append( (segStart, segEnd))
+                    segStart = segEnd
+                if curv > prev:
+                    increasing = True
+                    curMax = max(curMax, curv)
+                    segEnd = i 
+            prev = curv
+
+        maxSeg = max(segments, key=(lambda x: x[1] - x[0])) #Get the longest segment
+        totalSegCurv = sum(curvatures[maxSeg[0] : maxSeg[1] + 1])
+        logger.debug("Total Curvature of longest segment: %s" % (totalSegCurv))
+        return totalSegCurv
+
+    #def f1_09(self, strokeLen): # Also in Basic Shapes
+
+    #def f1_11(self, strokeLen): # Also in Class
+
+    #def f1_13(self): #Also in class
+
+    def f1_18(self):
+        """Overtracing: Total angle / 2pi [PH08]"""
+        return 1.0
+
+    def f1_19(self, stroke):
+        """Sin of the angle between the first and last ponts [Rubine91]"""
+        return self.rubineSet.f02(stroke)
+
+    def f1_21(self, stroke):
+        """Total angle traversed by the stroke[Rubine91]"""
+        return self.rubineSet.f09(stroke)
+
+#------------------------------------------------------------
+class BCP_ShapeFeatureSet(BCPFeatureSet):
+    """This class implements all of the features found to be in the top 20
+    for the Baisc Shapes dataset"""
+    def __init__(init):
+        BCPFeatureSet.__init__(self)
+
+    def __len__(self):
+        return BCPFeatureSet.__len__(self) + 0
+    
+    def generateVector(self, strokeList):
+        retVector = BCPFeatureSet.generateVector(self, strokeList)
+
+
+#------------------------------------------------------------
+class BCP_ClassFeatureSet(BCPFeatureSet):
+    """This class implements all of the features found to be in the top 20
+    for the Class diagram dataset"""
+    def __init__(init):
+        BCPFeatureSet.__init__(self)
+
+    def __len__(self):
+        return BCPFeatureSet.__len__(self) + 0
+    
+    def generateVector(self, strokeList):
+        retVector = BCPFeatureSet.generateVector(self, strokeList)
+
+#------------------------------------------------------------
+class BCP_GraphFeatureSet(BCPFeatureSet):
+    """This class implements all of the features found to be in the top 20
+    for the Graphs dataset"""
+    def __init__(init):
+        BCPFeatureSet.__init__(self)
+
+    def __len__(self):
+        return BCPFeatureSet.__len__(self) + 0
+    
+    def generateVector(self, strokeList):
+        retVector = BCPFeatureSet.generateVector(self, strokeList)
+
+
+    #def f1_23(self): Also in Basic Shapes
+
+    #def f4_01(self): Also in Basic shapes
 
 #------------------------------------------------------------
 class RubineFeatureSet(FeatureSet):
@@ -300,6 +486,7 @@ class RubineFeatureSet(FeatureSet):
         return GeomUtils.strokeLength(stroke)
 
     def f09(self, stroke):
+        #Sum of the angle traversed
         pointList = stroke.Points
         f9 = 0 # angle sum
         for i in range(len(pointList) -2):
@@ -670,4 +857,5 @@ if __name__ == "__main__":
     Logger.setDoctest(logger)
     import doctest
     doctest.testmod()
+
 

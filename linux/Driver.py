@@ -144,6 +144,13 @@ def allMain(args):
     if len(args) > 0:
         infname = args[0]
         dataSet = openDataset(infname)
+        allFeaturesets = ( \
+                          #Rubine.BCPFeatureSet, \
+                          #Rubine.RubineFeatureSet, \
+                          Rubine.BCP_ClassFeatureSet, \
+                          Rubine.BCP_GraphFeatureSet, \
+                          Rubine.BCP_ShapeFeatureSet, \
+                         )
         for fsType in (Rubine.BCPFeatureSet, Rubine.RubineFeatureSet):
             featureSet = fsType()
             for i in range (3):
