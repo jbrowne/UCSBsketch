@@ -516,9 +516,13 @@ class TkSketchFrame(Frame, _SketchGUI):
         "Draw a curve on the board with width and color as specified"
         self.drawStroke(curve.toStroke(), width = width, color = color)
         colorwheel = ["#FF0000", "#00FF00", "#0000FF", "#FF00FF"]
+	"""
         for i, pt in enumerate(curve.getControlPoints()):
             color = colorwheel[i]
             self.drawCircle(pt.X, pt.Y, radius=1, width = width, color = color)
+	"""
+        pt = curve.getControlPoints()[0]
+        self.drawCircle(pt.X, pt.Y, radius=2, width = width, color = "#0000FF")
 
 
 

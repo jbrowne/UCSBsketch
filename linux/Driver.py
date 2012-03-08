@@ -147,11 +147,11 @@ def allMain(args):
         allFeaturesets = ( \
                           #Rubine.BCPFeatureSet, \
                           #Rubine.RubineFeatureSet, \
-                          Rubine.BCP_ClassFeatureSet, \
-                          Rubine.BCP_GraphFeatureSet, \
+                          #Rubine.BCP_ClassFeatureSet, \
+                          #Rubine.BCP_GraphFeatureSet, \
                           Rubine.BCP_ShapeFeatureSet, \
                          )
-        for fsType in (Rubine.BCPFeatureSet, Rubine.RubineFeatureSet):
+        for fsType in allFeaturesets:
             featureSet = fsType()
             for i in range (3):
                 DIAGNUM = i

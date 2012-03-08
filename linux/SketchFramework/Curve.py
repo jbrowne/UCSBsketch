@@ -2,7 +2,7 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Point import Point
 from Utils import Logger
 
-logger = Logger.getLogger("CubicCurve", Logger.DEBUG)
+logger = Logger.getLogger("CubicCurve", Logger.WARN)
 
 class CubicCurve(object):
     def __init__(self, p0,p1, p2, p3):

@@ -70,6 +70,18 @@ class _SketchGUI(object):
                 self.drawLine(prev_p.X, prev_p.Y, next_p.X, next_p.Y, width=width, color=color)
             prev_p = next_p
 
+    def drawCurve(self, curve, width = 2, color = "#000000"):
+        "Draw a curve on the board with width and color as specified"
+        self.drawStroke(curve.toStroke(), width = width, color = color)
+        colorwheel = ["#FF0000", "#00FF00", "#0000FF", "#FF00FF"]
+        for i, pt in enumerate(curve.getControlPoints()):
+            color = colorwheel[i]
+            self.drawCircle(pt.X, pt.Y, radius=1, width = width, color = color)
+
+        pt = curve.getControlPoints()[0]
+        self.drawCircle(pt.X, pt.Y, radius=2, width = width, color = "#0000FF")
+
+
     
 
 dummylog = Logger.getLogger("DummyGUI", Logger.DEBUG)

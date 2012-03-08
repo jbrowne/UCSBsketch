@@ -320,7 +320,7 @@ def strokeApproximateCubicCurves(stroke, error = 0.5):
     end = len(stroke.Points)
     inc = len(stroke.Points) / 10
     allCurves = []
-    subStroke = Stroke(stroke.Points[start:end])
+    subStroke = Stroke(stroke.Points[start:end+1])
     while start < end:
 	if start > 0:
 	    prePt = stroke.Points[start - 1]
@@ -331,7 +331,7 @@ def strokeApproximateCubicCurves(stroke, error = 0.5):
         subError = subErrorThresh + 1
 
         while subError > subErrorThresh and end > start:
-	    subStroke = Stroke(stroke.Points[start:end])
+	    subStroke = Stroke(stroke.Points[start:end+1])
 	    subErrorThresh = strokeLength(subStroke) * error
 	    subError = subErrorThresh + 1
 	    if end < len(stroke.Points) - 1:
@@ -340,8 +340,8 @@ def strokeApproximateCubicCurves(stroke, error = 0.5):
 		postPt = None
             curve = strokeApproximateSingleCurve(subStroke, prePt = prePt, postPt = postPt)
             subError = strokeSumDists(curve.toStroke(), subStroke)
-	    print "Trying %s -> %s" % (start, end),
-	    print "Suberror = %s >? %s" % (subError, subErrorThresh)
+	    #print "Trying %s -> %s" % (start, end),
+	    #print "Suberror = %s >? %s" % (subError, subErrorThresh)
             end -= inc
         allCurves.append(curve)
         start = end + inc
@@ -349,62 +349,6 @@ def strokeApproximateCubicCurves(stroke, error = 0.5):
         subStroke = Stroke(stroke.Points[start:])
 
     return allCurves
-
-        
-        
-
-    numSegments = max(1, int(strokeLen / 100))
-    curvList = []
-
-    stroke = strokeNormalizeSpacing(stroke, numpoints = strokeLen / 5)
-
-    inc =  ( len(stroke.Points) -1 )/ float(numSegments)
-    cPoints = [int(i*inc) for i in range(numSegments + 1)]
-
-
-    prev_idx = None
-    for c_idx in cPoints:
-        if prev_idx != None:
-            p0 = stroke.Points[prev_idx]
-            p3 = stroke.Points[c_idx]
-
-            t_pt0 = None
-            t_pt1 = p0
-            t_pt2 = stroke.Points[prev_idx+1]
-            if prev_idx > 0:
-                t_pt0 = stroke.Points[prev_idx-1]
-            line1 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p0
-
-            t_pt0 = stroke.Points[c_idx-1]
-            t_pt1 = p3
-            t_pt2 = None
-            if c_idx < len(stroke.Points) - 1:
-                t_pt2 = stroke.Points[c_idx+1]
-            line3 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p3
-
-            cross = getLinesIntersection( line1, line3, infinite1 = True, infinite2= True )
-            if cross is None:
-                logger.warn("ApproxCurve: No intersection btw line1, line3")
-                cross = pointlistAverage([line1[1], line3[1]])
-
-            tempPt = stroke.Points[(prev_idx + c_idx)/2]
-            avgPoint = Point( (cross.X + tempPt.X) / 2, (cross.Y + tempPt.Y) / 2 )
-            line2 = pointGetTangentLine(p0, avgPoint, p3) #Line with average slope of the segment, intersecting middle point
-
-            p1 = getLinesIntersection(line1, line2, infinite1 = True, infinite2= True )
-            if p1 is None:
-                logger.warn("ApproxCurve: No intersection btw line1, line2")
-                p1 = pointlistAverage([line1[1], line2[0]])
-            p2 = getLinesIntersection(line2, line3, infinite1 = True, infinite2= True )
-            if p2 is None:
-                logger.warn("ApproxCurve: No intersection btw line2, line3")
-                p2 = pointlistAverage([line2[1], line3[0]])
-
-            curvList.append(CubicCurve(p0, p1, p2, p3))
-
-        prev_idx = c_idx
-
-    return curvList
 
     
 def lineGetPoint(line, dist):
@@ -422,30 +366,37 @@ def lineGetPoint(line, dist):
 def strokeApproximateSingleCurve(stroke, prePt = None, postPt = None):
     """Approximate a stroke with a single bezier curve"""
     stroke = strokeNormalizeSpacing(stroke, max(strokeLength(stroke) / 5, 3))
-    curveFactor = 0.5 * strokeLength(stroke)
-    p0 = stroke.Points[0]
-    p3 = stroke.Points[-1]
+    strokeLen = strokeLength(stroke)
+    error = None
+    for stretchP1 in [0.1, 0.25, 0.5, 0.75]:
+        for stretchP2 in [0.1, 0.25, 0.5, 0.75]:
+            p0 = stroke.Points[0]
+            p3 = stroke.Points[-1]
 
-    t_pt0 = prePt
-    t_pt1 = p0
-    t_pt2 = stroke.Points[1]
-    line1 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p0
+            t_pt0 = prePt
+            t_pt1 = p0
+            t_pt2 = stroke.Points[1]
+            line1 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p0
 
-    #p1 = line1[1]
-    p1 = lineGetPoint((t_pt1, line1[1]), curveFactor)
+            #p1 = line1[1]
+            p1 = lineGetPoint((t_pt1, line1[1]), stretchP1 *strokeLen)
 
 
-    t_pt0 = postPt 
-    t_pt1 = p3
-    t_pt2 = stroke.Points[-2]
-    print "%s, %s, %s" % (t_pt0, t_pt1, t_pt2)
-    line3 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p3
-    print "%s, %s, %s" % (line3[0], t_pt1, line3[1])
+            t_pt0 = postPt 
+            t_pt1 = p3
+            t_pt2 = stroke.Points[-2]
+            #print "%s, %s, %s" % (t_pt0, t_pt1, t_pt2)
+            line3 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p3
+            #print "%s, %s, %s" % (line3[0], t_pt1, line3[1])
 
-    #p2 = line3[1]
-    p2 = lineGetPoint((t_pt1, line3[1]), curveFactor)
-    
-    return CubicCurve(p0, p1, p2, p3)
+            #p2 = line3[1]
+            p2 = lineGetPoint((t_pt1, line3[1]), stretchP2 * strokeLen)
+            curve = CubicCurve(p0, p1, p2, p3)
+            curError = strokeSumDists(curve.toStroke(), stroke)
+            if error is None or curError < error:
+                bestCurve = curve
+                error = curError
+    return bestCurve
 
 
     

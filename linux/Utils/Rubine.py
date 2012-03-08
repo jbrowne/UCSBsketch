@@ -209,9 +209,24 @@ class BCPFeatureSet(FeatureSet):
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Features that work great for Basic Shapes
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    def f1_01(self):
+    def f1_01(self, stroke): 
         """The number of bezier cusps. [PPG 07]"""
-        return 1.0
+        curves = GeomUtils.strokeApproximateCubicCurves(stroke, error=0.5)
+        strokeLen = GeomUtils.strokeLength(stroke)
+        numCusps = 0
+        for c in curves:
+            cStroke = c.toStroke()
+            cLen = GeomUtils.strokeLength(cStroke)
+            epDist = GeomUtils.pointDist(cStroke.Points[0], cStroke.Points[-1])
+            #print "".join(["X" for i in range(0, int(cLen), 5)]), "  ", 
+            if cLen < strokeLen / 7.0:
+                #if cLen <  ( strokeLen / float(len(curves)) ) / 2.0:
+                numCusps += 1
+                #print "CUSP",
+            #print "Clen:%s, epDist:%s" % (cLen, epDist)
+        bcp_logger.debug("Number of Bezier cusps: %s" % (numCusps))
+        return numCusps
+
 
     def f1_03(self):
         """The number of polyline cusps [PPG 07]"""
@@ -221,7 +236,7 @@ class BCPFeatureSet(FeatureSet):
         """Angle of bbox diagonal. [Rubine]"""
         return self.rubineSet.f04(bbox)
 
-    def f1_09(self):
+    def f1_09(self, stroke):
         """Cosine of the angle from first point to last point [Rubine91]"""
         return self.rubineSet.f01(stroke)
 
@@ -237,9 +252,31 @@ class BCPFeatureSet(FeatureSet):
         logger.debug("Openness: %s" % (openness))
         return openness
 
-    def f1_23(self):
+    def f1_23(self, stroke):
         """Total angle / sum of |Angle at each point| [LLR00]"""
-        return 1.0
+        seg = [None, None]
+        anglesum = 0.0
+        absAnglesum = 0.0
+        prevAngle = None
+        for pt in stroke.Points:
+            if seg[0] != None:
+                segAngle = math.atan2(seg[1].Y - seg[0].Y, seg[1].X - seg[0].X)
+                #print "SegAngle %s" % (segAngle)
+                #print "AbsSegAngle %s" % (math.fabs(segAngle))
+                
+                if prevAngle is not None:
+                    anglesum += segAngle - prevAngle
+                    absAnglesum += math.fabs(segAngle - prevAngle)
+                prevAngle = segAngle
+            seg[0] = seg[1]
+            seg[1] = pt
+        if absAnglesum > 0:
+            retVal = anglesum / float(absAnglesum)
+        else:
+            retVal = 1.0
+        
+        print "Angle / sum |Angle| = %s" % (retVal)
+        return retVal
 
     def f4_01(self):
         """Divider result. Results of text/shape divider on current stroke"""
@@ -356,15 +393,36 @@ class BCPFeatureSet(FeatureSet):
 class BCP_ShapeFeatureSet(BCPFeatureSet):
     """This class implements all of the features found to be in the top 20
     for the Baisc Shapes dataset"""
-    def __init__(init):
+    def __init__(self):
         BCPFeatureSet.__init__(self)
 
     def __len__(self):
         return BCPFeatureSet.__len__(self) + 0
     
     def generateVector(self, strokeList):
-        retVector = BCPFeatureSet.generateVector(self, strokeList)
+        if len(strokeList) > 1:
+            bcp_logger.warn("Concatenating multiple strokes")
+            stroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
+        elif len(strokeList) == 1:
+            stroke = strokeList[0]
 
+        convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
+        strokeLength = GeomUtils.strokeLength(stroke)
+        boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+        curvatureList = GeomUtils.strokeGetPointsCurvature(
+                            GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
+                        ))
+        retVector = list(BCPFeatureSet.generateVector(self, strokeList))
+        retVector.extend([self.f1_01(stroke), \
+                        self.f1_03(), \
+                        self.f1_07(boundingBox) , \
+                        self.f1_09(stroke) , \
+                        self.f1_17(stroke, boundingBox) , \
+                        self.f1_23(stroke) , \
+                        self.f4_01() , \
+                        self.f7_05(boundingBox) , \
+                        self.f7_11(boundingBox) ]
+                        )
 
 #------------------------------------------------------------
 class BCP_ClassFeatureSet(BCPFeatureSet):
