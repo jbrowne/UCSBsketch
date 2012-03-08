@@ -31,10 +31,11 @@ from tkMessageBox import *
 
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
+from SketchFramework.Curve import CubicCurve
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import Board
 from Utils.StrokeStorage import StrokeStorage
-from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke
+from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke, strokeApproximateCubicCurves
 from Utils import Logger
 
 from Observers.ObserverBase import Animator
@@ -489,6 +490,9 @@ class TkSketchFrame(Frame, _SketchGUI):
         observers = self.Board.BoardObservers
         for s in strokes:
            s.drawMyself()
+           for curv in strokeApproximateCubicCurves(s):
+               self.drawCurve(curv, color="#FF0000")
+            
         for obs in observers:
            obs.drawMyself()
 
@@ -508,6 +512,13 @@ class TkSketchFrame(Frame, _SketchGUI):
         y = HEIGHT - y
         text_font = ("times", size, "")
         self.BoardCanvas.create_text(x,y,text = InText, fill = color, font = text_font, anchor=NW) 
+    def drawCurve(self, curve, width = 2, color = "#000000"):
+        "Draw a curve on the board with width and color as specified"
+        self.drawStroke(curve.toStroke(), width = width, color = color)
+        colorwheel = ["#FF0000", "#00FF00", "#0000FF", "#FF00FF"]
+        for i, pt in enumerate(curve.getControlPoints()):
+            color = colorwheel[i]
+            self.drawCircle(pt.X, pt.Y, radius=1, width = width, color = color)
 
 
 

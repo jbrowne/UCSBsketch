@@ -61,6 +61,9 @@ class _SketchGUI(object):
     
     def drawStroke(self, stroke, width = 2, color="#000000", erasable = False):
         """Draw a stroke on the board with width and color as specified."""
+        if len(stroke.Points) == 1:
+            pt = stroke.Points[0]
+            self.drawCircle(pt.X, pt.Y, radius = 0, width = width, color = color)
         prev_p = None
         for next_p in stroke.Points:
             if prev_p is not None:

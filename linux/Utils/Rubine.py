@@ -247,7 +247,7 @@ class BCPFeatureSet(FeatureSet):
 
     def f7_05(self, bbox):
         """Height of bounding box [FPJ02]"""
-        bboxHeight = bbox[0]Y - bbox[1].Y
+        bboxHeight = bbox[0].Y - bbox[1].Y
         logger.debug("BoundingBox Height %s" % (bboxHeight))
         return bboxHeight
 
@@ -315,8 +315,8 @@ class BCPFeatureSet(FeatureSet):
         curMax = 0
         segEnd = 1
         segStart = 1
-        for i in range(1, len(curvatures) - 1)
-            curv = curvatures[i]:
+        for i in range(1, len(curvatures) - 1):
+            curv = curvatures[i]
             if prev != None:
                 if curv < curMax - thresh and increasing:
                     increasing = False

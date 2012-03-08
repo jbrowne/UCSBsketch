@@ -102,6 +102,7 @@ import pdb
 from Utils import Logger
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
+from SketchFramework.Curve import CubicCurve
 
 logger = Logger.getLogger('GeomUtils', Logger.DEBUG )
 
@@ -111,6 +112,15 @@ logger = Logger.getLogger('GeomUtils', Logger.DEBUG )
 
 # FIXME: maybe these should be functions on "cordinates" rather than points
 
+
+def pointlistAverage(ptList):
+    if len(ptList) > 0:
+        x = sum([pt.X for pt in ptList]) / len(ptList)
+        y = sum([pt.Y for pt in ptList]) / len(ptList)
+        return Point(x, y)
+    else:
+        logger.warn("Averaging empty list of points")
+        return Point(0,0)
 
 def pointDistanceSquared(X1, Y1, X2, Y2):
     "Input: two points. Returns the squared distance between the points"
@@ -299,6 +309,139 @@ def angleSub( a, b ):
 #--------------------------------------------------------------
 # Functions on Strokes
 
+def strokeApproximateCubicCurves(stroke, error = 0.1):
+    """Approximate the incoming stroke with a list of cubic curves"""
+
+    return [strokeApproximateSingleCurve(stroke)]
+    allCurves = []
+    for ss in [Stroke(stroke.Points[:len(stroke.Points)/4]), \
+               Stroke(stroke.Points[len(stroke.Points)/4: len(stroke.Points)/2]), \
+               Stroke(stroke.Points[len(stroke.Points)/2: 3*len(stroke.Points)/4]), \
+               Stroke(stroke.Points[3* len(stroke.Points)/4:]) ]:
+        allCurves.append(strokeApproximateSingleCurve(ss))
+
+    return allCurves
+
+    strokeLen = strokeLength(stroke)
+    errorThresh = error * strokeLen
+    allError =  strokeLen
+    start = 0
+    end = len(stroke.Points) - 1
+    inc = len(stroke.Points) / 20
+    subStroke = stroke
+    allCurves = []
+    while start < end:
+        subErrorThresh = strokeLength(subStroke) * error
+        curve = strokeApproximateSingleCurve(subStroke)
+        subError = strokeSumDists(curve.toStroke(), subStroke)
+
+        while subError > subErrorThresh and end > start + 1:
+            curve = strokeApproximateSingleCurve(subStroke)
+            subError = strokeSumDists(curve.toStroke(), subStroke)
+            end -= inc
+
+        allCurves.append(curve)
+        start = end
+        end = len(stroke.Points) - 1
+        subStroke = Stroke(stroke.Points[start:])
+
+    return allCurves
+
+        
+        
+
+    numSegments = max(1, int(strokeLen / 100))
+    curvList = []
+
+    stroke = strokeNormalizeSpacing(stroke, numpoints = strokeLen / 5)
+
+    inc =  ( len(stroke.Points) -1 )/ float(numSegments)
+    cPoints = [int(i*inc) for i in range(numSegments + 1)]
+
+
+    prev_idx = None
+    for c_idx in cPoints:
+        if prev_idx != None:
+            p0 = stroke.Points[prev_idx]
+            p3 = stroke.Points[c_idx]
+
+            t_pt0 = None
+            t_pt1 = p0
+            t_pt2 = stroke.Points[prev_idx+1]
+            if prev_idx > 0:
+                t_pt0 = stroke.Points[prev_idx-1]
+            line1 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p0
+
+            t_pt0 = stroke.Points[c_idx-1]
+            t_pt1 = p3
+            t_pt2 = None
+            if c_idx < len(stroke.Points) - 1:
+                t_pt2 = stroke.Points[c_idx+1]
+            line3 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p3
+
+            cross = getLinesIntersection( line1, line3, infinite1 = True, infinite2= True )
+            if cross is None:
+                logger.warn("ApproxCurve: No intersection btw line1, line3")
+                cross = pointlistAverage([line1[1], line3[1]])
+
+            tempPt = stroke.Points[(prev_idx + c_idx)/2]
+            avgPoint = Point( (cross.X + tempPt.X) / 2, (cross.Y + tempPt.Y) / 2 )
+            line2 = pointGetTangentLine(p0, avgPoint, p3) #Line with average slope of the segment, intersecting middle point
+
+            p1 = getLinesIntersection(line1, line2, infinite1 = True, infinite2= True )
+            if p1 is None:
+                logger.warn("ApproxCurve: No intersection btw line1, line2")
+                p1 = pointlistAverage([line1[1], line2[0]])
+            p2 = getLinesIntersection(line2, line3, infinite1 = True, infinite2= True )
+            if p2 is None:
+                logger.warn("ApproxCurve: No intersection btw line2, line3")
+                p2 = pointlistAverage([line2[1], line3[0]])
+
+            curvList.append(CubicCurve(p0, p1, p2, p3))
+
+        prev_idx = c_idx
+
+    return curvList
+
+    
+def strokeApproximateSingleCurve(stroke):
+    """Approximate a stroke with a single bezier curve"""
+    stroke = strokeNormalizeSpacing(stroke, strokeLength(stroke) / 5)
+    p0 = stroke.Points[0]
+    p3 = stroke.Points[-1]
+
+    t_pt0 = None
+    t_pt1 = p0
+    t_pt2 = stroke.Points[1]
+    line1 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p0
+
+    t_pt0 = stroke.Points[-1]
+    t_pt1 = p3
+    t_pt2 = None
+    line3 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p3
+
+    cross = getLinesIntersection( line1, line3, infinite1 = True, infinite2= True )
+    if cross is None:
+        logger.warn("ApproxCurve: No intersection btw line1, line3")
+        cross = pointlistAverage([line1[1], line3[1]])
+
+    tempPt = stroke.Points[len(stroke.Points)/2]
+    avgPoint = Point( (cross.X + tempPt.X) / 2, (cross.Y + tempPt.Y) / 2 )
+    line2 = pointGetTangentLine(p0, avgPoint, p3) #Line with average slope of the segment, intersecting middle point
+
+    p1 = getLinesIntersection(line1, line2, infinite1 = True, infinite2= True )
+    if p1 is None:
+        logger.warn("ApproxCurve: No intersection btw line1, line2")
+        p1 = pointlistAverage([line1[1], line2[0]])
+    p2 = getLinesIntersection(line2, line3, infinite1 = True, infinite2= True )
+    if p2 is None:
+        logger.warn("ApproxCurve: No intersection btw line2, line3")
+        p2 = pointlistAverage([line2[1], line3[0]])
+
+    return CubicCurve(p0, p1, p2, p3)
+
+
+    
 def strokeContainsStroke(outerStk, innerStk, granularity = None):
     "Returns whther outerStk contains innerStk"
     #pdb.set_trace()
@@ -649,6 +792,20 @@ def strokeFeaturePoints(inStroke):
 
 #--------------------------------------------------------------
 # Functions on Lists of Strokes
+
+
+def strokeSumDists(stroke1, stroke2):
+    """Returns the sum of the pairwise distances between points in two strokes. They are normalized before comparison if not already equal length"""
+    if len(stroke1.Points) != len(stroke2.Points):
+        stroke1 = strokeNormalizeSpacing(stroke1)
+        stroke2 = strokeNormalizeSpacing(stroke2)
+
+    allDist = 0.0
+    for i in range(len(stroke1.Points)):
+        p1 = stroke1.Points[i]
+        p2 = stroke2.Points[i]
+        allDist += pointDistance(p1.X, p1.Y, p2.X, p2.Y)
+    return allDist
 
 def strokelistBoundingBox( strokelist ):
     "Input: a list of strokes. Returns the bounding box as a tuple of Points, (topleft,bottomright)"
@@ -1002,7 +1159,26 @@ def linePointsTowards(linept1, linept2, target, radius):
         
 
 
-    
+def pointGetTangentLine(p1, p2, p3):
+    """Given a point triple, return a line segment (pt1, pt2) tangent to 
+    the line at point p2, length points long. If p1 or p3 is None, the tangent is
+    calculated from the ray out of/into p2. p1 = p2 = p3 yields a vertical line."""
+    length = 50
+    if p1 is None:
+        p1 = p2
+    if p3 is None:
+        p3 = p2
+    if p1.X == p3.X:
+        pt1 = Point(p2.X, p2.Y - length/2)
+        pt2 = Point(p2.X, p2.Y + length/2)
+        return (pt1, pt2)
+    else:
+        slope = (p3.Y - p1.Y) / float(p3.X - p1.X)
+        pt1 = Point(p2.X + length, p2.Y + slope* length)
+        pt2 = Point(p2.X - length, p2.Y - slope* length)
+        return (pt1, pt2)
+
+
 def pointDistanceFromLine(point, lineseg):
     """Returns the Euclidean distance of the point from an infinite line formed by extending the lineseg.
     point: Point object
