@@ -368,8 +368,10 @@ def strokeApproximateSingleCurve(stroke, prePt = None, postPt = None):
     stroke = strokeNormalizeSpacing(stroke, max(strokeLength(stroke) / 5, 3))
     strokeLen = strokeLength(stroke)
     error = None
-    for stretchP1 in [0.1, 0.25, 0.5, 0.75]:
-        for stretchP2 in [0.1, 0.25, 0.5, 0.75]:
+    #stretchFactors = [0.1, 0.25, 0.5, 0.75]
+    stretchFactors = (0.25, 0.5, 0.85)
+    for stretchP1 in stretchFactors:
+        for stretchP2 in stretchFactors:
             p0 = stroke.Points[0]
             p3 = stroke.Points[-1]
 
@@ -394,8 +396,10 @@ def strokeApproximateSingleCurve(stroke, prePt = None, postPt = None):
             curve = CubicCurve(p0, p1, p2, p3)
             curError = strokeSumDists(curve.toStroke(), stroke)
             if error is None or curError < error:
+                bestStretch = (stretchP1, stretchP2)
                 bestCurve = curve
                 error = curError
+    print "Best stretch: %s" % (str(bestStretch))
     return bestCurve
 
 

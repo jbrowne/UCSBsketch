@@ -37,70 +37,80 @@ def classifyMain(args):
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-def batchClassify(strokeData, classifier):
+def batchClassify(strokeData, classifier, classifyOnParticipants = None):
     """Given a dataset, and a classifier object, evaluate the strokes in the dataset
     and decide what they are"""
     global DIAGNUM
     logger.warn("Only using diagram # %s from each participant"% (DIAGNUM))
-    outData = {'byLabel' : {},
+    outData = {'classifier' : classifier.__class__.__name__,
+               'featureSet' : classifier.featureSet.__class__.__name__,
+               'byLabel' : {},
                'overAll' : {'right' : 0, 'wrong': 0}
               }
     for participant in strokeData.participants:
-        #for diagram in participant.diagrams:
-        diagram = participant.diagrams[DIAGNUM]
-        for label in diagram.groupLabels:
-            name = label.type
-            labelResults = outData['byLabel'].setdefault(name, {'right': 0, 'wrong' : 0})
-            for stkID in label.ids:
-                try:
-                    classification = classifier.classifyStroke(diagram.InkStrokes[stkID].stroke)
-                    if name == classification:
-                        labelResults['right'] += 1
-                        outData['overAll']['right'] += 1
-                    else:
-                        labelResults['wrong'] += 1
-                        outData['overAll']['wrong'] += 1
-                except Exception as e:
-                    print traceback.format_exc()
-                    print e
-                    exit(1)
+        if classifyOnParticipants is None or participant.id in classifyOnParticipants:
+            #for diagram in participant.diagrams:
+            print "Classifying on participant %s" % (participant.id)
+            diagram = participant.diagrams[DIAGNUM]
+            for label in diagram.groupLabels:
+                name = label.type
+                labelResults = outData['byLabel'].setdefault(name, {'right': 0, 'wrong' : 0})
+                for stkID in label.ids:
+                    try:
+                        classification = classifier.classifyStroke(diagram.InkStrokes[stkID].stroke)
+                        if name == classification:
+                            labelResults['right'] += 1
+                            outData['overAll']['right'] += 1
+                        else:
+                            labelResults['wrong'] += 1
+                            outData['overAll']['wrong'] += 1
+                    except Exception as e:
+                        print traceback.format_exc()
+                        print e
+                        exit(1)
     return outData
     
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-def printResults(results, outfile = sys.stdout):
+def printResults(trainIDs, classifyIDs, results, outfile = sys.stdout):
     print >> outfile, "Kind\tTotal\tRight\tPct_Right\tWrong\tPct_Wrong\t"
+    featureSet = results['featureSet']
     right = results['overAll']['right']
     wrong = results['overAll']['wrong']
     total = float(right + wrong)
     if total > 0:
-        print >> outfile, "Overall\t%s\t%s\t%s\t%s\t%s" % (total, right, right/total * 100, wrong, wrong/total * 100)
+        print >> outfile, "%s_Overall\t%s\t%s\t%s\t%s\t%s" % (classifier, total, right, right/total * 100, wrong, wrong/total * 100)
     for label, results in results['byLabel'].items():
         right = results['right']
         wrong = results['wrong']
         total = float(right + wrong)
         if total > 0:
             print >> outfile, "%s\t%s\t%s\t%s\t%s\t%s" % (label, total, right, right/total * 100, wrong, wrong/total * 100)
+    print >> outfile, "TrainingIDs:%s" % (",".join([str(i) for i in trainIDs]) )
+    print >> outfile, "ClassifyIDs:%s" % (",".join([str(i) for i in classifyIDs]) )
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-def batchTraining(trainer, dataSet, outfname):
-    """Perform training on an entire dataset in infname, and output the results to outfname"""
+def batchTraining(trainer, dataSet, outfname, trainOnParticipants = None ):
+    """Perform training on an entire dataset in infname, and output the results to outfname.
+    trainOnParticipants is a set of participant indexes to train from"""
     global DIAGNUM
     seenLabels = set()
     logger.warn("Only using diagram # %s from each participant"% (DIAGNUM))
     for participant in dataSet.participants:
-        #for diagram in participant.diagrams:
-        diagram = participant.diagrams[DIAGNUM]
-        for label in diagram.groupLabels:
-            if label.type not in seenLabels:
-                trainer.newClass(name = label.type)
-                seenLabels.add(label.type)
-            for stkID in label.ids:
-                try:
-                    trainer.addStroke(diagram.InkStrokes[stkID].stroke, label.type)
-                except Exception as e:
-                    print e
+        if trainOnParticipants is None or participant.id in trainOnParticipants:
+            print "Training from participant %s" % (participant.id)
+            #for diagram in participant.diagrams:
+            diagram = participant.diagrams[DIAGNUM]
+            for label in diagram.groupLabels:
+                if label.type not in seenLabels:
+                    trainer.newClass(name = label.type)
+                    seenLabels.add(label.type)
+                for stkID in label.ids:
+                    try:
+                        trainer.addStroke(diagram.InkStrokes[stkID].stroke, label.type)
+                    except Exception as e:
+                        print e
 
     trainer.saveWeights(outfname)
 
@@ -145,25 +155,44 @@ def allMain(args):
         infname = args[0]
         dataSet = openDataset(infname)
         allFeaturesets = ( \
-                          #Rubine.BCPFeatureSet, \
-                          #Rubine.RubineFeatureSet, \
+                          Rubine.BCPFeatureSet, \
+                          Rubine.BCP_CombinableFS, \
+                          Rubine.RubineFeatureSet, \
                           #Rubine.BCP_ClassFeatureSet, \
                           #Rubine.BCP_GraphFeatureSet, \
-                          Rubine.BCP_ShapeFeatureSet, \
+                          #Rubine.BCP_ShapeFeatureSet, \
                          )
+
+        #Split participants into training and evaluation groups
+        trainIDs = set()
+        classifyIDs = set()
+        for i, participant in enumerate(dataSet.participants):
+            if i % 2 == 0:
+                trainIDs.add(participant.id)
+            else:
+                classifyIDs.add(participant.id)
+            
         for fsType in allFeaturesets:
             featureSet = fsType()
             for i in range (3):
                 DIAGNUM = i
-
                 tag = "SymbolClass-%s_Feature-%s" % (DIAGNUM, type(featureSet).__name__)
                 classifierFname = "BatchRubineData_%s.xml"%(tag)
                 classifier = Rubine.RubineClassifier(featureSet = featureSet)
-                batchTraining(classifier, dataSet, classifierFname)
+                print "-----------------------"
+                print "Training classifier"
+                print "-----------------------"
+                batchTraining(classifier, dataSet, classifierFname, trainOnParticipants = trainIDs)
                 #classifier.loadWeights(classifierFname)
-                results = batchClassify(dataSet, classifier)
+                print "-----------------------"
+                print "Classifying Dataset"
+                print "-----------------------"
+                results = batchClassify(dataSet, classifier, classifyOnParticipants = classifyIDs)
                 resultsFile = open("Results_%s.txt" % (tag), "w")
-                printResults(results, resultsFile)
+                print "-----------------------"
+                print "Printing Results"
+                print "-----------------------"
+                printResults(trainIDs, classifyIDs, results, resultsFile)
                 resultsFile.close()
     else:
         print "Usage: %s --all <Training/Testing dataset>"
