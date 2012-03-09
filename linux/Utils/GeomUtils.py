@@ -113,6 +113,26 @@ logger = Logger.getLogger('GeomUtils', Logger.DEBUG )
 # FIXME: maybe these should be functions on "cordinates" rather than points
 
 
+def pointlistAnglesVector(ptlist):
+    """Return the relative angle of each point, where angle 
+    counterclockwise is >0, clockwise is <0. Endpoints have 0 angle."""
+    prevAngle = None
+    prevPt = None
+    relAngles = []
+    #totalAngle = None
+    for pt in ptlist:
+        if prevPt != None:
+            absAngle = math.atan2(pt.Y - prevPt.Y, pt.X - prevPt.X) #The absolute angle from 0deg
+            if prevAngle != None:
+                relAngles.append (absAngle - prevAngle)
+            else:
+                relAngles.append(0.0)
+            prevAngle = absAngle
+        prevPt = pt
+    relAngles.append(0.0)
+    assert len(relAngles) == len(ptlist)
+    return relAngles
+
 def pointlistAverage(ptList):
     if len(ptList) > 0:
         x = sum([pt.X for pt in ptList]) / len(ptList)
@@ -309,8 +329,9 @@ def angleSub( a, b ):
 #--------------------------------------------------------------
 # Functions on Strokes
 
-def strokeApproximatePolyLine(stroke, error= 0.02):
+def strokeApproximatePolyLine(stroke, error= 0.002):
     """Approximate a stroke with a polyline, returned as a stroke"""
+    #logger.debug("Approximating Stroke with PolyLine")
     start = 0
     curIdx = 0
     errorThresh = error * strokeLength(stroke) #Per point error threshold in pixels
@@ -320,63 +341,70 @@ def strokeApproximatePolyLine(stroke, error= 0.02):
 
     polylinePts.append(stroke.Points[0])
 
+    totalError = 0
+
     while curIdx < len(stroke.Points) - inc :
         startPt = stroke.Points[start]
-        curIdx = start
+        prevIdx = curIdx = start
         curPt = startPt
         curError = 0
         while curIdx < len(stroke.Points) - 1 \
-            and curError <= errorThresh * (curIdx - start):
+            and curError <= errorThresh:
             curIdx = min(curIdx + inc, len(stroke.Points) - 1)
             curPt = stroke.Points[curIdx]
-            curError = strokeSumDists(Stroke(stroke.Points[start:curIdx + 1]), \
-                                   Stroke([startPt, curPt]) )
-            #print "%s\tCurrent  \n%s\tThresh" % \
-                  #(curError, errorThresh * float(curIdx - start) )
+            subStroke = Stroke(stroke.Points[start:curIdx + 1])
+            curError = strokeSumDists(subStroke, \
+                                      Stroke([startPt, curPt]) ) / float(len(subStroke.Points))
+            prevIdx = curIdx
+            #logger.debug("Trying %s -> %s" % (start, curIdx))
+            #logger.debug("%s ?> %s" % (curError, errorThresh))
         #logger.debug("PolyLine, using  %s->%s" % (start, curIdx))
-        polylinePts.append(curPt)
-        start = curIdx
+        totalError += curError
+        polylinePts.append(stroke.Points[prevIdx])
+        start = prevIdx
+    #logger.debug("Stroke approximated with polyline, error/pt: %s" % (totalError/len(stroke.Points) ))
 
     return Stroke(polylinePts)
 
 
-def strokeApproximateCubicCurves(stroke, error = 0.5):
+def strokeApproximateCubicCurves(stroke, error = 0.005):
     """Approximate the incoming stroke with a list of cubic curves. Optionally give a
     point before the stroke and after the stroke for better joining of curves."""
 
+    #logger.debug("Approximating stroke with curves")
     strokeLen = strokeLength(stroke)
-    errorThresh = error * strokeLen
+    errorThresh = max(error * strokeLen, 1.0)
     start = 0
     end = len(stroke.Points)
-    inc = len(stroke.Points) / 10
+    inc = max(len(stroke.Points) / 20, 1)
     allCurves = []
     subStroke = Stroke(stroke.Points[start:end+1])
+    totalError = 0.0
     while start < end:
 	if start > 0:
 	    prePt = stroke.Points[start - 1]
 	else:
 	    prePt = None
 
-        subErrorThresh = strokeLength(subStroke) * error
-        subError = subErrorThresh + 1
+        #subErrorThresh = max(len(subStroke.Points) * error, 1.0)
+        subError = errorThresh + 1
 
-        while subError > subErrorThresh and end > start:
+        while subError > errorThresh and end > start:
+	    #logger.debug( "Trying %s -> %s" % (start, end) )
 	    subStroke = Stroke(stroke.Points[start:end+1])
-	    subErrorThresh = strokeLength(subStroke) * error
-	    subError = subErrorThresh + 1
 	    if end < len(stroke.Points) - 1:
 		postPt = stroke.Points[end + 1]
 	    else:
 		postPt = None
             curve = strokeApproximateSingleCurve(subStroke, prePt = prePt, postPt = postPt)
-            subError = strokeSumDists(curve.toStroke(), subStroke)
-	    #print "Trying %s -> %s" % (start, end),
-	    #print "Suberror = %s >? %s" % (subError, subErrorThresh)
+            subError = strokeSumDists(subStroke, curve.toStroke()) / float(len(subStroke.Points))
             end -= inc
         allCurves.append(curve)
+        totalError += subError
         start = end + inc
         end = len(stroke.Points) - 1
         subStroke = Stroke(stroke.Points[start:])
+    #logger.debug("Stroke approximated with Cubic Curves, error: %s" % (totalError) )
 
     return allCurves
 
@@ -524,6 +552,7 @@ def strokeGetPointsCurvature( inStroke ):
     if len(inStroke.Points) > 1: #Nonsense curvature for the last point
        curvature_list.append(endPointCurvature)
 
+    #assert len(curvature_list) == len(inStroke.Points), "%s != %s" % (len(curvature_list), len(inStroke.Points))
     return curvature_list
 
 
@@ -755,7 +784,7 @@ def strokeOrientation(inStroke):
     pArea = area(inPoints)
 
     if (len(inPoints) <= 1):
-        print "Warning: trying to get the Angle of Orientation of one or fewer points."
+        logger.warn( "Warning: trying to get the Angle of Orientation of one or fewer points.")
         return 0.0
 
     if pArea == 0:  #Perfect line        
@@ -794,13 +823,11 @@ def strokeSumDists(stroke1, stroke2):
         stroke2 = strokeNormalizeSpacing(stroke2, numpoints = len(stroke1.Points))
 
     allDist = 0.0
-    try:
-        for i in range(len(stroke1.Points)):
-            p1 = stroke1.Points[i]
-            p2 = stroke2.Points[i]
-            allDist += pointDistance(p1.X, p1.Y, p2.X, p2.Y)
-    except Exception as e:
-        pdb.set_trace()
+    for i in range(len(stroke1.Points)):
+        p1 = stroke1.Points[i]
+        p2 = stroke2.Points[i]
+        allDist += pointDistance(p1.X, p1.Y, p2.X, p2.Y)
+    #logger.debug("strokeSumDists %s" % (allDist))
     return allDist
 
 def strokelistBoundingBox( strokelist ):
@@ -859,7 +886,7 @@ def pointListOrientationHistogram(points, direction=False):
         return tuple(temp)
 
     if direction:
-        print "Sorry, don't support direction yet"
+        logger.error( "Sorry, don't support direction yet")
         raise NotImplemented
     else:
         retDict = { 'lr' : 0,
@@ -921,7 +948,7 @@ def sliceByLength(inPoints, lengthBegin, lengthEnd):
     "Input: List inPoints; double lengthBegin, lengthEnd - values between 0.0 and 1.0.  Returns the (closest) slice of the set of points based on the starting percentages given by length Begin & End.  Doesn't create points"
     
     if len(inPoints) < 2:
-        print "Warning: Trying to get a slice of a stroke with less than two points."
+        logger.warn("Trying to get a slice of a stroke with less than two points.")
         return inPoints
     
     lengthDiff = lengthEnd - lengthBegin
@@ -1028,7 +1055,7 @@ def perimeter(inPoints):
     "Input: List inPoints.  returns the perimeter of the input set of points."
 
     if len(inPoints) < 3:
-        print("Warning: trying to get the perimeter of less than three points")
+        logger.warn("Warning: trying to get the perimeter of less than three points")
         return 0
 
     perim = 0.0
@@ -1214,7 +1241,7 @@ def _angleOfOrientation(inStroke):
     pArea = area(inPoints)
 
     if (len(inPoints) <= 1):
-        print "Warning: trying to get the Angle of Orientation of one or fewer points."
+        logger.warn("Warning: trying to get the Angle of Orientation of one or fewer points.")
         return 0.0
 
     #Perfect line        
@@ -1260,7 +1287,8 @@ def convexHull(inPoints):
     "Input:  Set of Points as a polygon/line.  Returns a set of ordered points defined as the Convex Hull using Grahms Scan"
     pts = list(set(inPoints)) # Remove duplicates
     if len(pts) < 3:
-        print("Warning: Trying to get the hull of less than 3 points")
+        logger.warn("Warning: Trying to get the hull of less than 3 points")
+
         return inPoints
 
     A = pts[0]

@@ -19,6 +19,10 @@ class Stroke(AnnotatableObject):
     def __repr__(self):
         return "<Stroke %s>" % (str(self.id))
     
+    def __len__(self):
+        """Returns the length of this stroke in number of points"""
+        return len(self.Points)
+
     def __init__(self, points=None, id = None, board=None):#, smoothing=False): DEPRECATED
         # call parent constructor
         AnnotatableObject.__init__(self) 

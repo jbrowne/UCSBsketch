@@ -69,6 +69,8 @@ def batchClassify(strokeData, classifier, classifyOnParticipants = None):
                         print traceback.format_exc()
                         print e
                         exit(1)
+            #DISABLE THIS WHEN REAL
+            #break
     return outData
     
 
@@ -113,6 +115,8 @@ def batchTraining(trainer, dataSet, outfname, trainOnParticipants = None ):
                     except Exception as e:
                         print traceback.format_exc()
                         print e
+            #DISABLE THIS FOR REALZ
+            #break
 
     trainer.saveWeights(outfname)
 
@@ -157,15 +161,15 @@ def allMain(args):
     if len(args) > 0:
         infname = args[0]
         dataSet = openDataset(infname)
-        allFeaturesets = ( \
-                          #Rubine.BCPFeatureSet, \
-                          #Rubine.BCP_CombinableFS, \
-                          Rubine.BCP_AllFeatureSet, \
-                          #Rubine.RubineFeatureSet, \
-                          #Rubine.BCP_ClassFeatureSet, \
-                          #Rubine.BCP_GraphFeatureSet, \
-                          #Rubine.BCP_ShapeFeatureSet, \
-                         )
+        allFeatureSets = [ [Rubine.BCP_ShapeFeatureSet],
+                        [Rubine.BCP_GraphFeatureSet],
+                        [Rubine.BCP_ClassFeatureSet],
+                      ]
+
+        """
+        for featureSetList in allFeatureSets:
+            featureSetList.append(Rubine.BCPFeatureSet)
+        """
 
         #Split participants into training and evaluation groups
         trainIDs = set()
@@ -176,10 +180,11 @@ def allMain(args):
             else:
                 classifyIDs.add(participant.id)
             
-        for fsType in allFeaturesets:
-            featureSet = fsType()
-            for i in range (3):
-                DIAGNUM = i
+        for i in range (3):
+        #for i in [1]:
+            DIAGNUM = i
+            for fsType in allFeatureSets[i]:
+                featureSet = fsType()
                 tag = "SymbolClass-%s_Feature-%s" % (DIAGNUM, type(featureSet).__name__)
                 classifierFname = "BatchRubineData_%s.xml"%(tag)
                 classifier = Rubine.RubineClassifier(featureSet = featureSet)

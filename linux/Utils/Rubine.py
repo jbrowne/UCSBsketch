@@ -41,7 +41,7 @@ class FeatureSet(object):
         return 0
 
 #------------------------------------------------------------
-bcp_logger = Logger.getLogger('BCPFeatureSet', Logger.WARN )
+bcp_logger = Logger.getLogger('BCPFeatureSet', Logger.DEBUG )
 class BCPFeatureSet(FeatureSet):
     """Feature set found to be best for Rubine's classifier in
     Blagojevic, et al. "The Power of Automatic Feature Selection: 
@@ -51,7 +51,7 @@ class BCPFeatureSet(FeatureSet):
         self.rubineSet = RubineFeatureSet()
 
     def __len__(self):
-        return 10
+        return 29
 
 
     def generateVector(self, strokeList):
@@ -73,18 +73,47 @@ class BCPFeatureSet(FeatureSet):
                             GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
                         ))
 
+        anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
         #Generate the vector
-        retVector = (self.f1_12(stroke) , \
-                     self.f2_7(strokeLength, convexHull) , \
-                     self.f2_8(strokeLength, boundingBox) , \
+        #Basic Features
+        retVector = [ self.f1_12(stroke) , \
                      self.f1_16(curvatureList) , \
+                     self.f2_6(strokeLength, convexHull) , \
+                     self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
                      self.f7_2(boundingBox) , \
                      self.f7_7(convexHull, boundingBox) , \
                      self.f7_10(strokeLength) , \
                      self.f7_16(convexHull) , \
                      self.f7_17(convexHull) \
-                    )
+                    ]
+        #The Rest
+        retVector.extend([
+                     self.f1_01(stroke), \
+                     self.f1_07(boundingBox), \
+                     self.f1_09(stroke), \
+
+                     self.f1_17(stroke, boundingBox), \
+                     self.f1_23(stroke), \
+                     self.f7_05(boundingBox), \
+                     self.f7_11(boundingBox), \
+
+                     self.f1_04(stroke), \
+                     self.f1_11(anglesVector), \
+                     self.f1_13(stroke), \
+                     self.f7_13(strokeLength), \
+                     self.f7_14(boundingBox), \
+
+                     self.f1_06(stroke, curvatureList), \
+                     self.f1_18(stroke), \
+                     self.f1_19(stroke), \
+                     self.f1_21(stroke), \
+                     self.f10_05(stroke), \
+
+                     #Not Implemented
+                     self.f1_03(stroke), \
+                     self.f4_01(stroke), \
+                    ])
         return retVector
 
     #-----------------------------------------------
@@ -113,9 +142,10 @@ class BCPFeatureSet(FeatureSet):
                     curMax = max(curMax, curv)
             prev = curv
         bcp_logger.debug("Number of segments: %s" % (segments))
+        return len(curvatures)
         return segments
 
-    def f2_7(self, strokeLen, cvxHull):
+    def f2_6(self, strokeLen, cvxHull):
         """Stroke length / perimeter of the stroke's convex hull [FPJ02]"""
         cvx_perimeter = GeomUtils.strokeLength(cvxHull)
         if cvx_perimeter > 0.0:
@@ -213,24 +243,23 @@ class BCPFeatureSet(FeatureSet):
         """The number of bezier cusps. [PPG 07]"""
         curves = GeomUtils.strokeApproximateCubicCurves(stroke, error=0.5)
         strokeLen = GeomUtils.strokeLength(stroke)
-        numCusps = 0
+        numCusps = 2
         for c in curves:
             cStroke = c.toStroke()
             cLen = GeomUtils.strokeLength(cStroke)
             epDist = GeomUtils.pointDist(cStroke.Points[0], cStroke.Points[-1])
-            #print "".join(["X" for i in range(0, int(cLen), 5)]), "  ", 
-            if cLen < strokeLen / 7.0:
-                #if cLen <  ( strokeLen / float(len(curves)) ) / 2.0:
+            if cLen < strokeLen / 2.0:
                 numCusps += 1
-                #print "CUSP",
-            #print "Clen:%s, epDist:%s" % (cLen, epDist)
         bcp_logger.debug("Number of Bezier cusps: %s" % (numCusps))
         return numCusps
 
 
-    def f1_03(self):
+    def f1_03(self, stroke):
         """The number of polyline cusps [PPG 07]"""
-        return random.random()
+        #~~~~~~~~~~~~~~~~~~~
+        #NOT IMPLEMENTED
+        #~~~~~~~~~~~~~~~~~~~
+        return len(stroke.Points)
 
     def f1_07(self, bbox):
         """Angle of bbox diagonal. [Rubine]"""
@@ -254,33 +283,15 @@ class BCPFeatureSet(FeatureSet):
 
     def f1_23(self, stroke):
         """Total angle / sum of |Angle at each point| [LLR00]"""
-        seg = [None, None]
-        anglesum = 0.0
-        absAnglesum = 0.0
-        prevAngle = None
-        for pt in stroke.Points:
-            if seg[0] != None:
-                segAngle = math.atan2(seg[1].Y - seg[0].Y, seg[1].X - seg[0].X)
-                #print "SegAngle %s" % (segAngle)
-                #print "AbsSegAngle %s" % (math.fabs(segAngle))
-                
-                if prevAngle is not None:
-                    anglesum += segAngle - prevAngle
-                    absAnglesum += math.fabs(segAngle - prevAngle)
-                prevAngle = segAngle
-            seg[0] = seg[1]
-            seg[1] = pt
-        if absAnglesum > 0:
-            retVal = anglesum / float(absAnglesum)
-        else:
-            retVal = 1.0
-        
-        #print "Angle / sum |Angle| = %s" % (retVal)
+        retVal = self.rubineSet.f09(stroke) / float(self.rubineSet.f10(stroke))
         return retVal
 
-    def f4_01(self):
+    def f4_01(self, stroke):
         """Divider result. Results of text/shape divider on current stroke"""
-        return random.random()
+        #~~~~~~~~~~~~~~~~~~~
+        #NOT IMPLEMENTED
+        #~~~~~~~~~~~~~~~~~~~
+        return GeomUtils.strokeLength(stroke)
 
     def f7_05(self, bbox):
         """Height of bounding box [FPJ02]"""
@@ -299,6 +310,12 @@ class BCPFeatureSet(FeatureSet):
         logger.debug("Log Bbox Area: %s" % (logBboxArea))
         return logBboxArea
 
+    def f7_13(self, strokeLen): 
+        """Log of the total length of the stroke. [LLR*00, MFN93]"""
+        if strokeLen > 0.0:
+            return math.log(strokeLen)
+        else:
+            return 0.0
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Features that work great for Class Diagrams
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -307,38 +324,45 @@ class BCPFeatureSet(FeatureSet):
 
     def f1_04(self, stroke):
         """Sum of the absolute value of the angle at each point [Rubine91]"""
-        return self.rubineSet.f09(stroke)
+        retVal = self.rubineSet.f10(stroke) / len(stroke.Points)
+        bcp_logger.debug("F1_04: Sum of abs angle value: %s" % (retVal) )
+        return retVal
+
 
     #def f1_07(self) Also in Basic Shapes
 
-    def f1_11(self, curvatures):
+    def f1_11(self, anglesVector):
         """Curviness. Sum of absolute value of the angle at each stroke point below 19deg 
-            of threshold [LLR01]"""
+            threshold [LLR01]"""
         curviness = 0.0
-        for curv in curvatures:
-            if curv > 19 * math.pi / 180.0:
-                curviness += curv
-        logger.debug("Curviness: %s" % (curviness))
+        for angle in anglesVector:
+            aval = 57.0 *math.fabs(angle)
+            if aval < 19:
+                curviness+= aval
         return curviness
             
 
-    def f1_13(self):
-        """Orthogonal distance squared between the least squares fited line
-        and the stroke points / stroke length [PRD08, SSD01]"""
-        return random.random()
+    def f1_13(self, stroke):
+        """(Orthogonal distance squared between the least squares fitted line
+        and the stroke points) / stroke length [PRD08, SSD01]"""
+        #~~~~~~~~~~~~~~~~~~~
+        #NOT IMPLEMENTED
+        #~~~~~~~~~~~~~~~~~~~
+        return len(stroke.Points)
 
     #def f7_11(self) Also in Basic Shapes
 
-    def f7_13(self, strokeLen):
-        """Log of the total length of the stroke. [LLR*00, MFN93]"""
-        if strokeLen > 0.0:
-            return math.log(strokeLen)
-        else:
-            return 0.0
+    #def f7_13(self, strokeLen): #Also in Basic Shapes
 
-    def f7_14(self, strokeLen):
+    def f7_14(self, bbox):
         """Log of the length of the longest side of the stroke's bounding box [MFN93]"""
-        return random.random()
+        h = bbox[0].Y - bbox[1].Y
+        w = bbox[0].X - bbox[1].X
+        longest = max(h, w)
+        if longest > 0:
+            return math.log(longest)
+        else:
+            return -10000000
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Features that work great for Graphs
@@ -385,9 +409,10 @@ class BCPFeatureSet(FeatureSet):
 
     #def f1_13(self): #Also in class
 
-    def f1_18(self):
+    def f1_18(self, stroke):
         """Overtracing: Total angle / 2pi [PH08]"""
-        return random.random()
+        logger.debug("Overtracing")
+        return self.rubineSet.f09(stroke) / (math.pi * 2)
 
     def f1_19(self, stroke):
         """Sin of the angle between the first and last ponts [Rubine91]"""
@@ -396,6 +421,17 @@ class BCPFeatureSet(FeatureSet):
     def f1_21(self, stroke):
         """Total angle traversed by the stroke[Rubine91]"""
         return self.rubineSet.f09(stroke)
+    def f10_05(self, stroke):
+        """Minimum speed when drawing the stroke. Assume one point captured every time unit"""
+        if len(stroke.Points) > 0:
+            minSpeed = GeomUtils.strokeLength(stroke) #Assume it was all drawn at once
+            for i in xrange(1, len(stroke.Points)):
+                dist = GeomUtils.pointDist(stroke.Points[i - 1], stroke.Points[i])
+                minSpeed = min(dist, minSpeed)
+        else:
+            minSpeed = 0 # Very slow writing zero points
+        bcp_logger.debug("Minimum speed %s" %( minSpeed))
+        return minSpeed
 
 #------------------------------------------------------------
 class BCP_ShapeFeatureSet(BCPFeatureSet):
@@ -405,40 +441,8 @@ class BCP_ShapeFeatureSet(BCPFeatureSet):
         BCPFeatureSet.__init__(self)
 
     def __len__(self):
-        return BCPFeatureSet.__len__(self) + 9
+        return 20
     
-    def generateVector(self, strokeList):
-        if len(strokeList) > 1:
-            bcp_logger.warn("Concatenating multiple strokes")
-            stroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
-        elif len(strokeList) == 1:
-            stroke = strokeList[0]
-
-        convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
-        strokeLength = GeomUtils.strokeLength(stroke)
-        boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
-        curvatureList = GeomUtils.strokeGetPointsCurvature(
-                            GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
-                        ))
-        retVector = list(BCPFeatureSet.generateVector(self, strokeList))
-        retVector.extend([self.f1_01(stroke), \
-                        self.f1_03(), \
-                        self.f1_07(boundingBox) , \
-                        self.f1_09(stroke) , \
-                        self.f1_17(stroke, boundingBox) , \
-                        self.f1_23(stroke) , \
-                        self.f4_01() , \
-                        self.f7_05(boundingBox) , \
-                        self.f7_11(boundingBox) ]
-                        )
-        return retVector
-
-#------------------------------------------------------------
-class BCP_CombinableFS(BCPFeatureSet):
-    def __init__(self):
-        BCPFeatureSet.__init__(self)
-    def __len__(self):
-        return 9
     def generateVector(self, strokeList):
         """Assemble the vector of feature scores from a list of strokes, presumed to
         make up a single symbol."""
@@ -458,59 +462,44 @@ class BCP_CombinableFS(BCPFeatureSet):
                             GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
                         ))
 
+        anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
         #Generate the vector
-        retVector = (#self.f1_12(stroke) , \
-                     self.f2_7(strokeLength, convexHull) , \
-                     self.f2_8(strokeLength, boundingBox) , \
+        #Basic Features
+        retVector = [ self.f1_12(stroke) , \
                      self.f1_16(curvatureList) , \
+                     self.f2_6(strokeLength, convexHull) , \
+                     self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
                      self.f7_2(boundingBox) , \
                      self.f7_7(convexHull, boundingBox) , \
                      self.f7_10(strokeLength) , \
                      self.f7_16(convexHull) , \
                      self.f7_17(convexHull) \
-                    )
+                    ]
+        #Specific to Shape
+        retVector.extend([
+                     self.f1_01(stroke), \
+                     self.f1_07(boundingBox), \
+                     self.f1_09(stroke), \
 
-        return retVector
-        
-#------------------------------------------------------------
-class BCP_ClassFeatureSet(BCPFeatureSet):
-    """This class implements all of the features found to be in the top 20
-    for the Class diagram dataset"""
-    def __init__(init):
-        BCPFeatureSet.__init__(self)
+                     self.f1_17(stroke, boundingBox), \
+                     self.f1_23(stroke), \
+                     self.f7_05(boundingBox), \
+                     self.f7_11(boundingBox), \
+                     self.f7_13(strokeLength), \
 
-    def __len__(self):
-        return BCPFeatureSet.__len__(self) + 0
-    
-    def generateVector(self, strokeList):
-        retVector = BCPFeatureSet.generateVector(self, strokeList)
-        return retVector
-
-#------------------------------------------------------------
-class BCP_GraphFeatureSet(BCPFeatureSet):
-    """This class implements all of the features found to be in the top 20
-    for the Graphs dataset"""
-    def __init__(init):
-        BCPFeatureSet.__init__(self)
-
-    def __len__(self):
-        return BCPFeatureSet.__len__(self) + 0
-    
-    def generateVector(self, strokeList):
-        retVector = BCPFeatureSet.generateVector(self, strokeList)
+                     #Not Implemented
+                     self.f1_03(stroke), \
+                     self.f4_01(stroke), \
+                    ])
         return retVector
 
 #------------------------------------------------------------
-class BCP_AllFeatureSet(BCPFeatureSet):
-    """This class implements all of the features found to be in the top 20
-    for the Graphs dataset"""
+class BCP_CombinableFS(BCPFeatureSet):
     def __init__(self):
         BCPFeatureSet.__init__(self)
-
     def __len__(self):
-        return BCPFeatureSet.__len__(self) + 18
-    
+        return 22
     def generateVector(self, strokeList):
         if len(strokeList) > 1:
             bcp_logger.warn("Concatenating multiple strokes")
@@ -519,33 +508,171 @@ class BCP_AllFeatureSet(BCPFeatureSet):
             stroke = strokeList[0]
 
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
-        strokeLen = GeomUtils.strokeLength(stroke)
-        bbox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
-        curvatures = GeomUtils.strokeGetPointsCurvature(
-                            GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLen*0.05))
+        strokeLength = GeomUtils.strokeLength(stroke)
+        boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+        curvatureList = GeomUtils.strokeGetPointsCurvature(
+                            GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
                         ))
-        retVector = list(BCPFeatureSet.generateVector(self, strokeList))
+        retVector = [ #self.f1_12(stroke) , \
+                     self.f1_16(curvatureList) , \
+                     self.f2_6(strokeLength, convexHull) , \
+                     self.f2_8(strokeLength, boundingBox) , \
+                     self.f5_1(stroke), \
+                     self.f7_2(boundingBox) , \
+                     self.f7_7(convexHull, boundingBox) , \
+                     self.f7_10(strokeLength) , \
+                     self.f7_16(convexHull) , \
+                     self.f7_17(convexHull) \
+                    ]
+        anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
         retVector.extend([
                      self.f1_01(stroke), \
-                     self.f1_03(), \
-                     self.f1_07(bbox), \
-                     self.f1_09(stroke), \
-                     self.f1_17(stroke, bbox), \
+                     #self.f1_03(), \
+                     self.f1_07(boundingBox), \
+                     #self.f1_09(stroke), \
+
+                     #self.f1_17(stroke, boundingBox), \
                      self.f1_23(stroke), \
-                     self.f4_01(), \
-                     self.f7_05(bbox), \
-                     self.f7_11(bbox), \
+                     #self.f4_01(), \
+                     self.f7_05(boundingBox), \
+                     self.f7_11(boundingBox), \
+
                      self.f1_04(stroke), \
-                     self.f1_11(curvatures), \
-                     self.f1_13(), \
-                     self.f7_13(strokeLen), \
-                     self.f7_14(strokeLen), \
-                     self.f1_06(stroke, curvatures), \
-                     self.f1_18(), \
-                     self.f1_19(stroke), \
-                     self.f1_21(stroke)
+                     self.f1_11(anglesVector), \
+                     self.f1_13(stroke), \
+                     self.f7_13(strokeLength), \
+                     self.f7_14(boundingBox), \
+
+                     self.f1_06(stroke, curvatureList), \
+                     self.f1_18(stroke), \
+                     #self.f1_19(stroke), \
+                     self.f1_21(stroke), \
+                     #self.f10_5(stroke)
                     ])
         return retVector
+        
+#------------------------------------------------------------
+class BCP_ClassFeatureSet(BCPFeatureSet):
+    """This class implements all of the features found to be in the top 20
+    for the Class diagram dataset"""
+    def __init__(self):
+        BCPFeatureSet.__init__(self)
+
+    def __len__(self):
+        return 20
+    
+    def generateVector(self, strokeList):
+        """Assemble the vector of feature scores from a list of strokes, presumed to
+        make up a single symbol."""
+        retVector = []
+
+        #Set up the common data
+        if len(strokeList) > 1:
+            bcp_logger.warn("Concatenating multiple strokes")
+            stroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
+        elif len(strokeList) == 1:
+            stroke = strokeList[0]
+
+        convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
+        strokeLength = GeomUtils.strokeLength(stroke)
+        boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+        curvatureList = GeomUtils.strokeGetPointsCurvature(
+                            GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
+                        ))
+
+        anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
+        #Generate the vector
+        #Basic Features
+        retVector = [ self.f1_12(stroke) , \
+                     self.f1_16(curvatureList) , \
+                     self.f2_6(strokeLength, convexHull) , \
+                     self.f2_8(strokeLength, boundingBox) , \
+                     self.f5_1(stroke), \
+                     self.f7_2(boundingBox) , \
+                     self.f7_7(convexHull, boundingBox) , \
+                     self.f7_10(strokeLength) , \
+                     self.f7_16(convexHull) , \
+                     self.f7_17(convexHull) \
+                    ]
+        #Specific to Class diagrams
+        retVector.extend([
+
+                     #Class
+                     self.f1_04(stroke), \
+                     self.f1_07(boundingBox), \
+                     self.f1_11(anglesVector), \
+                     self.f1_13(stroke), \
+                     self.f1_17(stroke, boundingBox), \
+                     self.f7_11(boundingBox), \
+                     self.f7_13(strokeLength), \
+                     self.f7_14(boundingBox), \
+                     self.f10_05(stroke), \
+                     #Not Implemented
+                     self.f1_03(stroke), \
+                    ])
+        return retVector
+
+
+#------------------------------------------------------------
+class BCP_GraphFeatureSet(BCPFeatureSet):
+    """This class implements all of the features found to be in the top 20
+    for the Graphs dataset"""
+    def __init__(self):
+        BCPFeatureSet.__init__(self)
+
+    def __len__(self):
+        return 10
+    
+    def generateVector(self, strokeList):
+        """Assemble the vector of feature scores from a list of strokes, presumed to
+        make up a single symbol."""
+        retVector = []
+
+        #Set up the common data
+        if len(strokeList) > 1:
+            bcp_logger.warn("Concatenating multiple strokes")
+            stroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
+        elif len(strokeList) == 1:
+            stroke = strokeList[0]
+
+        convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
+        strokeLength = GeomUtils.strokeLength(stroke)
+        boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+        curvatureList = GeomUtils.strokeGetPointsCurvature(
+                            GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
+                        ))
+
+        anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
+        #Generate the vector
+        #Basic Features
+        retVector = [ self.f1_12(stroke) , \
+                     self.f1_16(curvatureList) , \
+                     self.f2_6(strokeLength, convexHull) , \
+                     self.f2_8(strokeLength, boundingBox) , \
+                     self.f5_1(stroke), \
+                     self.f7_2(boundingBox) , \
+                     self.f7_7(convexHull, boundingBox) , \
+                     self.f7_10(strokeLength) , \
+                     self.f7_16(convexHull) , \
+                     self.f7_17(convexHull) \
+                    ]
+        #The Rest
+        retVector.extend([
+                     self.f1_04(stroke), \
+                     self.f1_06(stroke, curvatureList), \
+                     self.f1_09(stroke), \
+                     self.f1_11(anglesVector), \
+                     self.f1_13(stroke), \
+                     self.f1_18(stroke), \
+                     self.f1_19(stroke), \
+                     self.f1_21(stroke), \
+                     self.f1_23(stroke), \
+                     #NotImplemented
+                     self.f4_01(stroke), \
+                    ])
+        return retVector
+
+#------------------------------------------------------------
 
 #------------------------------------------------------------
 class RubineFeatureSet(FeatureSet):
@@ -637,35 +764,15 @@ class RubineFeatureSet(FeatureSet):
 
     def f09(self, stroke):
         #Sum of the angle traversed
-        pointList = stroke.Points
-        f9 = 0 # angle sum
-        for i in range(len(pointList) -2):
-            dxp = pointList[i+1].X - pointList[i].X   # delta x sub p
-            dyp = pointList[i+1].Y - pointList[i].Y   # delta y sub p
-
-            if i != 0:
-                dxpOld = pointList[i].X - pointList[i-1].X   # delta x sub (p-1)
-                dypOld = pointList[i].Y - pointList[i-1].Y   # delta y sub (p-1)
-                if (dxp * dxpOld) + (dxp * dxpOld) != 0:
-                    angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
-                    f9 += angle
-        return f9
+        totalAngle = sum(GeomUtils.pointlistAnglesVector(stroke.Points)) 
+        rb_logger.debug("Total Angle traversed: %s" %(57 *totalAngle))
+        return totalAngle
 
     def f10(self, stroke):
         # 10th and 11th are the sum of the absolute value of the angels and to sum of the angles squared
-        pointList = stroke.Points
-        f10 = 0 # sum of the absolute value of the angle
-        for i in range(len(pointList) -2):
-            dxp = pointList[i+1].X - pointList[i].X   # delta x sub p
-            dyp = pointList[i+1].Y - pointList[i].Y   # delta y sub p
-
-            if i != 0:
-                dxpOld = pointList[i].X - pointList[i-1].X   # delta x sub (p-1)
-                dypOld = pointList[i].Y - pointList[i-1].Y   # delta y sub (p-1)
-                if (dxp * dxpOld) + (dxp * dxpOld) != 0:
-                    angle = math.atan(((dxp * dypOld) - (dxpOld * dyp)) / ((dxp * dxpOld) + (dxp * dxpOld)))
-                    f10 += math.fabs(angle)
-        return f10
+        totalAbsAngles = sum([math.fabs(angle) for angle in GeomUtils.pointlistAnglesVector(stroke.Points)])
+        rb_logger.debug("Total AbsAngle traversed: %s" %(57 *totalAbsAngles))
+        return totalAbsAngles
 
     def f11(self, stroke):
         # 10th and 11th are the sum of the absolute value of the angels and to sum of the angles squared
@@ -830,6 +937,9 @@ class RubineClassifier():
             the stroke is added to the most recently created class. If the class has not been created yet
             then it is created.
         """
+        if len(stroke.Points) < 3:
+            raise Exception("Not enough points in this stroke: %s" % (len(stroke.Points)))
+
         if clsName != None and clsName in self.symbolClasses:
             if clsName in self.symbolClasses:
                 symCls = self.symbolClasses[clsName]
@@ -838,13 +948,10 @@ class RubineClassifier():
         else:
             raise Exception("Cannot add stroke to Symbol 'None'")
         #we need at least three points
-        if len(stroke.Points) < 3:
-            raise Exception("Not enough points in this stroke: %s" % (str(stroke)))
 
         symCls.addStrokes([stroke])
 
-        if self.debug:
-            print "Stroke added to class: " + symCls.name
+        logger.debug("Stroke added to class: " + symCls.name)
 
     def calculateWeights(self):
         """ Creates teh training data based on the current classes. Call this before saving the weights """
@@ -872,13 +979,19 @@ class RubineClassifier():
         try:
             self.covarianceMatrixInverse = invCovMatrix = avgCovMat.I
         except Exception as e:
+            #Singular Matrix
             fp = open("ERROR.txt", "w")
             print traceback.format_exc()
             print e
+            print >> fp, avgCovMat
             for symCls in self.symbolClasses.values():
                 print symCls.name
+
+                covMat = symCls.getCovarianceMatrix(self.averages[symCls.name])
+                print >> fp, covMat
                 for featVect in symCls.featureVectors:
                     print >> fp,  "\t".join([str(f) for f in featVect])
+                print "END", symCls.name
             exit(1)
 
 
@@ -976,7 +1089,7 @@ class RubineClassifier():
 
         ET.dump(elem)
         fd = open(fileName, "w")
-        #print >> fd, ET.tostring(elem)
+        print >> fd, ET.tostring(elem)
         fd.close()
 
     def loadWeights(self, file):

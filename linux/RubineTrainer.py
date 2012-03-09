@@ -21,10 +21,10 @@ Todo:
 
 import pdb
 import time
-import threading
 import Queue
 import StringIO
 import Image
+import traceback
 from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkMessageBox import *
@@ -98,7 +98,8 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.StrokeList = []
         self.StrokeLoader = StrokeStorage()
         self.ResetBoard()
-        self._strokeTrainer = Rubine.RubineClassifier(featureSet = Rubine.BCP_AllFeatureSet(), debug = True)
+        featureset = Rubine.BCP_AllFeatureSet()
+        self._strokeTrainer = Rubine.RubineClassifier(featureSet = featureset, debug = True)
         self.NewTrainingClass()
 
         self.Redraw()
@@ -241,12 +242,17 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.p_y = HEIGHT - y
 
     def AddCurrentStroke(self):
-        if len(self.CurrentPointList) > 0:
-            stroke = Stroke( self.CurrentPointList )#, smoothing=True )
-            self.StrokeList.append(stroke)
+        try:
+            if len(self.CurrentPointList) > 0:
+                stroke = Stroke( self.CurrentPointList )#, smoothing=True )
+                self._strokeTrainer.addStroke(stroke, self.currentSymClass)
+                self.StrokeList.append(stroke)
+                logger.debug("StrokeAdded Successfully")
+        except Exception as e:
+            print traceback.format_exc()
+            print e
+        finally:
             self.CurrentPointList = []
-            self._strokeTrainer.addStroke(stroke, self.currentSymClass)
-            
         
     def CanvasMouseUp(self, event):
         "Finish the stroke and add it to the board"
@@ -261,9 +267,9 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.BoardCanvas.delete(ALL)
         strokes = self.StrokeList
         for s in strokes:
-           #self.drawStroke( strokeSmooth(s, width = max(int(strokeLength(s) * 0.01), 1) ))
-           for c in strokeApproximateCubicCurves(s):
-               self.drawCurve(c)
+           self.drawStroke( strokeSmooth(s, width = max(int(strokeLength(s) * 0.01), 1) ))
+           #for c in strokeApproximateCubicCurves(s):
+               #self.drawCurve(c)
 
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
          "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"

@@ -491,18 +491,13 @@ class TkSketchFrame(Frame, _SketchGUI):
         observers = self.Board.BoardObservers
         for s in strokes:
            s.drawMyself()
-           s2 = GeomUtils.strokeApproximatePolyLine(s, error = 0.6)
+           for curv in strokeApproximateCubicCurves(s):
+               self.drawCurve(curv, color="#FF0000")
+
+           s2 = GeomUtils.strokeApproximatePolyLine(s)
            self.drawStroke(s2, color="#0FcF00")
            for pt in s2.Points:
                self.drawCircle(pt.X, pt.Y, radius=2, width = 2, color="#FF00FF")
-           """
-           for curv in strokeApproximateCubicCurves(s):
-               s2 = GeomUtils.strokeApproximatePolyLine(curv.toStroke())
-               self.drawStroke(s2, color = "#0cfc00")
-               for pt in s2.Points:
-                   self.drawCircle(pt.X, pt.Y, radius=2, width = 2, color="#FF00FF")
-               #self.drawCurve(curv, color="#FF0000")
-           """
             
         for obs in observers:
            obs.drawMyself()
