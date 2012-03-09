@@ -309,13 +309,43 @@ def angleSub( a, b ):
 #--------------------------------------------------------------
 # Functions on Strokes
 
+def strokeApproximatePolyLine(stroke, error= 0.02):
+    """Approximate a stroke with a polyline, returned as a stroke"""
+    start = 0
+    curIdx = 0
+    errorThresh = error * strokeLength(stroke) #Per point error threshold in pixels
+    end = len(stroke.Points)
+    inc = max(len(stroke.Points) / 20, 1)
+    polylinePts = []
+
+    polylinePts.append(stroke.Points[0])
+
+    while curIdx < len(stroke.Points) - inc :
+        startPt = stroke.Points[start]
+        curIdx = start
+        curPt = startPt
+        curError = 0
+        while curIdx < len(stroke.Points) - 1 \
+            and curError <= errorThresh * (curIdx - start):
+            curIdx = min(curIdx + inc, len(stroke.Points) - 1)
+            curPt = stroke.Points[curIdx]
+            curError = strokeSumDists(Stroke(stroke.Points[start:curIdx + 1]), \
+                                   Stroke([startPt, curPt]) )
+            #print "%s\tCurrent  \n%s\tThresh" % \
+                  #(curError, errorThresh * float(curIdx - start) )
+        #logger.debug("PolyLine, using  %s->%s" % (start, curIdx))
+        polylinePts.append(curPt)
+        start = curIdx
+
+    return Stroke(polylinePts)
+
+
 def strokeApproximateCubicCurves(stroke, error = 0.5):
     """Approximate the incoming stroke with a list of cubic curves. Optionally give a
     point before the stroke and after the stroke for better joining of curves."""
 
     strokeLen = strokeLength(stroke)
     errorThresh = error * strokeLen
-    allError =  strokeLen
     start = 0
     end = len(stroke.Points)
     inc = len(stroke.Points) / 10
@@ -399,14 +429,14 @@ def strokeApproximateSingleCurve(stroke, prePt = None, postPt = None):
                 bestStretch = (stretchP1, stretchP2)
                 bestCurve = curve
                 error = curError
-    print "Best stretch: %s" % (str(bestStretch))
+
+    #print "Best stretch: %s" % (str(bestStretch))
     return bestCurve
 
 
     
 def strokeContainsStroke(outerStk, innerStk, granularity = None):
     "Returns whther outerStk contains innerStk"
-    #pdb.set_trace()
     #if granularity == None:
         #granularity = max (len(outerStk.Points), len(innerStk.Points))
 
@@ -506,12 +536,13 @@ def strokeNormalizeSpacing( inStroke, numpoints=50):
     normalized_points = []
     inPoints = inStroke.Points
 
-    #Single point strokes case
-    if len(inPoints) == 1 or numpoints <= 1: 
-        return Stroke(int(numpoints) * [inPoints[0]])
-        
     # calculate the total euclidean distance traveled
     total_dist = float(strokeLength(inStroke))
+
+    #Single point strokes case
+    if len(inPoints) == 1 or numpoints <= 1 or total_dist == 0: 
+        return Stroke(int(numpoints) * [inPoints[0]])
+        
     # set the new distance between points
     gap = total_dist/( numpoints - 1)
     # turn the list of point into a list of line segements
@@ -763,10 +794,13 @@ def strokeSumDists(stroke1, stroke2):
         stroke2 = strokeNormalizeSpacing(stroke2, numpoints = len(stroke1.Points))
 
     allDist = 0.0
-    for i in range(len(stroke1.Points)):
-        p1 = stroke1.Points[i]
-        p2 = stroke2.Points[i]
-        allDist += pointDistance(p1.X, p1.Y, p2.X, p2.Y)
+    try:
+        for i in range(len(stroke1.Points)):
+            p1 = stroke1.Points[i]
+            p2 = stroke2.Points[i]
+            allDist += pointDistance(p1.X, p1.Y, p2.X, p2.Y)
+    except Exception as e:
+        pdb.set_trace()
     return allDist
 
 def strokelistBoundingBox( strokelist ):

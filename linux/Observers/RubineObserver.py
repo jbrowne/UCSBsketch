@@ -64,7 +64,7 @@ class RubineMarker( BoardObserver ):
         """ Initiates the Rubine classifier. fname is the name of a file containing the training data to be used. """
         BoardObserver.__init__(self, board)
         #featureSet = Rubine.RubineFeatureSet()
-        featureSet = Rubine.BCPFeatureSet()
+        #featureSet = Rubine.BCPFeatureSet()
         self.classifier = Rubine.RubineClassifier(featureSet = featureSet, debug = debug)
         self.getBoard().AddBoardObserver( self , [RubineAnnotation])
         self.getBoard().RegisterForStroke( self )

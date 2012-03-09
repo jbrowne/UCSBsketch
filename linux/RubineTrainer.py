@@ -36,7 +36,7 @@ from SketchFramework.Board import Board
 from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke, strokeSmooth, strokeLength, strokeApproximateCubicCurves
 from Utils import Logger, DataManager, GeomUtils
-from Utils.Rubine import RubineClassifier, RubineFeatureSet, BCPFeatureSet, BCP_ShapeFeatureSet
+from Utils import Rubine #import RubineClassifier, RubineFeatureSet, BCPFeatureSet, BCP_ShapeFeatureSet
 
 
 
@@ -98,7 +98,7 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.StrokeList = []
         self.StrokeLoader = StrokeStorage()
         self.ResetBoard()
-        self._strokeTrainer = RubineClassifier(featureSet = BCP_ShapeFeatureSet(), debug = True)
+        self._strokeTrainer = Rubine.RubineClassifier(featureSet = Rubine.BCP_AllFeatureSet(), debug = True)
         self.NewTrainingClass()
 
         self.Redraw()

@@ -23,7 +23,8 @@ def classifyMain(args):
         strokeData = pickle.load(open(args[0], "rb"))
         print "Loading classifier weights"
 
-        classifier = Rubine.RubineClassifier(featureSet = Rubine.RubineFeatureSet(), debug = False)
+        featureSet = Rubine.BCP_AllFeatureSet()
+        classifier = Rubine.RubineClassifier(featureSet = featureSet, debug = False)
         #classifier = Rubine.RubineClassifier(featureSet = Rubine.RubineFeatureSet(), debug = False)
         classifier.loadWeights(args[1])
         print "Classifying dataset"
@@ -80,7 +81,7 @@ def printResults(trainIDs, classifyIDs, results, outfile = sys.stdout):
     wrong = results['overAll']['wrong']
     total = float(right + wrong)
     if total > 0:
-        print >> outfile, "%s_Overall\t%s\t%s\t%s\t%s\t%s" % (classifier, total, right, right/total * 100, wrong, wrong/total * 100)
+        print >> outfile, "%s_Overall\t%s\t%s\t%s\t%s\t%s" % (featureSet, total, right, right/total * 100, wrong, wrong/total * 100)
     for label, results in results['byLabel'].items():
         right = results['right']
         wrong = results['wrong']
@@ -110,6 +111,7 @@ def batchTraining(trainer, dataSet, outfname, trainOnParticipants = None ):
                     try:
                         trainer.addStroke(diagram.InkStrokes[stkID].stroke, label.type)
                     except Exception as e:
+                        print traceback.format_exc()
                         print e
 
     trainer.saveWeights(outfname)
@@ -134,7 +136,8 @@ def openDataset(infname):
 def trainingMain(args):
     if len(args) >= 1:
         infname = args[0]
-        trainer = Rubine.RubineClassifier(featureSet = Rubine.RubineFeatureSet() )
+        featureSet = Rubine.BCP_AllFeatureSet()
+        trainer = Rubine.RubineClassifier(featureSet = featureSet)
         dataSet = openDataset(infname)
 
         if len(args) > 1:
@@ -155,9 +158,10 @@ def allMain(args):
         infname = args[0]
         dataSet = openDataset(infname)
         allFeaturesets = ( \
-                          Rubine.BCPFeatureSet, \
-                          Rubine.BCP_CombinableFS, \
-                          Rubine.RubineFeatureSet, \
+                          #Rubine.BCPFeatureSet, \
+                          #Rubine.BCP_CombinableFS, \
+                          Rubine.BCP_AllFeatureSet, \
+                          #Rubine.RubineFeatureSet, \
                           #Rubine.BCP_ClassFeatureSet, \
                           #Rubine.BCP_GraphFeatureSet, \
                           #Rubine.BCP_ShapeFeatureSet, \

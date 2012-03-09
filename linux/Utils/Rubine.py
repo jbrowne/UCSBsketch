@@ -31,6 +31,7 @@ rb_logger = Logger.getLogger('Rubine', Logger.DEBUG )
 class FeatureSet(object):
     """An abstract class for running sets of feature methods on strokes"""
     def __init__(self):
+        rb_logger.debug("Using Feature set %s" % (self.__class__.__name__))
         pass
     def generateVector(strokeList):
         """This method takes in a list of strokes and returns a tuple of floats for the scores of each feature"""
@@ -98,16 +99,16 @@ class BCPFeatureSet(FeatureSet):
         """Number of fragments in a stroke, according to its corners [BSH04]"""
         thresh = 0.1
         segments = 1
-        increasing = False
+        increasing = False #Set once curvature starts increasing
         prev = None
         curMax = 0
         for curv in curvatures[1:-1]:
             if prev != None:
-                if curv < curMax - thresh and increasing:
+                if curv < curMax - thresh and increasing:  #If curvature has been increasing, but the current cuvature is significantly less than before
                     segments += 1
                     increasing = False
                     curMax = 0.0
-                if curv > prev:
+                if curv > prev: #The curvature has started increasing
                     increasing = True
                     curMax = max(curMax, curv)
             prev = curv
@@ -274,12 +275,12 @@ class BCPFeatureSet(FeatureSet):
         else:
             retVal = 1.0
         
-        print "Angle / sum |Angle| = %s" % (retVal)
+        #print "Angle / sum |Angle| = %s" % (retVal)
         return retVal
 
     def f4_01(self):
         """Divider result. Results of text/shape divider on current stroke"""
-        return 1.0
+        return random.random()
 
     def f7_05(self, bbox):
         """Height of bounding box [FPJ02]"""
@@ -291,7 +292,10 @@ class BCPFeatureSet(FeatureSet):
         """Log area. Log of the stroke's bounding box area[LLR00]"""
         h = bbox[0].Y - bbox[1].Y
         w = bbox[1].X - bbox[0].X
-        logBboxArea = math.log( h*w)
+        if h*w > 0:
+            logBboxArea = math.log( h*w)
+        else:
+            logBboxArea = -1000000
         logger.debug("Log Bbox Area: %s" % (logBboxArea))
         return logBboxArea
 
@@ -350,8 +354,9 @@ class BCPFeatureSet(FeatureSet):
         prev = None
         curMax = 0
         segEnd = 1
-        segStart = 1
-        for i in range(1, len(curvatures) - 1):
+        segStart = 0
+        i = 1
+        while i < len(curvatures):
             curv = curvatures[i]
             if prev != None:
                 if curv < curMax - thresh and increasing:
@@ -364,6 +369,10 @@ class BCPFeatureSet(FeatureSet):
                     curMax = max(curMax, curv)
                     segEnd = i 
             prev = curv
+            i+= 1
+
+        if segStart < len(curvatures) - 1:
+            segments.append( (segStart, len(stroke.Points) - 1) )
 
         maxSeg = max(segments, key=(lambda x: x[1] - x[0])) #Get the longest segment
         totalSegCurv = sum(curvatures[maxSeg[0] : maxSeg[1] + 1])
@@ -492,10 +501,51 @@ class BCP_GraphFeatureSet(BCPFeatureSet):
         retVector = BCPFeatureSet.generateVector(self, strokeList)
         return retVector
 
+#------------------------------------------------------------
+class BCP_AllFeatureSet(BCPFeatureSet):
+    """This class implements all of the features found to be in the top 20
+    for the Graphs dataset"""
+    def __init__(self):
+        BCPFeatureSet.__init__(self)
 
-    #def f1_23(self): Also in Basic Shapes
+    def __len__(self):
+        return BCPFeatureSet.__len__(self) + 18
+    
+    def generateVector(self, strokeList):
+        if len(strokeList) > 1:
+            bcp_logger.warn("Concatenating multiple strokes")
+            stroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
+        elif len(strokeList) == 1:
+            stroke = strokeList[0]
 
-    #def f4_01(self): Also in Basic shapes
+        convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
+        strokeLen = GeomUtils.strokeLength(stroke)
+        bbox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+        curvatures = GeomUtils.strokeGetPointsCurvature(
+                            GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLen*0.05))
+                        ))
+        retVector = list(BCPFeatureSet.generateVector(self, strokeList))
+        retVector.extend([
+                     self.f1_01(stroke), \
+                     self.f1_03(), \
+                     self.f1_07(bbox), \
+                     self.f1_09(stroke), \
+                     self.f1_17(stroke, bbox), \
+                     self.f1_23(stroke), \
+                     self.f4_01(), \
+                     self.f7_05(bbox), \
+                     self.f7_11(bbox), \
+                     self.f1_04(stroke), \
+                     self.f1_11(curvatures), \
+                     self.f1_13(), \
+                     self.f7_13(strokeLen), \
+                     self.f7_14(strokeLen), \
+                     self.f1_06(stroke, curvatures), \
+                     self.f1_18(), \
+                     self.f1_19(stroke), \
+                     self.f1_21(stroke)
+                    ])
+        return retVector
 
 #------------------------------------------------------------
 class RubineFeatureSet(FeatureSet):
@@ -822,23 +872,19 @@ class RubineClassifier():
         try:
             self.covarianceMatrixInverse = invCovMatrix = avgCovMat.I
         except Exception as e:
+            fp = open("ERROR.txt", "w")
             print traceback.format_exc()
             print e
             for symCls in self.symbolClasses.values():
                 print symCls.name
                 for featVect in symCls.featureVectors:
-                    print featVect
-                print ""
+                    print >> fp,  "\t".join([str(f) for f in featVect])
             exit(1)
 
 
         for symCls in self.symbolClasses.values():
             symCls.calculateWeights(invCovMatrix, self.averages[symCls.name])
 
-        if self.debug:
-            for name, symCls in self.symbolClasses.items():
-                print "Class: %s" % (name)
-                print symCls.weight0, symCls.weights
 
     def classifyStroke(self, stroke):
         """ Attempts to classify a stroke using the given training data """
@@ -930,7 +976,7 @@ class RubineClassifier():
 
         ET.dump(elem)
         fd = open(fileName, "w")
-        print >> fd, ET.tostring(elem)
+        #print >> fd, ET.tostring(elem)
         fd.close()
 
     def loadWeights(self, file):
@@ -955,8 +1001,6 @@ class RubineClassifier():
         rows = covariance.findall("row")
         for i in range(len(rows)):
             cols = rows[i].findall("col")
-            if self.debug:
-                print cols
             for j in range(len(cols)):
                 self.covarianceMatrixInverse[i,j] = float(cols[j].text)
 
