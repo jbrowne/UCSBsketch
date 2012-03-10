@@ -98,7 +98,7 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.StrokeList = []
         self.StrokeLoader = StrokeStorage()
         self.ResetBoard()
-        featureset = Rubine.BCP_AllFeatureSet()
+        featureset = Rubine.BCPFeatureSet()
         self._strokeTrainer = Rubine.RubineClassifier(featureSet = featureset, debug = True)
         self.NewTrainingClass()
 

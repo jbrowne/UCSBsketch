@@ -491,13 +491,31 @@ class TkSketchFrame(Frame, _SketchGUI):
         observers = self.Board.BoardObservers
         for s in strokes:
            s.drawMyself()
+           """
            for curv in strokeApproximateCubicCurves(s):
                self.drawCurve(curv, color="#FF0000")
 
+           """
            s2 = GeomUtils.strokeApproximatePolyLine(s)
            self.drawStroke(s2, color="#0FcF00")
            for pt in s2.Points:
                self.drawCircle(pt.X, pt.Y, radius=2, width = 2, color="#FF00FF")
+
+
+           angleList = GeomUtils.pointlistAnglesVector(s2.Points)
+           i = 1
+           cuspIdx = []
+           numCusps = 0
+           while i < len(angleList) - 1:
+               totalAngle = sum(angleList[i-1:i+2]) * 57
+               if totalAngle > 90 or totalAngle < -90:
+                   numCusps += 1
+                   cPt = s.Points[i]
+                   self.drawCircle(cPt.X, cPt.Y, radius = 2, color = "#c0fc00", width = 2)
+                   #cuspIdx.append(i)
+                   i = i + 2
+               i+= 1
+
             
         for obs in observers:
            obs.drawMyself()
@@ -522,13 +540,13 @@ class TkSketchFrame(Frame, _SketchGUI):
         "Draw a curve on the board with width and color as specified"
         self.drawStroke(curve.toStroke(), width = width, color = color)
         colorwheel = ["#FF0000", "#00FF00", "#0000FF", "#FF00FF"]
-	"""
         for i, pt in enumerate(curve.getControlPoints()):
             color = colorwheel[i]
-            self.drawCircle(pt.X, pt.Y, radius=1, width = width, color = color)
+            self.drawCircle(pt.X, pt.Y, radius=4-i, width = width, color = color)
 	"""
-        pt = curve.getControlPoints()[0]
-        self.drawCircle(pt.X, pt.Y, radius=2, width = width, color = "#0000FF")
+        for pt in curve.getControlPoints():
+            self.drawCircle(pt.X, pt.Y, radius=2, width = width, color = "#0000FF")
+	"""
 
 
 

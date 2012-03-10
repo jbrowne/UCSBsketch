@@ -42,8 +42,10 @@ def batchClassify(strokeData, classifier, classifyOnParticipants = None):
     """Given a dataset, and a classifier object, evaluate the strokes in the dataset
     and decide what they are"""
     global DIAGNUM
-    logger.warn("Only using diagram # %s from each participant"% (DIAGNUM))
-    outData = {'classifier' : classifier.__class__.__name__,
+    #logger.warn("Only using diagram # %s from each participant"% (DIAGNUM))
+    outData = {
+               'diagram' : DIAGNUM,
+               'classifier' : classifier.__class__.__name__,
                'featureSet' : classifier.featureSet.__class__.__name__,
                'byLabel' : {},
                'overAll' : {'right' : 0, 'wrong': 0}
@@ -51,7 +53,7 @@ def batchClassify(strokeData, classifier, classifyOnParticipants = None):
     for participant in strokeData.participants:
         if classifyOnParticipants is None or participant.id in classifyOnParticipants:
             #for diagram in participant.diagrams:
-            print "Classifying on participant %s" % (participant.id)
+            print "Classifying dataset %s on participant %s" % (DIAGNUM, participant.id)
             diagram = participant.diagrams[DIAGNUM]
             for label in diagram.groupLabels:
                 name = label.type
@@ -161,15 +163,21 @@ def allMain(args):
     if len(args) > 0:
         infname = args[0]
         dataSet = openDataset(infname)
-        allFeatureSets = [ [Rubine.BCP_ShapeFeatureSet],
-                        [Rubine.BCP_GraphFeatureSet],
-                        [Rubine.BCP_ClassFeatureSet],
+        allFeatureSets = [ 
+                        [Rubine.BCP_ShapeFeatureSet, Rubine.BCP_ShapeFeatureSet_Combinable],
+                        [Rubine.BCP_GraphFeatureSet, Rubine.BCP_GraphFeatureSet_Combinable],
+                        [Rubine.BCP_ClassFeatureSet, Rubine.BCP_ClassFeatureSet_Combinable],
                       ]
+        if len(args) > 1:
+            runID = int(args[1])
+        else:
+            runID = 0
 
         """
         for featureSetList in allFeatureSets:
             featureSetList.append(Rubine.BCPFeatureSet)
         """
+        #allFeatureSets = 3* [[Rubine.BCPFeatureSet] ]
 
         #Split participants into training and evaluation groups
         trainIDs = set()
@@ -180,16 +188,17 @@ def allMain(args):
             else:
                 classifyIDs.add(participant.id)
             
-        for i in range (3):
-        #for i in [1]:
-            DIAGNUM = i
-            for fsType in allFeatureSets[i]:
+        for diagNum in range(3):
+            #DIAGNUM = i
+            DIAGNUM = diagNum
+            for fsType in allFeatureSets[diagNum]:
+            #for fsType in [Rubine.BCPFeatureSet]:
                 featureSet = fsType()
-                tag = "SymbolClass-%s_Feature-%s" % (DIAGNUM, type(featureSet).__name__)
+                tag = "Diagram-%s_Feature-%s-Run-%s" % (DIAGNUM, type(featureSet).__name__, runID)
                 classifierFname = "BatchRubineData_%s.xml"%(tag)
                 classifier = Rubine.RubineClassifier(featureSet = featureSet)
                 print "-----------------------"
-                print "Training classifier"
+                print "Training classifier %s" % (type(featureSet).__name__)
                 print "-----------------------"
                 batchTraining(classifier, dataSet, classifierFname, trainOnParticipants = trainIDs)
                 #classifier.loadWeights(classifierFname)
@@ -197,9 +206,11 @@ def allMain(args):
                 print "Classifying Dataset"
                 print "-----------------------"
                 results = batchClassify(dataSet, classifier, classifyOnParticipants = classifyIDs)
-                resultsFile = open("Results_%s.txt" % (tag), "w")
+                fname = "Results_%s.txt" % (tag)
+                resultsFile = open(fname, "w")
+                print >> resultsFile, fname
                 print "-----------------------"
-                print "Printing Results"
+                print "Printing Results to %s" % (fname)
                 print "-----------------------"
                 printResults(trainIDs, classifyIDs, results, resultsFile)
                 resultsFile.close()

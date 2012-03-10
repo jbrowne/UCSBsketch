@@ -65,7 +65,7 @@ class RubineMarker( BoardObserver ):
         BoardObserver.__init__(self, board)
         #featureSet = Rubine.RubineFeatureSet()
         #featureSet = Rubine.BCPFeatureSet()
-        featureSet = Rubine.BCP_AllFeatureSet()
+        featureSet = Rubine.BCPFeatureSet()
         self.classifier = Rubine.RubineClassifier(featureSet = featureSet, debug = debug)
         self.getBoard().AddBoardObserver( self , [RubineAnnotation])
         self.getBoard().RegisterForStroke( self )
