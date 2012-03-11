@@ -491,7 +491,9 @@ class TkSketchFrame(Frame, _SketchGUI):
         observers = self.Board.BoardObservers
         for s in strokes:
            s.drawMyself()
-           """
+           lr = GeomUtils.pointListLinearRegression(s.Points)
+           self.drawLine(lr[0].X, lr[0].Y, lr[1].X, lr[1].Y, color = "#C0C000")
+
            for curv in strokeApproximateCubicCurves(s):
                self.drawCurve(curv, color="#FF0000")
 
@@ -515,6 +517,7 @@ class TkSketchFrame(Frame, _SketchGUI):
                    #cuspIdx.append(i)
                    i = i + 2
                i+= 1
+           """
 
             
         for obs in observers:

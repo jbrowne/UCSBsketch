@@ -98,6 +98,7 @@ True
 import math
 import sys
 import pdb
+import time
 
 from Utils import Logger
 from SketchFramework.Point import Point
@@ -376,7 +377,7 @@ def strokeApproximateCubicCurves(stroke, error = 0.005):
     errorThresh = max(error * strokeLen, 1.0)
     start = 0
     end = len(stroke.Points)
-    inc = max(len(stroke.Points) / 20, 1)
+    inc = max(len(stroke.Points) / 15, 1)
     allCurves = []
     subStroke = Stroke(stroke.Points[start:end+1])
     totalError = 0.0
@@ -423,33 +424,30 @@ def lineGetPoint(line, dist):
 
 def strokeApproximateSingleCurve(stroke, prePt = None, postPt = None):
     """Approximate a stroke with a single bezier curve"""
-    stroke = strokeNormalizeSpacing(stroke, max(strokeLength(stroke) / 5, 3))
+    stroke = strokeNormalizeSpacing(stroke, max(len(stroke.Points), 3))
     strokeLen = strokeLength(stroke)
     error = None
     #stretchFactors = [0.1, 0.25, 0.5, 0.75]
     stretchFactors = (0.25, 0.5, 0.85)
+
+    p0 = stroke.Points[0]
+    p3 = stroke.Points[-1]
+
+    t_pt0 = prePt
+    t_pt1 = p0
+    t_pt2 = stroke.Points[1]
+    line1 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p0
+
+
+    t_pt0 = postPt 
+    t_pt1 = p3
+    t_pt2 = stroke.Points[-2]
+    line3 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p3
+
+    #p2 = line3[1]
     for stretchP1 in stretchFactors:
         for stretchP2 in stretchFactors:
-            p0 = stroke.Points[0]
-            p3 = stroke.Points[-1]
-
-            t_pt0 = prePt
-            t_pt1 = p0
-            t_pt2 = stroke.Points[1]
-            line1 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p0
-
-            #p1 = line1[1]
             p1 = lineGetPoint((t_pt1, line1[1]), stretchP1 *strokeLen)
-
-
-            t_pt0 = postPt 
-            t_pt1 = p3
-            t_pt2 = stroke.Points[-2]
-            #print "%s, %s, %s" % (t_pt0, t_pt1, t_pt2)
-            line3 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p3
-            #print "%s, %s, %s" % (line3[0], t_pt1, line3[1])
-
-            #p2 = line3[1]
             p2 = lineGetPoint((t_pt1, line3[1]), stretchP2 * strokeLen)
             curve = CubicCurve(p0, p1, p2, p3)
             curError = strokeSumDists(curve.toStroke(), stroke)
@@ -874,6 +872,43 @@ def boundingboxOverlap( bb1, bb2 ):
 # Functions on Lists of Points 
 
 
+def pointListLinearRegression(pointlist):
+    """Given a list of points, compute the linear regression line that
+    approximates them. Formula from 
+    http://www.ies.co.jp/math/java/misc/least_sq/least_sq.html"""
+
+    #Looking for form y = mx + b
+    n= float(len(pointlist)) #Number of points
+    xlist = [pt.X for pt in pointlist]
+    ylist = [pt.Y for pt in pointlist]
+    sum_y = float(sum(ylist))
+    sum_x = float(sum(xlist))
+    m1 = n * sum([ pt.X * pt.Y for pt in pointlist ])
+    m2 = sum_y * sum_x
+    m3 = n * sum([x**2 for x in xlist])
+    m4 = sum_x ** 2
+
+    if (m3 - m4) != 0:
+        m = ( m1 - m2 ) / (m3 - m4)
+        b = (sum_y - sum_x * m) / n
+
+
+        minX = min(xlist)
+        maxX = max(xlist)
+        pt1 = Point(minX, minX * m + b)
+        pt2 = Point(maxX, maxX * m + b)
+    else:   
+        maxY = max(ylist)
+        minY = min(ylist)
+        avgX = sum_x / n
+        pt1 = Point(avgX, minY)
+        pt2 = Point(avgX, maxY)
+
+    return (pt1, pt2)
+
+
+
+    
 def pointListOrientationHistogram(points, direction=False):
     """Return a dict with the histogram of the segment orientations for this pointlist.
     If direction is true, count the direction as unique (i.e. right->left != left->right)"""
@@ -1224,7 +1259,7 @@ def pointDistanceFromLine(point, lineseg):
         point2 = Point( point.X + 10, point.Y + (inv_slope * 10) )
         distancePoint = getLinesIntersection(lineseg, (point, point2), infinite1 = True, infinite2 = True)
 
-        return pointDistance(point, distancePoint)
+        return pointDist(point, distancePoint)
         
         
 

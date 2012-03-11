@@ -19,15 +19,15 @@ def printUsage():
 def classifyMain(args):
     if len(args) == 2:
         #Load labeled data and train on it
-        print "Loading binary stroke dataset"
+        logger.debug( "Loading binary stroke dataset" )
         strokeData = pickle.load(open(args[0], "rb"))
-        print "Loading classifier weights"
+        logger.debug( "Loading classifier weights" )
 
         featureSet = Rubine.BCP_AllFeatureSet()
         classifier = Rubine.RubineClassifier(featureSet = featureSet, debug = False)
         #classifier = Rubine.RubineClassifier(featureSet = Rubine.RubineFeatureSet(), debug = False)
         classifier.loadWeights(args[1])
-        print "Classifying dataset"
+        logger.debug( "Classifying dataset" )
         results = batchClassify(strokeData, classifier)
         resultsFile = open("Results.txt", "w")
         printResults(results, resultsFile)
@@ -48,12 +48,14 @@ def batchClassify(strokeData, classifier, classifyOnParticipants = None):
                'classifier' : classifier.__class__.__name__,
                'featureSet' : classifier.featureSet.__class__.__name__,
                'byLabel' : {},
+               'byParticipant' : {},
                'overAll' : {'right' : 0, 'wrong': 0}
               }
     for participant in strokeData.participants:
         if classifyOnParticipants is None or participant.id in classifyOnParticipants:
             #for diagram in participant.diagrams:
-            print "Classifying dataset %s on participant %s" % (DIAGNUM, participant.id)
+            logger.debug( "Classifying dataset %s on participant %s" % (DIAGNUM, participant.id) )
+            partResults = outData['byParticipant'].setdefault(participant.id, {'right': 0, 'wrong' : 0})
             diagram = participant.diagrams[DIAGNUM]
             for label in diagram.groupLabels:
                 name = label.type
@@ -64,15 +66,19 @@ def batchClassify(strokeData, classifier, classifyOnParticipants = None):
                         if name == classification:
                             labelResults['right'] += 1
                             outData['overAll']['right'] += 1
+                            partResults['right'] += 1
+                            logger.debug( "O\t%s" % (name) )
                         else:
                             labelResults['wrong'] += 1
                             outData['overAll']['wrong'] += 1
+                            partResults['wrong'] += 1
+                            logger.debug( "X\t%s<>%s" % (name, classification) )
                     except Exception as e:
                         print traceback.format_exc()
                         print e
                         exit(1)
-            #DISABLE THIS WHEN REAL
-            #break
+            logger.debug( "\tFor participant %s: %s correct, %s wrong" % (participant.id, partResults['right'], partResults['wrong']) )
+
     return outData
     
 
@@ -104,7 +110,7 @@ def batchTraining(trainer, dataSet, outfname, trainOnParticipants = None ):
     logger.warn("Only using diagram # %s from each participant"% (DIAGNUM))
     for participant in dataSet.participants:
         if trainOnParticipants is None or participant.id in trainOnParticipants:
-            print "Training from participant %s" % (participant.id)
+            logger.debug( "Training from participant %s" % (participant.id) )
             #for diagram in participant.diagrams:
             diagram = participant.diagrams[DIAGNUM]
             for label in diagram.groupLabels:
@@ -126,7 +132,7 @@ def batchTraining(trainer, dataSet, outfname, trainOnParticipants = None ):
 #
 def openDataset(infname):
     if infname.split('.')[-1] == "p":
-        print "Loading binary dataset file"
+        logger.debug( "Loading binary dataset file" )
         import cPickle as pickle
         try:
             dataSet = pickle.load(open(infname, "rb"))
@@ -168,15 +174,15 @@ def allMain(args):
                         [Rubine.BCP_GraphFeatureSet, Rubine.BCP_GraphFeatureSet_Combinable],
                         [Rubine.BCP_ClassFeatureSet, Rubine.BCP_ClassFeatureSet_Combinable],
                       ]
+        for featureSetList in allFeatureSets:
+            featureSetList.append(Rubine.BCPFeatureSet)
+            featureSetList.append(Rubine.BCPFeatureSet_Combinable)
+
         if len(args) > 1:
             runID = int(args[1])
         else:
             runID = 0
 
-        """
-        for featureSetList in allFeatureSets:
-            featureSetList.append(Rubine.BCPFeatureSet)
-        """
         #allFeatureSets = 3* [[Rubine.BCPFeatureSet] ]
 
         #Split participants into training and evaluation groups
@@ -188,32 +194,38 @@ def allMain(args):
             else:
                 classifyIDs.add(participant.id)
             
+        swapIDs = 0
         for diagNum in range(3):
             #DIAGNUM = i
             DIAGNUM = diagNum
             for fsType in allFeatureSets[diagNum]:
             #for fsType in [Rubine.BCPFeatureSet]:
-                featureSet = fsType()
-                tag = "Diagram-%s_Feature-%s-Run-%s" % (DIAGNUM, type(featureSet).__name__, runID)
-                classifierFname = "BatchRubineData_%s.xml"%(tag)
-                classifier = Rubine.RubineClassifier(featureSet = featureSet)
-                print "-----------------------"
-                print "Training classifier %s" % (type(featureSet).__name__)
-                print "-----------------------"
-                batchTraining(classifier, dataSet, classifierFname, trainOnParticipants = trainIDs)
-                #classifier.loadWeights(classifierFname)
-                print "-----------------------"
-                print "Classifying Dataset"
-                print "-----------------------"
-                results = batchClassify(dataSet, classifier, classifyOnParticipants = classifyIDs)
-                fname = "Results_%s.txt" % (tag)
-                resultsFile = open(fname, "w")
-                print >> resultsFile, fname
-                print "-----------------------"
-                print "Printing Results to %s" % (fname)
-                print "-----------------------"
-                printResults(trainIDs, classifyIDs, results, resultsFile)
-                resultsFile.close()
+                for swapIDs in (False, True):
+                    swapTag = ""
+                    if swapIDs:
+                        swapTag = "_swap"
+                        trainIDs, classifyIDs = classifyIDs, trainIDs
+                    featureSet = fsType()
+                    tag = "Diagram-%s_Feature-%s-Run-%s%s" % (DIAGNUM, type(featureSet).__name__, runID, swapTag)
+                    classifierFname = "BatchRubineData_%s.xml"%(tag)
+                    classifier = Rubine.RubineClassifier(featureSet = featureSet)
+                    logger.debug( "-----------------------" )
+                    logger.debug( "Training classifier %s" % (type(featureSet).__name__) )
+                    logger.debug( "-----------------------" )
+                    batchTraining(classifier, dataSet, classifierFname, trainOnParticipants = trainIDs)
+                    #classifier.loadWeights(classifierFname)
+                    logger.debug( "-----------------------" )
+                    logger.debug( "Classifying Dataset" )
+                    logger.debug( "-----------------------" )
+                    results = batchClassify(dataSet, classifier, classifyOnParticipants = classifyIDs)
+                    fname = "Results_%s.txt" % (tag)
+                    resultsFile = open(fname, "w")
+                    print >> resultsFile, fname
+                    logger.debug( "-----------------------" )
+                    logger.debug( "Printing Results to %s" % (fname) )
+                    logger.debug( "-----------------------" )
+                    printResults(trainIDs, classifyIDs, results, resultsFile)
+                    resultsFile.close()
     else:
         print "Usage: %s --all <Training/Testing dataset>"
         exit(1)
