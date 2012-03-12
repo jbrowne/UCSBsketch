@@ -1269,7 +1269,7 @@ class RubineClassifier():
         origMat = avgCovMat
 
         while linalg.det(avgCovMat) == 0.0: #While not invertible
-            logger.debug("Singular Matrix!!!!!!!!!!!!!!!!!!!!")
+            logger.warn("Singular Matrix!!!!!!!!!!!!!!!!!!!!")
             avgCovMat = origMat.copy()
             """
             fp = open("ERROR.txt", "a")

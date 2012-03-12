@@ -1,4 +1,5 @@
 import sys
+import math
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 from xml.etree import ElementTree as ET
 
@@ -33,8 +34,10 @@ class Point(AnnotatableObject):
         return "P(%s,%s)" % (self.X, self.Y)
 
     def __eq__(self, other):
-        if other is not None and self.X == other.X and self.Y == other.Y:
-            return  True
+        if other is not None \
+            and math.fabs(self.X - other.X) < 0.0001 \
+            and math.fabs(self.Y - other.Y) < 0.0001:
+                return  True
         return False
     def __ne__(self, other):
         if not (self == other):

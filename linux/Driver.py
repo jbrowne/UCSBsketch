@@ -5,7 +5,9 @@ import sys
 import pdb
 import time
 import traceback
-from Utils import Rubine, Logger
+from Utils import Rubine, Logger, GeomUtils, ImageStrokeConverter, StrokeStorage
+from SketchFramework.Point import *
+from SketchFramework.Stroke import *
 
 
 DIAGNUM = 2
@@ -32,25 +34,28 @@ def classifyMain(args):
         resultsFile = open("Results.txt", "w")
         printResults(results, resultsFile)
         
-    else:
+    else: 
         print "Usage: %s --classify <DataSet.p> <Classifier.xml>" % (sys.argv[0])
         exit(1)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-def batchClassify(strokeData, classifier, classifyOnParticipants = None):
+def batchClassify(strokeData, classifier, resultStorage = None, classifyOnParticipants = None):
     """Given a dataset, and a classifier object, evaluate the strokes in the dataset
     and decide what they are"""
     global DIAGNUM
     #logger.warn("Only using diagram # %s from each participant"% (DIAGNUM))
-    outData = {
-               'diagram' : DIAGNUM,
-               'classifier' : classifier.__class__.__name__,
-               'featureSet' : classifier.featureSet.__class__.__name__,
-               'byLabel' : {},
-               'byParticipant' : {},
-               'overAll' : {'right' : 0, 'wrong': 0}
-              }
+    if resultStorage == None: 
+        outData = {
+                   'diagram' : DIAGNUM,
+                   'classifier' : classifier.__class__.__name__,
+                   'featureSet' : classifier.featureSet.__class__.__name__,
+                   'byLabel' : {},
+                   'byParticipant' : {},
+                   'overAll' : {'right' : 0, 'wrong': 0}
+                  }
+    else:
+        outData = resultStorage
     for participant in strokeData.participants:
         if classifyOnParticipants is None or participant.id in classifyOnParticipants:
             #for diagram in participant.diagrams:
@@ -62,7 +67,9 @@ def batchClassify(strokeData, classifier, classifyOnParticipants = None):
                 labelResults = outData['byLabel'].setdefault(name, {'right': 0, 'wrong' : 0})
                 for stkID in label.ids:
                     try:
-                        classification = classifier.classifyStroke(diagram.InkStrokes[stkID].stroke)
+                        stroke = diagram.InkStrokes[stkID].stroke
+                        #stroke = traceStroke(stroke)
+                        classification = classifier.classifyStroke(stroke)
                         if name == classification:
                             labelResults['right'] += 1
                             outData['overAll']['right'] += 1
@@ -78,10 +85,76 @@ def batchClassify(strokeData, classifier, classifyOnParticipants = None):
                         print e
                         exit(1)
             logger.debug( "\tFor participant %s: %s correct, %s wrong" % (participant.id, partResults['right'], partResults['wrong']) )
+            #logger.warn("FINISHING CLASSIFY EARLY")
+            #break
 
     return outData
     
 
+def traceStroke(stroke):
+    """Take in a true stroke with timing data, bitmap it and
+    then trace the data for it"""
+    #logger.debug("Stripping Timing Information from Stroke")
+    #logger.debug("Stroke in, %s points" % len(stroke.Points))
+    strokeLen = GeomUtils.strokeLength(stroke)
+    sNorm = GeomUtils.strokeNormalizeSpacing(stroke, int(len(stroke.Points) * 1.5)) #Normalize to ten pixel spacing
+    graph = {}
+    #Graph structure looks like 
+    #   { <point (x, y)> : {'kids' : <set of Points>, 'thickness' : <number>} }
+    #Find self intersections
+    intersections = {}
+    for i in range(len(sNorm.Points) - 1):
+        seg1 = (sNorm.Points[i], sNorm.Points[i+1])
+        for j in range(i+1, len(sNorm.Points) - 1 ):
+            seg2 = (sNorm.Points[j], sNorm.Points[j+1])
+            cross = GeomUtils.getLinesIntersection( seg1, seg2)
+            #Create a new node at the intersection
+            if cross != None \
+                and cross != seg1[0] \
+                and cross != seg2[0]:
+                    crossPt = (cross.X, cross.Y)
+                    intDict = intersections.setdefault(crossPt, {'kids' : set(), 'thickness' : 1})
+                    for pt in seg1 + seg2: #Add the segment endpoints as kids
+                        coords = (int(pt.X), int(pt.Y))
+                        if coords != crossPt:
+                            intDict['kids'].add(coords)
+            
+    prevPt = None
+    #for i in range(1, len(sNorm.Points)):
+    for pt in sNorm.Points:
+        curPt = (int(pt.X), int(pt.Y))
+        if prevPt != None:
+            #prevPt = (pt.X, pt.Y)
+            graph[curPt] = {'kids' : set([prevPt]), 'thickness':1}
+            graph[prevPt]['kids'].add(curPt)
+        else:
+            graph[curPt] = {'kids' : set(), 'thickness' :1 }
+        prevPt = curPt
+    for pt, ptDict in intersections.items():
+        for k in graph.get(pt, {'kids' : []})['kids']:
+            ptDict['kids'].add(k)
+            graph[k]['kids'].add(pt)
+        for k in ptDict['kids']:
+            graph[k]['kids'].add(pt)
+        graph[pt] = ptDict
+    strokeList = ImageStrokeConverter.graphToStrokes(graph)
+    if len(strokeList) > 1:
+        #logger.debug("Stroke tracing split into multiple strokes")
+        strokeList.sort(key=(lambda s: -len(s.points)))
+
+    retPts = []
+    
+    if len(strokeList) > 0:
+        for pt in strokeList[0].points:
+            #logger.debug("Adding point %s" % (str(pt)))
+            retPts.append(Point(pt[0], pt[1]))
+
+    #logger.debug("Stroke out, %s points" % len(retPts))
+    retStroke = Stroke(retPts)
+    #saver = StrokeStorage.StrokeStorage()
+    #saver.saveStrokes([stroke, retStroke])
+    return retStroke
+    
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
 def printResults(trainIDs, classifyIDs, results, outfile = sys.stdout):
@@ -92,14 +165,14 @@ def printResults(trainIDs, classifyIDs, results, outfile = sys.stdout):
     total = float(right + wrong)
     if total > 0:
         print >> outfile, "%s_Overall\t%s\t%s\t%s\t%s\t%s" % (featureSet, total, right, right/total * 100, wrong, wrong/total * 100)
-    for label, results in results['byLabel'].items():
-        right = results['right']
-        wrong = results['wrong']
+    for label, label_results in results['byLabel'].items():
+        right = label_results['right']
+        wrong = label_results['wrong']
         total = float(right + wrong)
         if total > 0:
             print >> outfile, "%s\t%s\t%s\t%s\t%s\t%s" % (label, total, right, right/total * 100, wrong, wrong/total * 100)
-    print >> outfile, "TrainingIDs:%s" % (",".join([str(i) for i in trainIDs]) )
-    print >> outfile, "ClassifyIDs:%s" % (",".join([str(i) for i in classifyIDs]) )
+    #print >> outfile, "TrainingIDs:%s" % (",".join([str(i) for i in trainIDs]) )
+    print >> outfile, "ClassifyIDs:%s" % (",".join([str(i) for i in results['byParticipant'].keys()]) )
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
 def batchTraining(trainer, dataSet, outfname, trainOnParticipants = None ):
@@ -119,11 +192,13 @@ def batchTraining(trainer, dataSet, outfname, trainOnParticipants = None ):
                     seenLabels.add(label.type)
                 for stkID in label.ids:
                     try:
-                        trainer.addStroke(diagram.InkStrokes[stkID].stroke, label.type)
+                        stroke = diagram.InkStrokes[stkID].stroke
+                        #stroke = traceStroke(stroke)
+                        trainer.addStroke(stroke, label.type)
                     except Exception as e:
                         print traceback.format_exc()
                         print e
-            #DISABLE THIS FOR REALZ
+            #logger.warn("FINISHING TRAINING EARLY")
             #break
 
     trainer.saveWeights(outfname)
@@ -179,9 +254,9 @@ def allMain(args):
             featureSetList.append(Rubine.BCPFeatureSet_Combinable)
 
         if len(args) > 1:
-            runID = int(args[1])
+            testDiags = [int(args[1])]
         else:
-            runID = 0
+            testDiags = range(3)
 
         #allFeatureSets = 3* [[Rubine.BCPFeatureSet] ]
 
@@ -195,18 +270,20 @@ def allMain(args):
                 classifyIDs.add(participant.id)
             
         swapIDs = 0
-        for diagNum in range(3):
+        for diagNum in testDiags:
             #DIAGNUM = i
             DIAGNUM = diagNum
             for fsType in allFeatureSets[diagNum]:
             #for fsType in [Rubine.BCPFeatureSet]:
+                results = None
                 for swapIDs in (False, True):
                     swapTag = ""
                     if swapIDs:
+                        logger.debug("Swapping IDs")
                         swapTag = "_swap"
                         trainIDs, classifyIDs = classifyIDs, trainIDs
                     featureSet = fsType()
-                    tag = "Diagram-%s_Feature-%s-Run-%s%s" % (DIAGNUM, type(featureSet).__name__, runID, swapTag)
+                    tag = "Diagram-%s_Feature-%s" % (DIAGNUM, type(featureSet).__name__)
                     classifierFname = "BatchRubineData_%s.xml"%(tag)
                     classifier = Rubine.RubineClassifier(featureSet = featureSet)
                     logger.debug( "-----------------------" )
@@ -217,15 +294,17 @@ def allMain(args):
                     logger.debug( "-----------------------" )
                     logger.debug( "Classifying Dataset" )
                     logger.debug( "-----------------------" )
-                    results = batchClassify(dataSet, classifier, classifyOnParticipants = classifyIDs)
-                    fname = "Results_%s.txt" % (tag)
-                    resultsFile = open(fname, "w")
-                    print >> resultsFile, fname
-                    logger.debug( "-----------------------" )
-                    logger.debug( "Printing Results to %s" % (fname) )
-                    logger.debug( "-----------------------" )
-                    printResults(trainIDs, classifyIDs, results, resultsFile)
-                    resultsFile.close()
+                    results = batchClassify(dataSet, classifier, resultStorage = results, classifyOnParticipants = classifyIDs)
+                    printResults(trainIDs, classifyIDs, results, outfile = sys.stdout)
+                #Save results AFTER swapping
+                fname = "Results_%s.txt" % (tag)
+                resultsFile = open(fname, "w")
+                print >> resultsFile, fname
+                logger.debug( "-----------------------" )
+                logger.debug( "Printing Results to %s" % (fname) )
+                logger.debug( "-----------------------" )
+                printResults(trainIDs, classifyIDs, results, resultsFile)
+                resultsFile.close()
     else:
         print "Usage: %s --all <Training/Testing dataset>"
         exit(1)

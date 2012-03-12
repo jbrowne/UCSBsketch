@@ -71,7 +71,7 @@ def _initializeBoard(board):
     """
 
     if board is not None:
-        RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
+        #RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
         RubineObserver.RubineVisualizer(board)
 
         """
@@ -491,11 +491,11 @@ class TkSketchFrame(Frame, _SketchGUI):
         observers = self.Board.BoardObservers
         for s in strokes:
            s.drawMyself()
-           lr = GeomUtils.pointListLinearRegression(s.Points)
-           self.drawLine(lr[0].X, lr[0].Y, lr[1].X, lr[1].Y, color = "#C0C000")
+           #lr = GeomUtils.pointListLinearRegression(s.Points)
+           #self.drawLine(lr[0].X, lr[0].Y, lr[1].X, lr[1].Y, color = "#C0C000")
 
-           for curv in strokeApproximateCubicCurves(s):
-               self.drawCurve(curv, color="#FF0000")
+           #for curv in strokeApproximateCubicCurves(s):
+               #self.drawCurve(curv, color="#FF0000")
 
            """
            s2 = GeomUtils.strokeApproximatePolyLine(s)
