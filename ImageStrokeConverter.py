@@ -40,6 +40,7 @@ GRAY = 200
 FILLEDVAL = GRAY
 CENTERVAL = BLACK
 BGVAL = WHITE
+OOBVAL = -1
 
 COLORFACTOR = 10
 
@@ -52,7 +53,9 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
-NORMWIDTH = 1024
+#NORMWIDTH = 1025
+NORMWIDTH = 2592
+#NORMWIDTH = 600
 DEBUGSCALE = 1
 #***************************************************
 # Intended module interface functions 
@@ -170,46 +173,49 @@ def printPoint(pt, img):
    print "--------------------------"
 
 def thicknessAtPoint(point, img):
-   """Determines the thickness of a blob at a point by growing lines in 8 cardinal directions.
-   Returns the minimum thickness"""
-   global BGVAL, FILLEDVAL, CENTERVAL
+   """Determine the thickness at a point in img. Uses an expanding circle
+   from that pixel until it encounters non-ink.
+   Returns the minimum thickness as twice that radius + 1"""
+   global BGVAL, FILLEDVAL, CENTERVAL, OOBVAL
    px, py = point
-
    pixval = getImgVal(px, py, img)
-   t = 0
-   if pixval == BGVAL:
-      return t
+   if pixval == BGVAL or pixval == OOBVAL:
+      return 0
+   else:
+      rad = 1
+      while rad < img.rows:
+         cPixels = circlePixels(point, rad)
+         for p in cPixels:
+            pixval = getImgVal(p[0], p[1], img)
+            if pixval == BGVAL or pixval == OOBVAL:
+               return 2 * (rad - 1) + 1
+         rad += 1
+      return 2 * (rad - 1) + 1
 
-   horiz = (1, 0)
-   vert  = (0, 1)
-   rdiag = (1, 1)
-   ldiag = (1,-1)
-   growthDirs = [horiz, vert, rdiag, ldiag]
-   minThickness = 1000
-   for d in growthDirs:
-      t = 0
-      maxPosT = 0
-      posVal = pixval
-      while posVal == CENTERVAL or posVal == FILLEDVAL:
-         maxPosT = t
-         posPt = (point[0] + t * d[0], point[1] + t * d[1])
-         posVal = getImgVal(posPt[0], posPt[1], img)
-         t += 1
+def circlePixels(center, rad):
+   """Generates a list of pixels that lie on a circle, centered at center,
+   with radius rad. Unordered."""
+   x, y = center
+   rad = int(rad)
+   rad_sqr = rad * rad
+   points = set()
+   if rad == 0:
+      return [center]
+   dy = 0
+   while dy <= rad:
+      dx = int(math.sqrt(rad_sqr - dy **2 ))
+      points.update( [ (x+dx, y+dy), (x-dx, y+dy), (x+dx, y-dy), (x-dx, y-dy)])
+      dy += 1
+   dx = 0
+   while dx <= rad:
+      dy = int(math.sqrt(rad_sqr - dx **2 ))
+      points.update( [ (x+dx, y+dy), (x-dx, y+dy), (x+dx, y-dy), (x-dx, y-dy)])
+      dx += 1
+   return points
 
-      maxNegT = 0
-      negVal = pixval
-      t = 0
-      while negVal == CENTERVAL or negVal == FILLEDVAL:
-         maxNegT = t
-         negPt = (point[0] - t * d[0], point[1] - t * d[1])
-         negVal = getImgVal(negPt[0], negPt[1], img)
-         t += 1
 
-      diagScale = math.sqrt(d[0] * d[0] + d[1] * d[1])
-      totalThickness = diagScale * (maxPosT + maxNegT + 1)
-      if totalThickness < minThickness:
-         minThickness = totalThickness
-   return minThickness
+      
+
 
 def linePixels(pt1, pt2):
    """Generates a list of pixels on a line drawn between pt1 and pt2"""
@@ -242,15 +248,18 @@ def linePixels(pt1, pt2):
 
 def drawLine(pt1, pt2, color, img):
    """Draw a line from pt1 to pt2 in image img"""
+   h = img.rows
+   w = img.cols
    for x,y in linePixels(pt1, pt2):
-      setImgVal(x,y,color,img)
+       if y < 0 or y >= h or x < 0 or x >= w:
+          setImgVal(x,y,color,img)
 
 
 def pointsOverlap(pt1, pt2, img, pt1Thickness = None, pt2Thickness = None, checkSeparation=True):
    """Checks to see if two points cover each other with their thickness and are not separatred by white"""
    global CENTERVAL
    assert (pt1Thickness != None and pt2Thickness != None) or img != None, "Error, cannot determine overlap without thickness!"
-   okSeparation = 1 #How many pixels can be invalid in the separation check
+   okSeparation = 0 #How many pixels can be invalid in the separation check
    distSqr = pointsDistSquared(pt1, pt2) 
 
    if pt1Thickness != None and pt2Thickness != None:
@@ -327,13 +336,18 @@ def _squareIntersections(graphDict, rawImg):
 
             #Remove points from the edges such that they do not enter the "crossing region"
             cpThickness = graphDict[cp]['thickness']
-            print "CrossPoint %s, thickness %s" % (str(cp), cpThickness)
+            for db_pt in circlePixels(cp, cpThickness / 2.0):
+                if db_pt[0] >= 0 and db_pt[0] < DEBUGIMG.cols and db_pt[1] >= 0 and db_pt[1] < DEBUGIMG.rows:
+                   setImgVal(db_pt[0], db_pt[1], 128, DEBUGIMG)
+
+            saveimg(DEBUGIMG)
+            print "CrossPoint %s, thickness %s" % (str(cp), cpThickness/ 2.0)
             for edge in edgeList:
                 #print " *Edge:", edge
                 for pt in list(edge):
                     if len(edge) > 1 and \
                        pointsOverlap(cp, pt, rawImg, \
-                                     pt1Thickness = 2 * cpThickness / 3.0 , \
+                                     pt1Thickness = cpThickness, \
                                      pt2Thickness = 1, checkSeparation = False):
                         #print "  Remove %s" % (str(pt))
                         edge.remove(pt)
@@ -953,6 +967,8 @@ def filledAndCrossingVals(point, img, skipCorners = False):
    """
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
    with some corner cutting capability from Louisa Lam 1992.
+   Returns the number of filled pixels in the 8 neighborhood around the point.
+   Crossing is set as the number of transitions from black to white
    """  
    global CENTERVAL, BGVAL
    height = img.rows
@@ -1072,8 +1088,8 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
       else:
          badEdge = valDict['wnsesw']
 
-      if (filled >= minFill and filled <= maxFill and cnum_p == 1 and (not badEdge or finalPass) ) or \
-         (filled == noise): 
+      shouldRemove = filled >= minFill and filled <= maxFill and cnum_p == 1 and (not badEdge or finalPass) or (filled == noise)
+      if shouldRemove:
          numChanged += 1
          setImgVal(i, j, FILLEDVAL, outImg)
          #saveimg(outImg)
@@ -1145,14 +1161,6 @@ def cleanContours(pointSet, img):
          print "Saving Contours"
          saveimg(DEBUGIMG)
             
-
-
-
-
-   
-
-
-
    exit(1)
 
                
@@ -1200,14 +1208,15 @@ def erodeBlobsPoints (pointSet, img, minFill = 1, maxFill = 9 ):
 
 def getImgVal(x,y,img, errorVal = -1):
    """Returns the image value for pixel x,y in img or -1 as error."""
+   global OOBVAL
    h = img.rows
    w = img.cols
    if y < 0 or y >= h or x < 0 or x >= w:
-      return errorVal
+      return OOBVAL
       #print "Returning -1 for %s, %s" % (x,y)
    try:
       return img[y,x]
-   except:
+   except Exception as e:
       print "Trying to get invalid pixel %s" % (str( (x,y) ))
      
 def setImgVal(x,y,val,img):
@@ -1496,7 +1505,7 @@ def removeBackground(cv_img):
    while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows:
       print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
       bg_img = smooth(bg_img, ksize=smooth_k, t='median')
-      smooth_k = int(smooth_k * 1.1)
+      smooth_k = int(smooth_k * 1.05)
       if smooth_k % 2 == 0:
          smooth_k += 1
    bg_img = invert(bg_img)
@@ -1515,7 +1524,8 @@ def removeBackground(cv_img):
       saveimg(gray_img)
    for i in [3, 2]: #xrange(3):
       gray_img2 = smooth(gray_img, ksize=3, t='median')
-      gamma = ( (i * 2 - 2)* -128) - 127
+      #gamma = ( (i * 2 - 1)* -128)#- 127
+      gamma = ( (i * 2 - 1)* -127)#- 127
       cv.AddWeighted(gray_img, i, gray_img2, i, gamma, gray_img )
       if(DEBUG):
          saveimg(gray_img)
