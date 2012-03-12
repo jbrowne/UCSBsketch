@@ -53,8 +53,8 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
-#NORMWIDTH = 1025
-NORMWIDTH = 2592
+NORMWIDTH = 1025
+#NORMWIDTH = 2592
 #NORMWIDTH = 600
 DEBUGSCALE = 1
 #***************************************************
@@ -251,7 +251,7 @@ def drawLine(pt1, pt2, color, img):
    h = img.rows
    w = img.cols
    for x,y in linePixels(pt1, pt2):
-       if y < 0 or y >= h or x < 0 or x >= w:
+       if y >= 0 and y < h and x >= 0 and x < w:
           setImgVal(x,y,color,img)
 
 
@@ -263,11 +263,11 @@ def pointsOverlap(pt1, pt2, img, pt1Thickness = None, pt2Thickness = None, check
    distSqr = pointsDistSquared(pt1, pt2) 
 
    if pt1Thickness != None and pt2Thickness != None:
-      pt1ThicknessSqr = (pt1Thickness /2.0) ** 2
-      pt2ThicknessSqr = (pt2Thickness /2.0) ** 2
+      pt1ThicknessSqr = ((pt1Thickness - 1)/2.0) ** 2
+      pt2ThicknessSqr = ((pt2Thickness - 1) /2.0) ** 2
    else:
-      pt1ThicknessSqr = (thicknessAtPoint(pt1, img) / 2.0) ** 2
-      pt2ThicknessSqr = (thicknessAtPoint(pt2, img) / 2.0) ** 2
+      pt1ThicknessSqr = ((thicknessAtPoint(pt1, img) -1) / 2.0) ** 2
+      pt2ThicknessSqr = ((thicknessAtPoint(pt2, img) -1) / 2.0) ** 2
       
    if distSqr > pt2ThicknessSqr and distSqr > pt1ThicknessSqr: #If neither thickness covers the other point
       return False
@@ -334,14 +334,14 @@ def _squareIntersections(graphDict, rawImg):
                 elif edge[-1] == cp:
                     edgeList.append(list(reversed(edge)))
 
-            #Remove points from the edges such that they do not enter the "crossing region"
             cpThickness = graphDict[cp]['thickness']
-            for db_pt in circlePixels(cp, cpThickness / 2.0):
-                if db_pt[0] >= 0 and db_pt[0] < DEBUGIMG.cols and db_pt[1] >= 0 and db_pt[1] < DEBUGIMG.rows:
-                   setImgVal(db_pt[0], db_pt[1], 128, DEBUGIMG)
+            if DEBUG:
+                for db_pt in circlePixels(cp, (cpThickness -1)/ 2.0):
+                    if db_pt[0] >= 0 and db_pt[0] < DEBUGIMG.cols and db_pt[1] >= 0 and db_pt[1] < DEBUGIMG.rows:
+                       setImgVal(db_pt[0], db_pt[1], 128, DEBUGIMG)
 
-            saveimg(DEBUGIMG)
-            print "CrossPoint %s, thickness %s" % (str(cp), cpThickness/ 2.0)
+            #print "CrossPoint %s, thickness %s" % (str(cp), cpThickness/ 2.0)
+            #Remove points from the edges such that they do not enter the "crossing region"
             for edge in edgeList:
                 #print " *Edge:", edge
                 for pt in list(edge):
@@ -354,12 +354,14 @@ def _squareIntersections(graphDict, rawImg):
                         removedPoints.add(pt)
                     else:   
                         break
+
             #Generate a new intersection point and connect the edges to it
             dirSegments = [] #line segments (tuple (pt1, pt2)) for the representative direction of the edge
             for edge in edgeList:
                 cpDict['kids'].add(edge[0]) #Connect the edge to the new cross point
                 if len(edge) > 1: #Otherwise ignore its trajectory
                     centerPt = ( (edge[0][0] + cp[0]) / 2.0, (edge[0][1] + cp[1]) / 2.0 ) #Point blending the end of the edge and the original crosspoint
+                    #centerPt = edge[0]
                     seg = (centerPt, edge[:3][-1]) #Hack to get the endpoint at most 3 away
                     dirSegments.append(seg)
 
@@ -368,6 +370,7 @@ def _squareIntersections(graphDict, rawImg):
             allCrossPointsX = []
             allCrossPointsY = []
             allIntersects = []
+
             for i in range(len(dirSegments)):
                 for j in range(i + 1, len(dirSegments)):
                     line1 = dirSegments[i]
@@ -386,9 +389,11 @@ def _squareIntersections(graphDict, rawImg):
                 medianIdx = len(allCrossPointsY) / 2
                 newCrossPoint = (int(allCrossPointsX[medianIdx]), int(allCrossPointsY[medianIdx]))
 
-                print " Intersections: %s\n * New median point %s" % (allIntersects, str(newCrossPoint))
+                #print " Intersections: %s\n * New median point %s" % (allIntersects, str(newCrossPoint))
+                #newCrossPoint = (int(sum(allCrossPointsX) / len(allCrossPointsX)), \
+                                 #int(sum(allCrossPointsY) / len(allCrossPointsY)) )
             else:
-                print " Intersections empty, reverting to old CP"
+                #print " Intersections empty, reverting to old CP"
                 newCrossPoint = cp
 
             cpDict['thickness'] = thicknessAtPoint(newCrossPoint, rawImg)
@@ -398,6 +403,8 @@ def _squareIntersections(graphDict, rawImg):
         _deletePointFromGraph(pt, graphDict)
     for pt , ptDict in newPoints.items():
         _insertPointIntoGraph(pt,ptDict, graphDict) 
+    if DEBUG:
+        saveimg(DEBUGIMG)
 
 def _deletePointFromGraph(point, graphDict):
     """Given a point and a graphdict, delete the point from the graph, and also remove
@@ -447,6 +454,12 @@ def _collapseIntersections(graph, rawImg):
                #print "Merging sets:%s, %s\n %s" % (cp1, cp2, mergeDict)
                mergeSet = set([cp1, cp2])
                procSet = set(mergeSet)
+               print "MERGING INTERSECTIONS"
+               if DEBUG:
+                  for db_pt in circlePixels(cp1, (p1Thick -1)/ 2.0):
+                     if db_pt[0] >= 0 and db_pt[0] < DEBUGIMG.cols and db_pt[1] >= 0 and db_pt[1] < DEBUGIMG.rows:
+                        setImgVal(db_pt[0], db_pt[1], 148, DEBUGIMG)
+               saveimg(DEBUGIMG)
                while len(procSet) > 0:
                   mergePt = procSet.pop()
                   mergeSet.add(mergePt)
@@ -912,11 +925,11 @@ def graphToStrokes(graph, rawImg):
          retStrokes.append(stroke)
       #Complicated, match up edges at intersections to shrink number of lines
       elif len(kpDict['edges']) > 1:
-         print "%s Edges to cover" % (len(kpDict['edges']))
+         #print "%s Edges to cover" % (len(kpDict['edges']))
          edgeList = list(kpDict['edges'])
-         print "%s Crossing points to cover" % (len(kpDict['crosspoints']))
+         #print "%s Crossing points to cover" % (len(kpDict['crosspoints']))
          for cp in kpDict['crosspoints']:
-            print "Processing cross Point"
+            #print "Processing cross Point"
             #Build crossingEdges to contain point lists with cp at index 0
             crossingEdges = []
             for edge in list(edgeList):
@@ -929,7 +942,7 @@ def graphToStrokes(graph, rawImg):
 
             #Match the best strokes at this CP
             while len(crossingEdges) > 1:
-               print "  %s crossing edges to process" % (len(crossingEdges))
+               #print "  %s crossing edges to process" % (len(crossingEdges))
                #Get the smoothest pair intersecting at this point
                bestPair = (0, 1)
                bestSmoothness = 0
@@ -944,14 +957,14 @@ def graphToStrokes(graph, rawImg):
                e1 = crossingEdges[bestPair[0]]
                e2 = crossingEdges[bestPair[1]]
                newEdge = list(reversed(e1)) + e2[1:]
-               print "    Covering 2 edges by merging into 1 with smoothness %s" % (bestSmoothness)
+               #print "    Covering 2 edges by merging into 1 with smoothness %s" % (bestSmoothness)
                edgeList.append(newEdge)
                crossingEdges.remove(e1)
                crossingEdges.remove(e2)
 
             if len(crossingEdges) > 0:
                edgeList.extend(crossingEdges)
-               print "    Covering %s edges by adding each alone" % (len(crossingEdges))
+               #print "    Covering %s edges by adding each alone" % (len(crossingEdges))
          #end for cp in kpDict[...]
 
          for edge in edgeList:
