@@ -10,7 +10,7 @@ from SketchFramework.Point import *
 from SketchFramework.Stroke import *
 
 
-DIAGNUM = 2
+DOTRACE = False
 logger = Logger.getLogger("Driver", Logger.DEBUG)
 
 def printUsage():
@@ -40,14 +40,13 @@ def classifyMain(args):
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-def batchClassify(strokeData, classifier, resultStorage = None, classifyOnParticipants = None):
+def batchClassify(strokeData, classifier, diagType, resultStorage = None, classifyOnParticipants = None):
     """Given a dataset, and a classifier object, evaluate the strokes in the dataset
     and decide what they are"""
-    global DIAGNUM
     #logger.warn("Only using diagram # %s from each participant"% (DIAGNUM))
     if resultStorage == None: 
         outData = {
-                   'diagram' : DIAGNUM,
+                   'diagram' : diagType,
                    'classifier' : classifier.__class__.__name__,
                    'featureSet' : classifier.featureSet.__class__.__name__,
                    'byLabel' : {},
@@ -59,31 +58,33 @@ def batchClassify(strokeData, classifier, resultStorage = None, classifyOnPartic
     for participant in strokeData.participants:
         if classifyOnParticipants is None or participant.id in classifyOnParticipants:
             #for diagram in participant.diagrams:
-            logger.debug( "Classifying dataset %s on participant %s" % (DIAGNUM, participant.id) )
+            logger.debug( "Classifying dataset %s on participant %s" % (diagType, participant.id) )
             partResults = outData['byParticipant'].setdefault(participant.id, {'right': 0, 'wrong' : 0})
-            diagram = participant.diagrams[DIAGNUM]
-            for label in diagram.groupLabels:
-                name = label.type
-                labelResults = outData['byLabel'].setdefault(name, {'right': 0, 'wrong' : 0})
-                for stkID in label.ids:
-                    try:
-                        stroke = diagram.InkStrokes[stkID].stroke
-                        #stroke = traceStroke(stroke)
-                        classification = classifier.classifyStroke(stroke)
-                        if name == classification:
-                            labelResults['right'] += 1
-                            outData['overAll']['right'] += 1
-                            partResults['right'] += 1
-                            logger.debug( "O\t%s" % (name) )
-                        else:
-                            labelResults['wrong'] += 1
-                            outData['overAll']['wrong'] += 1
-                            partResults['wrong'] += 1
-                            logger.debug( "X\t%s<>%s" % (name, classification) )
-                    except Exception as e:
-                        print traceback.format_exc()
-                        print e
-                        exit(1)
+            for diagnum, diagram in enumerate(participant.diagrams):
+                if diagram.type != diagType:
+                    continue
+                for label in diagram.groupLabels:
+                    name = label.type
+                    labelResults = outData['byLabel'].setdefault(name, {'right': 0, 'wrong' : 0})
+                    for stkID in label.ids:
+                        try:
+                            stroke = diagram.InkStrokes[stkID].stroke
+                            #stroke = traceStroke(stroke)
+                            classification = classifier.classifyStroke(stroke)
+                            if name == classification:
+                                labelResults['right'] += 1
+                                outData['overAll']['right'] += 1
+                                partResults['right'] += 1
+                                logger.debug( "O\t%s\tSID:%s\tPID:%s\tDID:%s" % (name, stkID, participant.id, diagnum) )
+                            else:
+                                labelResults['wrong'] += 1
+                                outData['overAll']['wrong'] += 1
+                                partResults['wrong'] += 1
+                                logger.debug( "X\t%s<>%s\tSID:%s\tPID:%s\tDID:%s" % (classification, name, stkID, participant.id, diagnum))
+                        except Exception as e:
+                            print traceback.format_exc()
+                            print e
+                            exit(1)
             logger.debug( "\tFor participant %s: %s correct, %s wrong" % (participant.id, partResults['right'], partResults['wrong']) )
             #logger.warn("FINISHING CLASSIFY EARLY")
             #break
@@ -175,29 +176,30 @@ def printResults(trainIDs, classifyIDs, results, outfile = sys.stdout):
     print >> outfile, "ClassifyIDs:%s" % (",".join([str(i) for i in results['byParticipant'].keys()]) )
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
-def batchTraining(trainer, dataSet, outfname, trainOnParticipants = None ):
+def batchTraining(trainer, dataSet, diagType, outfname, trainOnParticipants = None ):
     """Perform training on an entire dataset in infname, and output the results to outfname.
     trainOnParticipants is a set of participant indexes to train from"""
-    global DIAGNUM
     seenLabels = set()
-    logger.warn("Only using diagram # %s from each participant"% (DIAGNUM))
+    logger.warn("Only using diagram # %s from each participant"% (diagType))
     for participant in dataSet.participants:
         if trainOnParticipants is None or participant.id in trainOnParticipants:
             logger.debug( "Training from participant %s" % (participant.id) )
             #for diagram in participant.diagrams:
-            diagram = participant.diagrams[DIAGNUM]
-            for label in diagram.groupLabels:
-                if label.type not in seenLabels:
-                    trainer.newClass(name = label.type)
-                    seenLabels.add(label.type)
-                for stkID in label.ids:
-                    try:
-                        stroke = diagram.InkStrokes[stkID].stroke
-                        #stroke = traceStroke(stroke)
-                        trainer.addStroke(stroke, label.type)
-                    except Exception as e:
-                        print traceback.format_exc()
-                        print e
+            for diagnum, diagram in enumerate(participant.diagrams):
+                if diagram.type != diagType:
+                    continue
+                for label in diagram.groupLabels:
+                    if label.type not in seenLabels:
+                        trainer.newClass(name = label.type)
+                        seenLabels.add(label.type)
+                    for stkID in label.ids:
+                        try:
+                            stroke = diagram.InkStrokes[stkID].stroke
+                            #stroke = traceStroke(stroke)
+                            trainer.addStroke(stroke, label.type)
+                        except Exception as e:
+                            print traceback.format_exc()
+                            print e
             #logger.warn("FINISHING TRAINING EARLY")
             #break
 
@@ -240,23 +242,26 @@ def trainingMain(args):
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
 def allMain(args):
-    global DIAGNUM
     if len(args) > 0:
         infname = args[0]
         dataSet = openDataset(infname)
-        allFeatureSets = [ 
-                        [Rubine.BCP_ShapeFeatureSet, Rubine.BCP_ShapeFeatureSet_Combinable],
-                        [Rubine.BCP_GraphFeatureSet, Rubine.BCP_GraphFeatureSet_Combinable],
-                        [Rubine.BCP_ClassFeatureSet, Rubine.BCP_ClassFeatureSet_Combinable],
-                      ]
-        for featureSetList in allFeatureSets:
+        allFeatureSets = { 
+                        'Shapes': [Rubine.BCP_ShapeFeatureSet, Rubine.BCP_ShapeFeatureSet_Combinable],
+                        'Directed graph': [Rubine.BCP_GraphFeatureSet, Rubine.BCP_GraphFeatureSet_Combinable],
+                        'Class diagram' : [Rubine.BCP_ClassFeatureSet, Rubine.BCP_ClassFeatureSet_Combinable],
+                      }
+        for featureSetList in allFeatureSets.values():
             featureSetList.append(Rubine.BCPFeatureSet)
             featureSetList.append(Rubine.BCPFeatureSet_Combinable)
 
-        if len(args) > 1:
-            testDiags = [int(args[1])]
+        if DOTRACE:
+            traceTag = "Trage"
         else:
-            testDiags = range(3)
+            traceTag = "NoTrace"
+        testDiags = ['Shapes', 'Directed graph', 'Class diagram']
+        if len(args) > 1:
+            idx = int(args[1])
+            testDiags = [testDiags[idx]]
 
         #allFeatureSets = 3* [[Rubine.BCPFeatureSet] ]
 
@@ -270,10 +275,8 @@ def allMain(args):
                 classifyIDs.add(participant.id)
             
         swapIDs = 0
-        for diagNum in testDiags:
-            #DIAGNUM = i
-            DIAGNUM = diagNum
-            for fsType in allFeatureSets[diagNum]:
+        for diagType in testDiags:
+            for fsType in allFeatureSets[diagType]:
             #for fsType in [Rubine.BCPFeatureSet]:
                 results = None
                 for swapIDs in (False, True):
@@ -283,18 +286,18 @@ def allMain(args):
                         swapTag = "_swap"
                         trainIDs, classifyIDs = classifyIDs, trainIDs
                     featureSet = fsType()
-                    tag = "Diagram-%s_Feature-%s" % (DIAGNUM, type(featureSet).__name__)
+                    tag = "Diagram-%s_Feature-%s_%s" % (diagType, type(featureSet).__name__, traceTag)
                     classifierFname = "BatchRubineData_%s.xml"%(tag)
                     classifier = Rubine.RubineClassifier(featureSet = featureSet)
                     logger.debug( "-----------------------" )
                     logger.debug( "Training classifier %s" % (type(featureSet).__name__) )
                     logger.debug( "-----------------------" )
-                    batchTraining(classifier, dataSet, classifierFname, trainOnParticipants = trainIDs)
+                    batchTraining(classifier, dataSet, diagType, classifierFname, trainOnParticipants = trainIDs)
                     #classifier.loadWeights(classifierFname)
                     logger.debug( "-----------------------" )
                     logger.debug( "Classifying Dataset" )
                     logger.debug( "-----------------------" )
-                    results = batchClassify(dataSet, classifier, resultStorage = results, classifyOnParticipants = classifyIDs)
+                    results = batchClassify(dataSet, classifier, diagType, resultStorage = results, classifyOnParticipants = classifyIDs)
                     printResults(trainIDs, classifyIDs, results, outfile = sys.stdout)
                 #Save results AFTER swapping
                 fname = "Results_%s.txt" % (tag)
