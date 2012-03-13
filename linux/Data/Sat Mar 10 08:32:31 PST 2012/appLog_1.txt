@@ -1,0 +1,331 @@
+Loading binary dataset file
+Traceback (most recent call last):
+  File "./Driver.py", line 234, in <module>
+    allMain(newArgs)
+  File "./Driver.py", line 165, in allMain
+    dataSet = openDataset(infname)
+  File "./Driver.py", line 132, in openDataset
+    dataSet = pickle.load(open(infname, "rb"))
+KeyboardInterrupt
+WARNING:Driver:Only using diagram # 0 from each participant
+WARNING:Driver:Only using diagram # 0 from each participant
+WARNING:RubineClassifier:Singular Matrix!!!!!!!!!!!!!!!!!!!!
+WARNING:Driver:Only using diagram # 0 from each participant
+WARNING:RubineClassifier:Singular Matrix!!!!!!!!!!!!!!!!!!!!
+WARNING:Driver:Only using diagram # 1 from each participant
+WARNING:RubineClassifier:Singular Matrix!!!!!!!!!!!!!!!!!!!!
+WARNING:Driver:Only using diagram # 1 from each participant
+WARNING:RubineClassifier:Singular Matrix!!!!!!!!!!!!!!!!!!!!
+Loading binary dataset file
+-----------------------
+Training classifier BCP_ShapeFeatureSet
+-----------------------
+Training from participant 3
+Training from participant 8
+Training from participant 10
+Training from participant 12
+Training from participant 14
+Training from participant 16
+Training from participant 18
+Training from participant 20
+Training from participant 22
+Training from participant 24
+Class Diamond: 40 examples
+Class Triangle: 40 examples
+Class Arrow: 40 examples
+Class Line: 40 examples
+Class Ellipse: 40 examples
+Class Rectangle: 40 examples
+-----------------------
+Classifying Dataset
+-----------------------
+Classifying dataset 0 on participant 5
+Classifying dataset 0 on participant 9
+Classifying dataset 0 on participant 11
+Classifying dataset 0 on participant 13
+Classifying dataset 0 on participant 15
+Classifying dataset 0 on participant 17
+Classifying dataset 0 on participant 19
+Classifying dataset 0 on participant 21
+Classifying dataset 0 on participant 23
+Classifying dataset 0 on participant 25
+-----------------------
+Printing Results to Results_Diagram-0_Feature-BCP_ShapeFeatureSet-Run-1.txt
+-----------------------
+-----------------------
+Training classifier BCP_ShapeFeatureSet_Combinable
+-----------------------
+Training from participant 3
+Training from participant 8
+Training from participant 10
+Training from participant 12
+Training from participant 14
+Training from participant 16
+Training from participant 18
+Training from participant 20
+Training from participant 22
+Training from participant 24
+Class Diamond: 40 examples
+Class Triangle: 40 examples
+Class Arrow: 40 examples
+Class Line: 40 examples
+Class Ellipse: 40 examples
+Class Rectangle: 40 examples
+-----------------------
+Classifying Dataset
+-----------------------
+Classifying dataset 0 on participant 5
+Classifying dataset 0 on participant 9
+Classifying dataset 0 on participant 11
+Classifying dataset 0 on participant 13
+Classifying dataset 0 on participant 15
+Classifying dataset 0 on participant 17
+Classifying dataset 0 on participant 19
+Classifying dataset 0 on participant 21
+Classifying dataset 0 on participant 23
+Classifying dataset 0 on participant 25
+-----------------------
+Printing Results to Results_Diagram-0_Feature-BCP_ShapeFeatureSet_Combinable-Run-1.txt
+-----------------------
+-----------------------
+Training classifier BCP_GraphFeatureSet
+-----------------------
+Training from participant 3
+Training from participant 8
+Training from participant 10
+Training from participant 12
+Training from participant 14
+Training from participant 16
+Training from participant 18
+Training from participant 20
+Training from participant 22
+Training from participant 24
+Class Line: 85 examples
+Class Ellipse: 71 examples
+Class Arrow: 86 examples
+-----------------------
+Classifying Dataset
+-----------------------
+Classifying dataset 1 on participant 5
+Classifying dataset 1 on participant 9
+Classifying dataset 1 on participant 11
+Classifying dataset 1 on participant 13
+Classifying dataset 1 on participant 15
+Classifying dataset 1 on participant 17
+Classifying dataset 1 on participant 19
+Classifying dataset 1 on participant 21
+Classifying dataset 1 on participant 23
+Classifying dataset 1 on participant 25
+-----------------------
+Printing Results to Results_Diagram-1_Feature-BCP_GraphFeatureSet-Run-1.txt
+-----------------------
+-----------------------
+Training classifier BCP_GraphFeatureSet_Combinable
+-----------------------
+Training from participant 3
+Training from participant 8
+Training from participant 10
+Training from participant 12
+Training from participant 14
+Training from participant 16
+Training from participant 18
+Training from participant 20
+Training from participant 22
+Training from participant 24
+Class Line: 85 examples
+Class Ellipse: 71 examples
+Class Arrow: 86 examples
+-----------------------
+Classifying Dataset
+-----------------------
+Classifying dataset 1 on participant 5
+Classifying dataset 1 on participant 9
+Classifying dataset 1 on participant 11
+Classifying dataset 1 on participant 13
+Classifying dataset 1 on participant 15
+Classifying dataset 1 oWARNING:Driver:Only using diagram # 2 from each participant
+WARNING:Driver:Only using diagram # 2 from each participant
+n participant 17
+Classifying dataset 1 on participant 19
+Classifying dataset 1 on participant 21
+Classifying dataset 1 on participant 23
+Classifying dataset 1 on participant 25
+-----------------------
+Printing Results to Results_Diagram-1_Feature-BCP_GraphFeatureSet_Combinable-Run-1.txt
+-----------------------
+-----------------------
+Training classifier BCP_ClassFeatureSet
+-----------------------
+Training from participant 3
+Training from participant 8
+Training from participant 10
+Training from participant 12
+Training from participant 14
+Training from participant 16
+Training from participant 18
+Training from participant 20
+Training from participant 22
+Training from participant 24
+Class Rectangle: 49 examples
+Class Line: 120 examples
+Class Diamond: 30 examples
+Class Ellipse: 20 examples
+Class Arrow: 121 examples
+-----------------------
+Classifying Dataset
+-----------------------
+Classifying dataset 2 on participant 5
+Classifying dataset 2 on participant 9
+Classifying dataset 2 on participant 11
+Classifying dataset 2 on participant 13
+Classifying dataset 2 on participant 15
+Classifying dataset 2 on participant 17
+Classifying dataset 2 on participant 19
+Classifying dataset 2 on participant 21
+Classifying dataset 2 on participant 23
+Classifying dataset 2 on participant 25
+-----------------------
+Printing Results to Results_Diagram-2_Feature-BCP_ClassFeatureSet-Run-1.txt
+-----------------------
+-----------------------
+Training classifier BCP_ClassFeatureSet_Combinable
+-----------------------
+Training from participant 3
+Training from participant 8
+Training from participant 10
+Training from participant 12
+Training from participant 14
+Training from participant 16
+Training from participant 18
+Training from participant 20
+Training from participant 22
+Training from participant 24
+Class Rectangle: 49 examples
+Class Line: 120 examples
+Class Diamond: 30 examples
+Class Ellipse: 20 examples
+Class Arrow: 121 examples
+-----------------------
+Classifying Dataset
+-----------------------
+Classifying dataset 2 on participant 5
+Classifying dataset 2 on participant 9
+Classifying dataset 2 on participant 11
+Classifying dataset 2 on participant 13
+Classifying dataset 2 on participant 15
+Classifying dataset 2 on participant 17
+Classifying dataset 2 on participant 19
+Classifying dataset 2 on participant 21
+Classifying dataset 2 on participant 23
+Classifying dataset 2 on participant 25
+-----------------------
+Printing Results to Results_Diagram-2_Feature-BCP_ClassFeatureSet_Combinable-Run-1.txt
+-----------------------
+WARNING:Driver:Only using diagram # 0 from each participant
+WARNING:RubineClassifier:Singular Matrix!!!!!!!!!!!!!!!!!!!!
+WARNING:Driver:Only using diagram # 1 from each participant
+WARNING:RubineClassifier:Singular Matrix!!!!!!!!!!!!!!!!!!!!
+WARNING:Driver:Only using diagram # 2 from each participant
+WARNING:RubineClassifier:Singular Matrix!!!!!!!!!!!!!!!!!!!!
+Loading binary dataset file
+-----------------------
+Training classifier BCPFeatureSet
+-----------------------
+Training from participant 3
+Training from participant 8
+Training from participant 10
+Training from participant 12
+Training from participant 14
+Training from participant 16
+Training from participant 18
+Training from participant 20
+Training from participant 22
+Training from participant 24
+Class Diamond: 40 examples
+Class Triangle: 40 examples
+Class Arrow: 40 examples
+Class Line: 40 examples
+Class Ellipse: 40 examples
+Class Rectangle: 40 examples
+-----------------------
+Classifying Dataset
+-----------------------
+Classifying dataset 0 on participant 5
+Classifying dataset 0 on participant 9
+Classifying dataset 0 on participant 11
+Classifying dataset 0 on participant 13
+Classifying dataset 0 on participant 15
+Classifying dataset 0 on participant 17
+Classifying dataset 0 on participant 19
+Classifying dataset 0 on participant 21
+Classifying dataset 0 on participant 23
+Classifying dataset 0 on participant 25
+-----------------------
+Printing Results to Results_Diagram-0_Feature-BCPFeatureSet-Run-1.txt
+-----------------------
+-----------------------
+Training classifier BCPFeatureSet
+-----------------------
+Training from participant 3
+Training from participant 8
+Training from participant 10
+Training from participant 12
+Training from participant 14
+Training from participant 16
+Training from participant 18
+Training from participant 20
+Training from participant 22
+Training from participant 24
+Class Line: 85 examples
+Class Ellipse: 71 examples
+Class Arrow: 86 examples
+-----------------------
+Classifying Dataset
+-----------------------
+Classifying dataset 1 on participant 5
+Classifying dataset 1 on participant 9
+Classifying dataset 1 on participant 11
+Classifying dataset 1 on participant 13
+Classifying dataset 1 on participant 15
+Classifying dataset 1 on participant 17
+Classifying dataset 1 on participant 19
+Classifying dataset 1 on participant 21
+Classifying dataset 1 on participant 23
+Classifying dataset 1 on participant 25
+-----------------------
+Printing Results to Results_Diagram-1_Feature-BCPFeatureSet-Run-1.txt
+-----------------------
+-----------------------
+Training classifier BCPFeatureSet
+-----------------------
+Training from participant 3
+Training from participant 8
+Training from participant 10
+Training from participant 12
+Training from participant 14
+Training from participant 16
+Training from participant 18
+Training from participant 20
+Training from participant 22
+Training from participant 24
+Class Rectangle: 49 examples
+Class Line: 120 examples
+Class Diamond: 30 examples
+Class Ellipse: 20 examples
+Class Arrow: 121 examples
+-----------------------
+Classifying Dataset
+-----------------------
+Classifying dataset 2 on participant 5
+Classifying dataset 2 on participant 9
+Classifying dataset 2 on participant 11
+Classifying dataset 2 on participant 13
+Classifying dataset 2 on participant 15
+Classifying dataset 2 on participant 17
+Classifying dataset 2 on participant 19
+Classifying dataset 2 on participant 21
+Classifying dataset 2 on participant 23
+Classifying dataset 2 on participant 25
+-----------------------
+Printing Results to Results_Diagram-2_Feature-BCPFeatureSet-Run-1.txt
+-----------------------

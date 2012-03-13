@@ -1,0 +1,7 @@
+Results_Diagram-1_Feature-BCPFeatureSet_Combinable.txt
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCP_GraphFeatureSet_Overall	1928.0	1871	97.0435684647	57	2.95643153527
+Line	668.0	645	96.5568862275	23	3.44311377246
+Ellipse	580.0	580	100.0	0	0.0
+Arrow	680.0	646	95.0	34	5.0
+ClassifyIDs:3,5,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25

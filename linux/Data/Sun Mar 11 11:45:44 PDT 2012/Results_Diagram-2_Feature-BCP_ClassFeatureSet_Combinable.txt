@@ -1,0 +1,9 @@
+Results_Diagram-2_Feature-BCP_ClassFeatureSet_Combinable.txt
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCP_ClassFeatureSet_Overall	1338.0	1227	91.7040358744	111	8.29596412556
+Rectangle	192.0	178	92.7083333333	14	7.29166666667
+Line	472.0	455	96.3983050847	17	3.60169491525
+Diamond	120.0	117	97.5	3	2.5
+Ellipse	80.0	54	67.5	26	32.5
+Arrow	474.0	423	89.2405063291	51	10.7594936709
+ClassifyIDs:3,5,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25

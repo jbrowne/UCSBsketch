@@ -1,0 +1,9 @@
+Results_Diagram-2_Feature-BCPFeatureSet_Combinable-1331612667.64.txt
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCPFeatureSet_Combinable_Overall	669.0	624	93.2735426009	45	6.7264573991
+Rectangle	96.0	90	93.75	6	6.25
+Line	236.0	226	95.7627118644	10	4.23728813559
+Diamond	60.0	58	96.6666666667	2	3.33333333333
+Ellipse	40.0	40	100.0	0	0.0
+Arrow	237.0	210	88.6075949367	27	11.3924050633
+ClassifyIDs:3,5,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25

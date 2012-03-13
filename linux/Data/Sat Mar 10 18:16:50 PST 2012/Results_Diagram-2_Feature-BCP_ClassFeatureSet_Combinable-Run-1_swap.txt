@@ -1,0 +1,10 @@
+Results_Diagram-2_Feature-BCP_ClassFeatureSet_Combinable-Run-1_swap.txt
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCP_ClassFeatureSet_Combinable_Overall	329.0	307	93.3130699088	22	6.68693009119
+Rectangle	47.0	40	85.1063829787	7	14.8936170213
+Line	116.0	109	93.9655172414	7	6.03448275862
+Diamond	30.0	29	96.6666666667	1	3.33333333333
+Ellipse	20.0	20	100.0	0	0.0
+Arrow	116.0	109	93.9655172414	7	6.03448275862
+TrainingIDs:3,8,10,12,14,16,18,20,22,24
+ClassifyIDs:5,9,11,13,15,17,19,21,23,25

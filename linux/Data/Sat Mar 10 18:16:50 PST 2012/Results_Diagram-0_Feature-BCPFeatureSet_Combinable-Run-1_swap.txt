@@ -1,0 +1,11 @@
+Results_Diagram-0_Feature-BCPFeatureSet_Combinable-Run-1_swap.txt
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCPFeatureSet_Combinable_Overall	240.0	218	90.8333333333	22	9.16666666667
+Diamond	40.0	35	87.5	5	12.5
+Triangle	40.0	38	95.0	2	5.0
+Arrow	40.0	37	92.5	3	7.5
+Line	40.0	38	95.0	2	5.0
+Ellipse	40.0	35	87.5	5	12.5
+Rectangle	40.0	35	87.5	5	12.5
+TrainingIDs:3,8,10,12,14,16,18,20,22,24
+ClassifyIDs:5,9,11,13,15,17,19,21,23,25

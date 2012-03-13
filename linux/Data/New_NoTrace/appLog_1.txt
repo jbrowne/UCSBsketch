@@ -1,0 +1,2314 @@
+START Mon Mar 12 11:42:34 PDT 2012
+DEBUG:Driver:Loading binary dataset file
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Training classifier BCP_GraphFeatureSet
+DEBUG:Driver:-----------------------
+WARNING:Driver:Only using diagram # 1 from each participant
+DEBUG:Driver:Training from participant 3
+DEBUG:Driver:Training from participant 8
+DEBUG:Driver:Training from participant 10
+DEBUG:Driver:Training from participant 12
+DEBUG:Driver:Training from participant 14
+DEBUG:Driver:Training from participant 16
+DEBUG:Driver:Training from participant 18
+DEBUG:Driver:Training from participant 20
+DEBUG:Driver:Training from participant 22
+DEBUG:Driver:Training from participant 24
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying Dataset
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying dataset 1 on participant 5
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 5: 21 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 9
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 9: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 11
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 11: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 13
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 13: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 15
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 15: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 17
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 17: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 19
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:X	Arrow<>Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 19: 23 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 21
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 21: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 23
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 23: 26 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 25
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:	For participant 25: 24 correct, 1 wrong
+DEBUG:Driver:Swapping IDs
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Training classifier BCP_GraphFeatureSet
+DEBUG:Driver:-----------------------
+WARNING:Driver:Only using diagram # 1 from each participant
+DEBUG:Driver:Training from participant 5
+DEBUG:Driver:Training from participant 9
+DEBUG:Driver:Training from participant 11
+DEBUG:Driver:Training from participant 13
+DEBUG:Driver:Training from participant 15
+DEBUG:Driver:Training from participant 17
+DEBUG:Driver:Training from participant 19
+DEBUG:Driver:Training from participant 21
+DEBUG:Driver:Training from participant 23
+DEBUG:Driver:Training from participant 25
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying Dataset
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying dataset 1 on participant 3
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 3: 22 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 8
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 8: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 10
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 10: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 12
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 12: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 14
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 14: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 16
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 16: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 18
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 18: 15 correct, 9 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 20
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 20: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 22
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 22: 24 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 24
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 24: 24 correct, 0 wrong
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Printing Results to Results_Diagram-1_Feature-BCP_GraphFeatureSet.txt
+DEBUG:Driver:-----------------------
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Training classifier BCP_GraphFeatureSet_Combinable
+DEBUG:Driver:-----------------------
+WARNING:Driver:Only using diagram # 1 from each participant
+DEBUG:Driver:Training from participant 5
+DEBUG:Driver:Training from participant 9
+DEBUG:Driver:Training from participant 11
+DEBUG:Driver:Training from participant 13
+DEBUG:Driver:Training from participant 15
+DEBUG:Driver:Training from participant 17
+DEBUG:Driver:Training from participant 19
+DEBUG:Driver:Training from participant 21
+DEBUG:Driver:Training from participant 23
+DEBUG:Driver:Training from participant 25
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying Dataset
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying dataset 1 on participant 3
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 3: 21 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 8
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 8: 23 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 10
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 10: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 12
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 12: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 14
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 14: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 16
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 16: 24 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 18
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 18: 18 correct, 6 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 20
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 20: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 22
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 22: 22 correct, 3 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 24
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 24: 24 correct, 0 wrong
+DEBUG:Driver:Swapping IDs
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Training classifier BCP_GraphFeatureSet_Combinable
+DEBUG:Driver:-----------------------
+WARNING:Driver:Only using diagram # 1 from each participant
+DEBUG:Driver:Training from participant 3
+DEBUG:Driver:Training from participant 8
+DEBUG:Driver:Training from participant 10
+DEBUG:Driver:Training from participant 12
+DEBUG:Driver:Training from participant 14
+DEBUG:Driver:Training from participant 16
+DEBUG:Driver:Training from participant 18
+DEBUG:Driver:Training from participant 20
+DEBUG:Driver:Training from participant 22
+DEBUG:Driver:Training from participant 24
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying Dataset
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying dataset 1 on participant 5
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 5: 21 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 9
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 9: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 11
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 11: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 13
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:X	Arrow<>Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 13: 22 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 15
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 15: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 17
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 17: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 19
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:X	Arrow<>Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 19: 23 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 21
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:X	Arrow<>Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 21: 22 correct, 2 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 23
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 23: 26 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 25
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:	For participant 25: 24 correct, 1 wrong
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Printing Results to Results_Diagram-1_Feature-BCP_GraphFeatureSet_Combinable.txt
+DEBUG:Driver:-----------------------
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Training classifier BCPFeatureSet
+DEBUG:Driver:-----------------------
+WARNING:Driver:Only using diagram # 1 from each participant
+DEBUG:Driver:Training from participant 3
+DEBUG:Driver:Training from participant 8
+DEBUG:Driver:Training from participant 10
+DEBUG:Driver:Training from participant 12
+DEBUG:Driver:Training from participant 14
+DEBUG:Driver:Training from participant 16
+DEBUG:Driver:Training from participant 18
+DEBUG:Driver:Training from participant 20
+DEBUG:Driver:Training from participant 22
+DEBUG:Driver:Training from participant 24
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying Dataset
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying dataset 1 on participant 5
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 5: 22 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 9
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 9: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 11
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 11: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 13
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 13: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 15
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 15: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 17
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 17: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 19
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:X	Arrow<>Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 19: 23 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 21
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 21: 23 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 23
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 23: 26 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 25
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:	For participant 25: 25 correct, 0 wrong
+DEBUG:Driver:Swapping IDs
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Training classifier BCPFeatureSet
+DEBUG:Driver:-----------------------
+WARNING:Driver:Only using diagram # 1 from each participant
+DEBUG:Driver:Training from participant 5
+DEBUG:Driver:Training from participant 9
+DEBUG:Driver:Training from participant 11
+DEBUG:Driver:Training from participant 13
+DEBUG:Driver:Training from participant 15
+DEBUG:Driver:Training from participant 17
+DEBUG:Driver:Training from participant 19
+DEBUG:Driver:Training from participant 21
+DEBUG:Driver:Training from participant 23
+DEBUG:Driver:Training from participant 25
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying Dataset
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying dataset 1 on participant 3
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 3: 22 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 8
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 8: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 10
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 10: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 12
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 12: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 14
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 14: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 16
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 16: 24 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 18
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 18: 17 correct, 7 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 20
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 20: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 22
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 22: 24 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 24
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 24: 24 correct, 0 wrong
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Printing Results to Results_Diagram-1_Feature-BCPFeatureSet.txt
+DEBUG:Driver:-----------------------
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Training classifier BCPFeatureSet_Combinable
+DEBUG:Driver:-----------------------
+WARNING:Driver:Only using diagram # 1 from each participant
+DEBUG:Driver:Training from participant 5
+DEBUG:Driver:Training from participant 9
+DEBUG:Driver:Training from participant 11
+DEBUG:Driver:Training from participant 13
+DEBUG:Driver:Training from participant 15
+DEBUG:Driver:Training from participant 17
+DEBUG:Driver:Training from participant 19
+DEBUG:Driver:Training from participant 21
+DEBUG:Driver:Training from participant 23
+DEBUG:Driver:Training from participant 25
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying Dataset
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying dataset 1 on participant 3
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 3: 21 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 8
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 8: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 10
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 10: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 12
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 12: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 14
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 14: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 16
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 16: 24 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 18
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:X	Arrow<>Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 18: 19 correct, 5 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 20
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 20: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 22
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 22: 22 correct, 3 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 24
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 24: 24 correct, 0 wrong
+DEBUG:Driver:Swapping IDs
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Training classifier BCPFeatureSet_Combinable
+DEBUG:Driver:-----------------------
+WARNING:Driver:Only using diagram # 1 from each participant
+DEBUG:Driver:Training from participant 3
+DEBUG:Driver:Training from participant 8
+DEBUG:Driver:Training from participant 10
+DEBUG:Driver:Training from participant 12
+DEBUG:Driver:Training from participant 14
+DEBUG:Driver:Training from participant 16
+DEBUG:Driver:Training from participant 18
+DEBUG:Driver:Training from participant 20
+DEBUG:Driver:Training from participant 22
+DEBUG:Driver:Training from participant 24
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying Dataset
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Classifying dataset 1 on participant 5
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 5: 22 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 9
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 9: 25 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 11
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 11: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 13
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:	For participant 13: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 15
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 15: 24 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 17
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 17: 23 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 19
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:X	Arrow<>Line
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 19: 23 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 21
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:X	Line<>Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 21: 23 correct, 1 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 23
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:	For participant 23: 26 correct, 0 wrong
+DEBUG:Driver:Classifying dataset 1 on participant 25
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Arrow
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Line
+DEBUG:Driver:O	Ellipse
+DEBUG:Driver:	For participant 25: 25 correct, 0 wrong
+DEBUG:Driver:-----------------------
+DEBUG:Driver:Printing Results to Results_Diagram-1_Feature-BCPFeatureSet_Combinable.txt
+DEBUG:Driver:-----------------------
+Class Line: 85 examples
+Class Ellipse: 71 examples
+Class Arrow: 86 examples
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCP_GraphFeatureSet_Overall	240.0	237	98.75	3	1.25
+Line	82.0	80	97.5609756098	2	2.43902439024
+Ellipse	74.0	74	100.0	0	0.0
+Arrow	84.0	83	98.8095238095	1	1.19047619048
+ClassifyIDs:5,9,11,13,15,17,19,21,23,25
+Class Line: 82 examples
+Class Ellipse: 74 examples
+Class Arrow: 84 examples
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCP_GraphFeatureSet_Overall	482.0	469	97.3029045643	13	2.69709543568
+Line	167.0	163	97.6047904192	4	2.39520958084
+Ellipse	145.0	145	100.0	0	0.0
+Arrow	170.0	161	94.7058823529	9	5.29411764706
+ClassifyIDs:3,5,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
+Class Line: 82 examples
+Class Ellipse: 74 examples
+Class Arrow: 84 examples
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCP_GraphFeatureSet_Combinable_Overall	242.0	230	95.041322314	12	4.95867768595
+Line	85.0	78	91.7647058824	7	8.23529411765
+Ellipse	71.0	71	100.0	0	0.0
+Arrow	86.0	81	94.1860465116	5	5.81395348837
+ClassifyIDs:3,8,10,12,14,16,18,20,22,24
+Class Line: 85 examples
+Class Ellipse: 71 examples
+Class Arrow: 86 examples
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCP_GraphFeatureSet_Combinable_Overall	482.0	464	96.265560166	18	3.73443983402
+Line	167.0	157	94.0119760479	10	5.9880239521
+Ellipse	145.0	145	100.0	0	0.0
+Arrow	170.0	162	95.2941176471	8	4.70588235294
+ClassifyIDs:3,5,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
+Class Line: 85 examples
+Class Ellipse: 71 examples
+Class Arrow: 86 examples
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCPFeatureSet_Overall	240.0	238	99.1666666667	2	0.833333333333
+Line	82.0	81	98.7804878049	1	1.21951219512
+Ellipse	74.0	74	100.0	0	0.0
+Arrow	84.0	83	98.8095238095	1	1.19047619048
+ClassifyIDs:5,9,11,13,15,17,19,21,23,25
+Class Line: 82 examples
+Class Ellipse: 74 examples
+Class Arrow: 84 examples
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCPFeatureSet_Overall	482.0	471	97.7178423237	11	2.28215767635
+Line	167.0	162	97.005988024	5	2.99401197605
+Ellipse	145.0	145	100.0	0	0.0
+Arrow	170.0	164	96.4705882353	6	3.52941176471
+ClassifyIDs:3,5,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
+Class Line: 82 examples
+Class Ellipse: 74 examples
+Class Arrow: 84 examples
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCPFeatureSet_Combinable_Overall	242.0	232	95.867768595	10	4.13223140496
+Line	85.0	78	91.7647058824	7	8.23529411765
+Ellipse	71.0	71	100.0	0	0.0
+Arrow	86.0	83	96.511627907	3	3.48837209302
+ClassifyIDs:3,8,10,12,14,16,18,20,22,24
+Class Line: 85 examples
+Class Ellipse: 71 examples
+Class Arrow: 86 examples
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCPFeatureSet_Combinable_Overall	482.0	470	97.510373444	12	2.48962655602
+Line	167.0	159	95.2095808383	8	4.79041916168
+Ellipse	145.0	145	100.0	0	0.0
+Arrow	170.0	166	97.6470588235	4	2.35294117647
+ClassifyIDs:3,5,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25

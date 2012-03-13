@@ -1,0 +1,7 @@
+Results_Diagram-Directed Graph_Feature-BCP_GraphFeatureSet_NoTrace.txt
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCP_GraphFeatureSet_Overall	482.0	465	96.4730290456	17	3.52697095436
+Line	167.0	164	98.2035928144	3	1.79640718563
+Ellipse	145.0	145	100.0	0	0.0
+Arrow	170.0	156	91.7647058824	14	8.23529411765
+ClassifyIDs:3,5,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25

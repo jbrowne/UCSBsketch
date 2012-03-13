@@ -43,6 +43,7 @@ def classifyMain(args):
 def batchClassify(strokeData, classifier, diagType, resultStorage = None, classifyOnParticipants = None):
     """Given a dataset, and a classifier object, evaluate the strokes in the dataset
     and decide what they are"""
+    global DOTRACE
     #logger.warn("Only using diagram # %s from each participant"% (DIAGNUM))
     if resultStorage == None: 
         outData = {
@@ -69,7 +70,8 @@ def batchClassify(strokeData, classifier, diagType, resultStorage = None, classi
                     for stkID in label.ids:
                         try:
                             stroke = diagram.InkStrokes[stkID].stroke
-                            #stroke = traceStroke(stroke)
+                            if DOTRACE:
+                                stroke = traceStroke(stroke)
                             classification = classifier.classifyStroke(stroke)
                             if name == classification:
                                 labelResults['right'] += 1
@@ -179,6 +181,7 @@ def printResults(trainIDs, classifyIDs, results, outfile = sys.stdout):
 def batchTraining(trainer, dataSet, diagType, outfname, trainOnParticipants = None ):
     """Perform training on an entire dataset in infname, and output the results to outfname.
     trainOnParticipants is a set of participant indexes to train from"""
+    global DOTRACE
     seenLabels = set()
     logger.warn("Only using diagram # %s from each participant"% (diagType))
     for participant in dataSet.participants:
@@ -195,7 +198,8 @@ def batchTraining(trainer, dataSet, diagType, outfname, trainOnParticipants = No
                     for stkID in label.ids:
                         try:
                             stroke = diagram.InkStrokes[stkID].stroke
-                            #stroke = traceStroke(stroke)
+                            if DOTRACE:
+                                stroke = traceStroke(stroke)
                             trainer.addStroke(stroke, label.type)
                         except Exception as e:
                             print traceback.format_exc()
@@ -247,18 +251,20 @@ def allMain(args):
         dataSet = openDataset(infname)
         allFeatureSets = { 
                         'Shapes': [Rubine.BCP_ShapeFeatureSet, Rubine.BCP_ShapeFeatureSet_Combinable],
-                        'Directed graph': [Rubine.BCP_GraphFeatureSet, Rubine.BCP_GraphFeatureSet_Combinable],
+                        'Directed Graph': [Rubine.BCP_GraphFeatureSet, Rubine.BCP_GraphFeatureSet_Combinable],
                         'Class diagram' : [Rubine.BCP_ClassFeatureSet, Rubine.BCP_ClassFeatureSet_Combinable],
                       }
+        """
         for featureSetList in allFeatureSets.values():
             featureSetList.append(Rubine.BCPFeatureSet)
             featureSetList.append(Rubine.BCPFeatureSet_Combinable)
+        """
 
         if DOTRACE:
-            traceTag = "Trage"
+            traceTag = "Trace"
         else:
             traceTag = "NoTrace"
-        testDiags = ['Shapes', 'Directed graph', 'Class diagram']
+        testDiags = ['Shapes', 'Directed Graph', 'Class diagram']
         if len(args) > 1:
             idx = int(args[1])
             testDiags = [testDiags[idx]]

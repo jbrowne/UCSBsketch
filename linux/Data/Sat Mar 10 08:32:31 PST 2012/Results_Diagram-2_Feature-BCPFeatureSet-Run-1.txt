@@ -1,0 +1,10 @@
+Results_Diagram-2_Feature-BCPFeatureSet-Run-1.txt
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCPFeatureSet_Overall	329.0	294	89.3617021277	35	10.6382978723
+Rectangle	47.0	39	82.9787234043	8	17.0212765957
+Line	116.0	111	95.6896551724	5	4.31034482759
+Diamond	30.0	24	80.0	6	20.0
+Ellipse	20.0	9	45.0	11	55.0
+Arrow	116.0	111	95.6896551724	5	4.31034482759
+TrainingIDs:3,8,10,12,14,16,18,20,22,24
+ClassifyIDs:5,9,11,13,15,17,19,21,23,25

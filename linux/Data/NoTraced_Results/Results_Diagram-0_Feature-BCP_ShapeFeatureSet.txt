@@ -1,0 +1,10 @@
+Results_Diagram-0_Feature-BCP_ShapeFeatureSet.txt
+Kind	Total	Right	Pct_Right	Wrong	Pct_Wrong	
+BCP_ShapeFeatureSet_Overall	480.0	438	91.25	42	8.75
+Diamond	80.0	64	80.0	16	20.0
+Triangle	80.0	75	93.75	5	6.25
+Arrow	80.0	74	92.5	6	7.5
+Line	80.0	79	98.75	1	1.25
+Ellipse	80.0	72	90.0	8	10.0
+Rectangle	80.0	74	92.5	6	7.5
+ClassifyIDs:3,5,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
