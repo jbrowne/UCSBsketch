@@ -58,23 +58,38 @@ def _initializeBoard(board):
     from Bin import BinObserver, EqualsObserver, PlusObserver, MinusObserver, DivideObserver, MultObserver, ExpressionObserver, EquationObserver, DirectedLine
     from Observers import NumberObserver
 
-    """
     from Observers import CircleObserver
     from Observers import ArrowObserver
     from Observers import DiGraphObserver
     from Observers import TuringMachineObserver
     from Observers import LineObserver
     from Observers import TextObserver
+    """
     from Observers import RaceTrackObserver
     from Observers import TemplateObserver
     from Observers import TestAnimObserver
     """
 
     if board is not None:
-        #RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
+        RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
         RubineObserver.RubineVisualizer(board)
 
         """
+        CircleObserver.CircleMarker(board)
+        #CircleObserver.CircleVisualizer(board)
+        ArrowObserver.ArrowMarker(board)
+        ArrowObserver.ArrowVisualizer(board)
+        LineObserver.LineMarker(board)
+        #LineObserver.LineVisualizer(board)
+        TextObserver.TextCollector(board)
+        TextObserver.TextVisualizer(board)
+        DiGraphObserver.DiGraphMarker(board)
+        DiGraphObserver.DiGraphVisualizer(board)
+        DiGraphObserver.DiGraphExporter(board)
+        TuringMachineObserver.TuringMachineCollector(board)
+        TuringMachineObserver.TuringMachineExporter(board)
+        TuringMachineObserver.TuringMachineVisualizer(board)
+
         DirectedLine.DirectedLineMarker(board)
 
         NumberObserver.NumCollector(board)
@@ -97,20 +112,6 @@ def _initializeBoard(board):
         #EquationObserver.EquationObserver(board)
         #EquationObserver.EquationVisualizer(board)
 
-        CircleObserver.CircleMarker(board)
-        CircleObserver.CircleVisualizer(board)
-        ArrowObserver.ArrowMarker(board)
-        ArrowObserver.ArrowVisualizer(board)
-        LineObserver.LineMarker(board)
-        LineObserver.LineVisualizer(board)
-        TextObserver.TextCollector(board)
-        TextObserver.TextVisualizer(board)
-        DiGraphObserver.DiGraphMarker(board)
-        DiGraphObserver.DiGraphVisualizer(board)
-        DiGraphObserver.DiGraphExporter(board)
-        TuringMachineObserver.TuringMachineCollector(board)
-        TuringMachineObserver.TuringMachineExporter(board)
-        TuringMachineObserver.TuringMachineVisualizer(board)
 
         TestAnimObserver.TestMarker()
         TestAnimObserver.TestAnimator(fps = 1 / 3.0)

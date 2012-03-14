@@ -40,6 +40,7 @@ from Utils import GeomUtils
 from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke
 from Utils import DataManager
 from Utils import Logger
+from SketchFramework import ImageStrokeConverter
 
 from Observers.ObserverBase import Animator
 
@@ -69,6 +70,71 @@ def setBoardScale(width, height):
     yFact = height / float(HEIGHT)
     BOARDSCALE = max(yFact, xFact)
     print "Setting BOARDSCALE to %f" % (BOARDSCALE)
+
+def traceStroke(stroke):
+    """Take in a true stroke with timing data, bitmap it and
+    then trace the data for it"""
+    #logger.debug("Stripping Timing Information from Stroke")
+    #logger.debug("Stroke in, %s points" % len(stroke.Points))
+    strokeLen = GeomUtils.strokeLength(stroke)
+    sNorm = GeomUtils.strokeNormalizeSpacing(stroke, int(len(stroke.Points) * 1.5)) #Normalize to ten pixel spacing
+    graph = {}
+    #Graph structure looks like 
+    #   { <point (x, y)> : {'kids' : <set of Points>, 'thickness' : <number>} }
+    #Find self intersections
+    intersections = {}
+    for i in range(len(sNorm.Points) - 1):
+        seg1 = (sNorm.Points[i], sNorm.Points[i+1])
+        for j in range(i+1, len(sNorm.Points) - 1 ):
+            seg2 = (sNorm.Points[j], sNorm.Points[j+1])
+            cross = GeomUtils.getLinesIntersection( seg1, seg2)
+            #Create a new node at the intersection
+            if cross != None \
+                and cross != seg1[0] \
+                and cross != seg2[0]:
+                    crossPt = (cross.X, cross.Y)
+                    intDict = intersections.setdefault(crossPt, {'kids' : set(), 'thickness' : 1})
+                    for pt in seg1 + seg2: #Add the segment endpoints as kids
+                        coords = (int(pt.X), int(pt.Y))
+                        if coords != crossPt:
+                            intDict['kids'].add(coords)
+            
+    prevPt = None
+    #for i in range(1, len(sNorm.Points)):
+    for pt in sNorm.Points:
+        curPt = (int(pt.X), int(pt.Y))
+        if prevPt != None:
+            #prevPt = (pt.X, pt.Y)
+            graph[curPt] = {'kids' : set([prevPt]), 'thickness':1}
+            graph[prevPt]['kids'].add(curPt)
+        else:
+            graph[curPt] = {'kids' : set(), 'thickness' :1 }
+        prevPt = curPt
+    for pt, ptDict in intersections.items():
+        for k in graph.get(pt, {'kids' : []})['kids']:
+            ptDict['kids'].add(k)
+            graph[k]['kids'].add(pt)
+        for k in ptDict['kids']:
+            graph[k]['kids'].add(pt)
+        graph[pt] = ptDict
+    strokeList = ImageStrokeConverter.graphToStrokes(graph)
+    if len(strokeList) > 1:
+        #logger.debug("Stroke tracing split into multiple strokes")
+        strokeList.sort(key=(lambda s: -len(s.points)))
+
+    retPts = []
+    
+    if len(strokeList) > 0:
+        for pt in strokeList[0].points:
+            #logger.debug("Adding point %s" % (str(pt)))
+            retPts.append(Point(pt[0], pt[1]))
+
+    #logger.debug("Stroke out, %s points" % len(retPts))
+    retStroke = Stroke(retPts)
+    #saver = StrokeStorage.StrokeStorage()
+    #saver.saveStrokes([stroke, retStroke])
+    return retStroke
+
 
     
 
@@ -351,7 +417,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
         # Finds the min and max points so we can scale the data to fit on the screen
         for stkNum, inkStroke in self.dataset.participants[par].diagrams[dig].InkStrokes.items():
-            stroke = inkStroke.stroke
+            stroke = traceStroke(inkStroke.stroke)
             ul,br = GeomUtils.strokelistBoundingBox([stroke])
             xMax = max(ul.X, br.X, xMax)
             yMax = max(ul.Y, br.Y, yMax)

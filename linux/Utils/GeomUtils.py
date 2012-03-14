@@ -1251,9 +1251,9 @@ def pointDistanceFromLine(point, lineseg):
 
     assert ep1.X != ep2.X or ep1.Y != ep2.Y, "pointDistanceFromLine called with 0-length line segment"
     if ep1.X == ep2.X: #Vertical line segment
-        return math.abs(point.X - ep1.X)
+        return math.fabs(point.X - ep1.X)
     elif ep1.Y == ep2.Y:
-        return math.abs(point.Y - ep1.Y)
+        return math.fabs(point.Y - ep1.Y)
     else:
         inv_slope = - (ep1.X - ep2.X) / float(ep1.Y - ep2.Y) #Perpendicular slope!
         point2 = Point( point.X + 10, point.Y + (inv_slope * 10) )

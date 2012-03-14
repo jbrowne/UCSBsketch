@@ -25,6 +25,7 @@ from Utils import GeomUtils
 from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
+from Observers.RubineObserver import RubineAnnotation
 
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
@@ -75,7 +76,15 @@ class _LetterMarker( BoardObserver ):
         BoardObserver.__init__(self, board) 
         self.getBoard().AddBoardObserver( self , [TextAnnotation])
         self.getBoard().RegisterForStroke( self )
+        self.getBoard().RegisterForAnnotation(  RubineAnnotation , self)
 
+    def _makeLetterAnnotation(self, strokelist, char):
+        bb = GeomUtils.strokelistBoundingBox(strokelist)
+        height = bb[0].Y - bb[1].Y
+        width = bb[1].X - bb[0].X 
+        retAnnotation = TextAnnotation(char, [strokelist], max(height, width))
+        return retAnnotation
+        
     def _makeZeroAnnotation(self, strokelist):
         """Take in a list of strokes and return a TextAnnotation with them marked as "0"""
         bb = GeomUtils.strokelistBoundingBox(strokelist)
@@ -95,8 +104,26 @@ class _LetterMarker( BoardObserver ):
         dashAnnotation = TextAnnotation("-", [strokelist], width * 1.2) #Treat the dash's (boosted) width as its scale 
         return dashAnnotation
         
+    def onAnnotationAdded(self, strokes, annotation):
+        if type(annotation) == RubineAnnotation:
+            if annotation.type == "R" \
+               or annotation.type == '1' \
+               or annotation.type == '0' \
+               or annotation.type == '-' \
+               or annotation.type == 'L':
+                logger.debug("Saw a %s" % (annotation.type))
+                rAnnotation = self._makeLetterAnnotation( strokes, annotation.type)
+                l_logger.debug("Annotating %s with %s" % ( strokes, rAnnotation))
+                self.getBoard().AnnotateStrokes( strokes,  rAnnotation)
+
+    def onAnnotationRemoved(self, annotation):
+        if type(annotation) == RubineAnnotation:
+            l_logger.warn("Not handling removed annotation!")
+            pass
+
     def onStrokeAdded(self, stroke):
         "Tags 1's, dashes and 0's as letters (TextAnnotation)"
+        return
         strokelist = [stroke]
         if _scoreStrokesForLetter(strokelist, '0') > 0.9:
             oAnnotation = self._makeZeroAnnotation(strokelist)
@@ -114,6 +141,7 @@ class _LetterMarker( BoardObserver ):
             self.getBoard().AnnotateStrokes( strokelist,  dashAnnotation)
 
     def onStrokeRemoved(self, stroke):
+        return
         all_text_annos = set(stroke.findAnnotations(TextAnnotation))
         all_text_strokes = set([])
         for ta in all_text_annos:
@@ -355,7 +383,7 @@ class TextVisualizer( ObserverBase.Visualizer ):
             midpointX = (ul.X + br.X) / 2
             left_x = midpointX - a.scale / 2.0
             right_x = midpointX + a.scale / 2.0
-            #self.getBoard().getGUI().drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
+            self.getBoard().getGUI().drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
             y = br.Y
             self.getBoard().getGUI().drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
             y -= 15

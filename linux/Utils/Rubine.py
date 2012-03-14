@@ -1178,6 +1178,32 @@ class SymbolClass (object):
         else:
             return None
 #------------------------------------------------------------
+class ShellSymbolClass(SymbolClass):
+    """This is a semi-functional symbol class used for classification only"""
+    def __init__(self, featureSet, name = None):
+        self.weight0 = None
+        self.weights = []
+        self.averages = []
+        
+    def fromXML(self, elem):
+        """Parses in this element from XML"""
+        self.name = elem.get("name")
+        self.weight0 = float(elem.find("weight0").text)
+        weights = elem.findall("weight")
+        for w_elem in weights:
+            self.weights.append(float(w_elem.text))
+        averages = elem.findall("average")
+        for a_elem in averages:
+            self.averages.append(float(a_elem.text))
+
+        print "Name :%s\nWeights:%s\nAvgs%s" % (self.name, [self.weight0] + self.weights, self.averages)
+
+    def getAverageFeatureValues(self):
+        """ Given list of example stroke feature vectors, calculates the averages 
+        feature values for a class. Returns list of averages indexed by feature 
+        number. For Internal use only """
+        return self.averages
+
 #------------------------------------------------------------
 
 class RubineClassifier():
@@ -1367,7 +1393,6 @@ class RubineClassifier():
                 maxCls = symCls
         maxScore = math.fabs(maxScore)
         featureWeights.sort(key = (lambda x: x[0]) ) #Sort by the score
-        #print featureWeights[len(featureWeights)-1][1]
         sum = 0
 
         # Mahalanobis distance
@@ -1378,8 +1403,7 @@ class RubineClassifier():
             for j in range(len(self.featureSet)):
                 for k in range(len(self.featureSet)):
                     delta += self.covarianceMatrixInverse[j,k] * (rubineVector[j] - self.averages[maxCls.name][j]) * (rubineVector[k] - self.averages[maxCls.name][k])
-            if self.debug:
-                print str(delta) + " : " + str(len(self.weights[0]) * len(self.weights[0]) * 0.5)
+
             if delta > len(self.featureSet) **2 / 2.0:
                 print "REJECT"
                 return None# pass # print "DON'T RECOGNISE!"
@@ -1441,9 +1465,18 @@ class RubineClassifier():
         """ Loads the training data in the file. File is a file name """
         et = ET.parse(file)
         classes = et.findall("class")
-        self.count = -1
 
+        self.symbolClasses = {}
+        self.averages = {}
+        for cls_elem in classes:
+            cls = ShellSymbolClass(self.featureSet)
+            cls.fromXML(cls_elem)
+            self.symbolClasses[cls.name] = cls
+            self.averages[cls.name] = cls.getAverageFeatureValues()
+            
+        """
         for i in classes:
+            
             self.names.append(i.get("name"))
             self.weight0.append(float(i.find("weight0").text))
             self.count += 1
@@ -1453,8 +1486,10 @@ class RubineClassifier():
             self.averages.append([])
             for j in i.findall("average"):
                 self.averages[self.count].append(float(j.text))
+        """
 
-        self.covarianceMatrixInverse = mat(zeros((len(self.averages[0]),len(self.averages[0]))))
+        dims = (len(self.featureSet), len(self.featureSet))
+        self.covarianceMatrixInverse = mat(zeros( dims ))
         covariance = et.find("covariance")
         rows = covariance.findall("row")
         for i in range(len(rows)):

@@ -57,6 +57,7 @@ class BoardObserver(object):
         return self._parentBoard
     def getGUI(self):
         return self._parentBoard._GUI
+        
 
 #--------------------------------------------
 

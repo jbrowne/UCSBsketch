@@ -129,9 +129,20 @@ class TkSketchFrame(Frame, _SketchGUI):
         top_menu.add_command(label="Save strokes.dat", command = (lambda : self.SaveStrokes()), underline=1 )
         top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
         top_menu.add_command(label="New Rubine Class", command = (lambda :self.NewTrainingClass() or self.Redraw()), underline=1 )
+        top_menu.add_command(label="Train Class on Strokes", command = (lambda :self.TrainClassOnStrokes() or self.Redraw()), underline=1 )
         top_menu.add_command(label="Save Training Data", command = (lambda :self.SaveTrainingWeights() or self.Redraw()), underline=1 )
         #top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
 
+
+    def TrainClassOnStrokes(self):
+        if self.currentSymClass == None:
+            logger.warn("Cannot train on strokes. You must choose a class first!")
+            return
+        for stroke in self.StrokeList:
+            self._strokeTrainer.addStroke(stroke, self.currentSymClass)
+            logger.debug("Added stroke to examples for %s" % (self.currentSymClass))
+        self.StrokeList = []
+        self.currentSymClass = None
 
     def NewTrainingClass(self):
         name = None
@@ -245,7 +256,6 @@ class TkSketchFrame(Frame, _SketchGUI):
         try:
             if len(self.CurrentPointList) > 0:
                 stroke = Stroke( self.CurrentPointList )#, smoothing=True )
-                self._strokeTrainer.addStroke(stroke, self.currentSymClass)
                 self.StrokeList.append(stroke)
                 logger.debug("StrokeAdded Successfully")
         except Exception as e:

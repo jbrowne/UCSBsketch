@@ -279,7 +279,7 @@ class SketchResponseThread(threading.Thread):
         for stk in stks:
             newStroke = Stroke()
             for x,y in stk.points:
-               scale = WIDTH / GETNORMWIDTH()
+               scale = WIDTH / float(GETNORMWIDTH())
                newPoint = Point(scale * x, HEIGHT - scale * y)
                newStroke.addPoint(newPoint)
             newBoard.AddStroke(newStroke)
