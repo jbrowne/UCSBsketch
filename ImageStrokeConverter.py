@@ -33,6 +33,8 @@ random.seed("sketchvision")
 
 DEBUG = False
 
+ISBLACKBOARD = True
+
 BLACK = 0
 WHITE = 255
 GRAY = 200
@@ -179,18 +181,32 @@ def thicknessAtPoint(point, img):
    global BGVAL, FILLEDVAL, CENTERVAL, OOBVAL
    px, py = point
    pixval = getImgVal(px, py, img)
+   errorThresh = 0.50 #Allow at most X percent white pixels while expanding
+
+   startRad = None
+   endRad = None
    if pixval == BGVAL or pixval == OOBVAL:
       return 0
    else:
       rad = 1
       while rad < img.rows:
          cPixels = circlePixels(point, rad)
+         numBGpix = 0
+         allowableError = errorThresh * len(cPixels)
          for p in cPixels:
             pixval = getImgVal(p[0], p[1], img)
             if pixval == BGVAL or pixval == OOBVAL:
-               return 2 * (rad - 1) + 1
+               numBGpix += 1
+               if numBGpix > allowableError:
+                   return 2 * (rad - 1) + 1
+         if startRad == None and numBGpix > 0:
+            endRad = startRad = rad - 1
+         if numBGpix > allowableError:
+            endRad = rad - 1
+            break
          rad += 1
-      return 2 * (rad - 1) + 1
+      thickness =(startRad + endRad) 
+      return thickness
 
 def circlePixels(center, rad):
    """Generates a list of pixels that lie on a circle, centered at center,
@@ -339,6 +355,7 @@ def _squareIntersections(graphDict, rawImg):
                 for db_pt in circlePixels(cp, (cpThickness -1)/ 2.0):
                     if db_pt[0] >= 0 and db_pt[0] < DEBUGIMG.cols and db_pt[1] >= 0 and db_pt[1] < DEBUGIMG.rows:
                        setImgVal(db_pt[0], db_pt[1], 128, DEBUGIMG)
+                saveimg(DEBUGIMG)
 
             #print "CrossPoint %s, thickness %s" % (str(cp), cpThickness/ 2.0)
             #Remove points from the edges such that they do not enter the "crossing region"
@@ -403,8 +420,6 @@ def _squareIntersections(graphDict, rawImg):
         _deletePointFromGraph(pt, graphDict)
     for pt , ptDict in newPoints.items():
         _insertPointIntoGraph(pt,ptDict, graphDict) 
-    if DEBUG:
-        saveimg(DEBUGIMG)
 
 def _deletePointFromGraph(point, graphDict):
     """Given a point and a graphdict, delete the point from the graph, and also remove
@@ -1369,6 +1384,8 @@ def resizeImage(img, scale = None):
       scale = targetWidth / float(realWidth) #rough scaling
 
    print "Scaling %s" % (scale)
+   img = cv.GetSubRect(img, (0,0, img.cols, img.rows -19) ) # HACK to skip the G2's corrupted pixel business
+   saveimg(img)
    retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
    cv.Resize(img, retImg)
    return retImg
@@ -1487,14 +1504,38 @@ def isForeGroundGone(img):
 
    return noForeground
       
+
+def convertBlackboardImage(gray_img):
+   """Take in a black and white image of a drawing, determine if it's a blackboard,
+   and then invert it so it looks more like a whiteboard"""
+   global ISBLACKBOARD
+   hist = getHistogramList(gray_img)
+   printHistogramList(hist, granularity = 5)
+   maxIdx = hist.index(max(hist))
+   bright3rd = ( maxIdx + len(hist) )/ 2
+   dark3rd = ( maxIdx )/ 2
+   print "Maximum bin: ", hist.index(max(hist))
+   if sum(hist[:dark3rd]) > sum(hist[bright3rd:]):
+      print "Not a blackboard!"
+      ISBLACKBOARD = False
+   else:
+      print "Blackboard seen"
+      ISBLACKBOARD = True 
+
+   if ISBLACKBOARD:
+      print "Converting Blackboard image to look like a whiteboard"
+      gray_img = invert(gray_img)
+      saveimg(gray_img)
+   return gray_img
+
 def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
-   global BGVAL
+   global BGVAL, ISBLACKBOARD
    #Hardcoded for resolution/phone/distance
    #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
    denoise_k = 5 / 1000.0
    smooth_k  = 3 / 100.0
-   ink_thresh = 54
+   ink_thresh = 90 
    width = cv_img.cols
 
    denoise_k = max (1, int(denoise_k * width))
@@ -1510,6 +1551,8 @@ def removeBackground(cv_img):
    inv_factor = 0.5
    gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
    cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
+
+   gray_img = convertBlackboardImage(gray_img)
    #Create histogram for single channel (0..255 range), into 255 bins
    bg_img = gray_img
    emph_img = bg_img
@@ -1535,7 +1578,12 @@ def removeBackground(cv_img):
    gray_img = invert(gray_img)
    if(DEBUG):
       saveimg(gray_img)
-   for i in [3, 2]: #xrange(3):
+   #for i in [3, 2]: #xrange(3):
+   if ISBLACKBOARD:
+      amplifyList = [1]
+   else:
+      amplifyList = [1,2]
+   for i in amplifyList:
       gray_img2 = smooth(gray_img, ksize=3, t='median')
       #gamma = ( (i * 2 - 1)* -128)#- 127
       gamma = ( (i * 2 - 1)* -127)#- 127
