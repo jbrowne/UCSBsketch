@@ -39,6 +39,7 @@ from Observers import DebugObserver
 from Observers import TextObserver
 from Observers import DiGraphObserver
 from Observers import TuringMachineObserver
+from Observers import RubineObserver
 
 
 from Utils.StrokeStorage import StrokeStorage
@@ -292,6 +293,8 @@ class SketchResponseThread(threading.Thread):
     def resetBoard(self):
         "Clear all strokes and board observers from the board (logically and visually)"
         self._Board = Board()
+        RubineObserver.RubineMarker(self._Board, "RL10dash.xml", debug=True)
+
         CircleObserver.CircleMarker(self._Board)
         #CircleObserver.CircleVisualizer(self._Board)
         ArrowObserver.ArrowMarker(self._Board)

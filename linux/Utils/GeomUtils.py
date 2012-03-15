@@ -1249,7 +1249,9 @@ def pointDistanceFromLine(point, lineseg):
     ep1 = lineseg[0]
     ep2 = lineseg[1]
 
-    assert ep1.X != ep2.X or ep1.Y != ep2.Y, "pointDistanceFromLine called with 0-length line segment"
+    if ep1.X == ep2.X and ep1.Y == ep2.Y:
+        logger.warn("Checking point distance from a zero-length line")
+        return pointDist(point, ep1)
     if ep1.X == ep2.X: #Vertical line segment
         return math.fabs(point.X - ep1.X)
     elif ep1.Y == ep2.Y:
