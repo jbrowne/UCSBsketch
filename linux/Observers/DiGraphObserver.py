@@ -266,13 +266,16 @@ class DiGraphMarker( ObserverBase.Collector ):
                 digraph_anno = DiGraphAnnotation( node_set=set([anno]) )
             else:   
                 logger.debug("Node anno found, NOT adding to set, since it's also an arrow")
-        if anno.isType( ArrowObserver.ArrowAnnotation ):
-            digraph_anno = DiGraphAnnotation( edge_set=set([anno]) )
 
+        if anno.isType( ArrowObserver.ArrowAnnotation ):
+            #If we find it's an arrow, already classified as a circle, remove the 
+            #circle annotation, then add it back. If it should not be a circle,
+            #the annotation will be rejected
+            digraph_anno = DiGraphAnnotation( edge_set=set([anno]) )
             circleAnnos = self.getBoard().FindAnnotations(strokelist=strokes, anno_type=DiGraphNodeAnnotation)
             for circle_anno in circleAnnos:
                 self.getBoard().RemoveAnnotation(circle_anno)
-                self.getBoard().AnnotateStrokes(circle_anno.Strokes, circle_anno)
+                #self.getBoard().AnnotateStrokes(circle_anno.Strokes, circle_anno)
 
         return digraph_anno
 

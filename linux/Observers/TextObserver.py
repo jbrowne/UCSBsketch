@@ -39,11 +39,12 @@ logger = Logger.getLogger('TextObserver', Logger.WARN )
 #-------------------------------------
 
 class TextAnnotation(Annotation):
-    def __init__(self, text, stroke_letter_map, scale):
+    def __init__(self, text, alternates, stroke_letter_map, scale):
         """Create a Text annotation. text is the string, stroke_letter_map bins 
         strokes according to the letter they're associated with, 
         e.g. "Hi" : [ [<strokes for 'H'>], [<strokes for 'i'>] ]. 
-        scale is an appropriate size"""
+        scale is an appropriate size
+        alternates is a tuple (indexed by letter) of a list of that letter's alternates"""
         Annotation.__init__(self)
         self.text = text # a string for the text
 
@@ -53,7 +54,7 @@ class TextAnnotation(Annotation):
         assert scale > 0.0
         self.scale = scale # an approximate "size" for the text
 
-        self.alternates = [text]
+        self.alternates = alternates #([],) * len(text) # a tuple (indexed per letter) of lists of alternate letters
 
     def xml(self):
         root = Annotation.xml(self)
@@ -78,11 +79,12 @@ class _LetterMarker( BoardObserver ):
         self.getBoard().RegisterForStroke( self )
         self.getBoard().RegisterForAnnotation(  RubineAnnotation , self)
 
-    def _makeLetterAnnotation(self, strokelist, char):
+    def _makeLetterAnnotation(self, strokelist, char, alternates):
+        print "Making Letter from %s" % (alternates)
         bb = GeomUtils.strokelistBoundingBox(strokelist)
         height = bb[0].Y - bb[1].Y
         width = bb[1].X - bb[0].X 
-        retAnnotation = TextAnnotation(char, [strokelist], max(height, width))
+        retAnnotation = TextAnnotation(char,  (alternates,), [strokelist],max(height, width))
         return retAnnotation
         
     def _makeZeroAnnotation(self, strokelist):
@@ -106,13 +108,13 @@ class _LetterMarker( BoardObserver ):
         
     def onAnnotationAdded(self, strokes, annotation):
         if type(annotation) == RubineAnnotation:
-            if annotation.type == "R" \
-               or annotation.type == '1' \
-               or annotation.type == '0' \
-               or annotation.type == '-' \
-               or annotation.type == 'L':
-                logger.debug("Saw a %s" % (annotation.type))
-                rAnnotation = self._makeLetterAnnotation( strokes, annotation.type)
+            if annotation.name == "R" \
+               or annotation.name == '1' \
+               or annotation.name == '0' \
+               or annotation.name == '-' \
+               or annotation.name == 'L':
+                logger.debug("Saw a %s" % (annotation.name))
+                rAnnotation = self._makeLetterAnnotation( strokes, annotation.name, [s['symbol'] for s in annotation.scores])
                 l_logger.debug("Annotating %s with %s" % ( strokes, rAnnotation))
                 self.getBoard().AnnotateStrokes( strokes,  rAnnotation)
 
@@ -333,12 +335,15 @@ class TextCollector( ObserverBase.Collector ):
         outText = ""
         from_idx = 0
         to_idx = 0
+        all_alternates = []
         while len(outText) < len(from_anno.text) + len(to_anno.text):
+            #Get the BB for the next letter in from_anno
             if from_idx < len(from_anno.letter2strokesMap) and from_idx < len(from_anno.text):
                 letter_bb_from = GeomUtils.strokelistBoundingBox(from_anno.letter2strokesMap[from_idx])
             else:
                 letter_bb_from = None
                 
+            #Get the BB for the next letter in to_anno
             if to_idx < len(to_anno.letter2strokesMap) and to_idx < len(to_anno.text):
                 letter_bb_to = GeomUtils.strokelistBoundingBox(to_anno.letter2strokesMap[to_idx])
             else:
@@ -349,12 +354,16 @@ class TextCollector( ObserverBase.Collector ):
                 break
             elif letter_bb_to is None or \
                    (letter_bb_from is not None and letter_bb_from[0].X < letter_bb_to[0].X ):
+                #The next letter belongs to from_anno. Merge it
                 outText += from_anno.text[from_idx]
+                all_alternates.append(from_anno.alternates[from_idx]) #Merge the alternates for this letter, too
                 out_letter_stroke_map.append(from_anno.letter2strokesMap[from_idx])
                 from_idx += 1
             elif letter_bb_from is None or \
                    (letter_bb_to is not None and letter_bb_to[0].X <= letter_bb_from[0].X):
+                #The next letter belongs to to_anno. Merge it
                 outText += to_anno.text[to_idx]
+                all_alternates.append(to_anno.alternates[to_idx]) #Merge the alternates for this letter, too
                 out_letter_stroke_map.append(to_anno.letter2strokesMap[to_idx])
                 to_idx += 1
 
@@ -364,7 +373,7 @@ class TextCollector( ObserverBase.Collector ):
         tc_logger.debug("MERGED: %s and %s to %s" % (to_anno.text, from_anno.text, outText))
         to_anno.text = outText
         to_anno.letter2strokesMap = out_letter_stroke_map
-        to_anno.alternates = []
+        to_anno.alternates = tuple(all_alternates)
         return True
 
 #-------------------------------------
@@ -375,7 +384,7 @@ class TextVisualizer( ObserverBase.Visualizer ):
         ObserverBase.Visualizer.__init__( self, board,  TextAnnotation )
 
     def drawAnno( self, a ):
-        if len(a.text) > 1:
+        if len(a.text) > 0:
             ul,br = GeomUtils.strokelistBoundingBox( a.Strokes )
             logger.debug(a.Strokes)
             height = ul.Y - br.Y
@@ -384,12 +393,17 @@ class TextVisualizer( ObserverBase.Visualizer ):
             left_x = midpointX - a.scale / 2.0
             right_x = midpointX + a.scale / 2.0
             self.getBoard().getGUI().drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
+            x = br.X
             y = br.Y
             self.getBoard().getGUI().drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
-            y -= 15
-            for idx, text in enumerate(a.alternates):
-                self.getBoard().getGUI().drawText( br.X, y, text, size=10, color="#a0a0a0" )
-                y -= 10
+            """
+            for letterList in a.alternates:
+                y = br.Y
+                for level, text in enumerate(letterList):
+                    self.getBoard().getGUI().drawText( x, y, text, size=10, color="#a0a0a0" )
+                    y -= 15
+                x += 10
+            """
 
 #-------------------------------------
 # if executed by itself, run all the doc tests

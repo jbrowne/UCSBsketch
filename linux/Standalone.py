@@ -38,6 +38,7 @@ from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke, strokeApproximateCubicCurves
 from Utils import GeomUtils
 from Utils import Logger
+from SketchFramework import ImageStrokeConverter
 
 from Observers.ObserverBase import Animator
 
@@ -267,7 +268,7 @@ class TkSketchFrame(Frame, _SketchGUI):
         top_menu.add_command(label="Load strokes.dat", command = (lambda : self.LoadStrokes() or self.Redraw()), underline=1 )
         top_menu.add_command(label="Save strokes.dat", command = (lambda : self.SaveStrokes()), underline=1 )
         top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
-        #top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
+        top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
 
 
     def AddQueuedStroke(self):
@@ -288,7 +289,6 @@ class TkSketchFrame(Frame, _SketchGUI):
     def SaveStrokes(self):
       self.StrokeLoader.saveStrokes(self.StrokeList)
         
-    """
     def LoadStrokesFromImage(self):
         fname = askopenfilename(initialdir='/home/jbrowne/src/sketchvision/images/')
         if fname == "":
@@ -296,7 +296,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
         try:
            logger.debug( "Loading strokes...")
-           strokes = imageToStrokes(fname)
+           strokes = ImageStrokeConverter.imageToStrokes(fname)
         except Exception as e:
            logger.debug( "Error importing strokes from image '%s':\n %s" % (fname, e))
            return
@@ -310,7 +310,6 @@ class TkSketchFrame(Frame, _SketchGUI):
               newStroke.addPoint(newPoint)
            self.Board.AddStroke(newStroke)
            self.StrokeList.append(newStroke)
-    """
 
     def RemoveLatestStroke(self):
         if len (self.StrokeList) > 0:

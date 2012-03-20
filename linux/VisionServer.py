@@ -502,7 +502,10 @@ class NetSketchGUI(_SketchGUI):
 
         annos_el = ET.SubElement(root, "Annotations")
         for a in self._Board.FindAnnotations():
-            annos_el.append(a.xml())
+            anno_xml = a.xml()
+            print a
+            print ET.tostring(anno_xml)
+            annos_el.append(anno_xml)
 
         return root
  

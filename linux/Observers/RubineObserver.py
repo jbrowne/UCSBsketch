@@ -36,18 +36,23 @@ logger = Logger.getLogger('TextObserver', Logger.WARN )
 #-------------------------------------
 
 class RubineAnnotation(Annotation):
-    def __init__(self, type, scale, accuracy):
+    def __init__(self, scores):
         "Create a Rubin annotation."
         Annotation.__init__(self)
-        self.type = type # a string for the text
-        self.accuracy = accuracy
-        self.scale = scale # an approximate "size" for the object
+        #self.type = type # Deprecated
+        #self.accuracy = accuracy Deprecated
+        #self.scale = scale # Deprecated
+        self.scores = scores
+        self.name = ""
+        if len(self.scores) > 0:
+            self.name = scores[0]['symbol']
     
     def xml(self):
         root = Annotation.xml(self)
-        root.attrib["type"] = self.type
-        root.attrib['scale'] = str(self.scale)
-        root.attrib['accuracy'] = str(self.accuracy)
+        root.attrib['name'] = self.name
+        #root.attrib["type"] = self.type
+        #root.attrib['scale'] = str(self.scale)
+        #root.attrib['accuracy'] = str(self.accuracy)
         return root
 
 #------------------------------------------------------------
@@ -71,11 +76,11 @@ class RubineMarker( BoardObserver ):
     def onStrokeAdded(self, stroke):
         """ Attempts to classify a stroke using the given training data """
 
-        name = self.classifier.classifyStroke(stroke)
-        if name == None:
-            return
-        height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y        
-        self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(name, height , 0))
+        scores = self.classifier.classifyStroke(stroke)
+        if len(scores) > 0:
+            height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y        
+            best = scores[0]['symbol']
+            self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(scores))
 
     def onStrokeRemoved(self, stroke):
         for rb_anno in stroke.findAnnotations(RubineAnnotation):
@@ -110,7 +115,7 @@ class RubineVisualizer( ObserverBase.Visualizer ):
         """
         gui = self.getBoard().getGUI()
         color = "#0C00F0"
-        gui.drawText( br.X - 15, br.Y, a.type , size=15, color=color )
+        gui.drawText( br.X - 15, br.Y, a.name , size=15, color=color )
         for s in a.Strokes:
             gui.drawStroke(s, width = 3, color = color)
             gui.drawStroke(s, width = 1, color = "#000000")

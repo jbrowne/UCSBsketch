@@ -289,6 +289,13 @@ class BoxMarker(BoardObserver):
 
         
 
+def matchFirst(targets, inStr):
+    """Take in a list of targets and a string and return the first of the 
+    targets that shows up in inStr. Returns None if it's not in the string"""
+    for i in inStr:
+        if i in targets:
+            return i
+    return None
 #-------------------------------------
 class TuringMachineCollector(BoardObserver):
     LABELMATCH_DISTANCE = (0.5, 2.0)
@@ -296,6 +303,7 @@ class TuringMachineCollector(BoardObserver):
         # this will register everything with the board, and we will get the proper notifications
         BoardObserver.__init__(self, board)
         self.getBoard().AddBoardObserver(self, [TuringMachineAnnotation])
+        self.getBoard().RegisterForAnnotation(TextObserver.TextAnnotation, self)
         self.getBoard().RegisterForAnnotation(TextObserver.TextAnnotation, self)
         self.getBoard().RegisterForAnnotation(DiGraphObserver.DiGraphAnnotation, self)
 
@@ -310,8 +318,26 @@ class TuringMachineCollector(BoardObserver):
 
     def onAnnotationUpdated(self, anno):
         if anno.isType( TextObserver.TextAnnotation ):
+            letters = ('0', '1', '-')
+            dirs = ('L', 'R', '-')
             labelAnno = anno
-            if len(labelAnno.text) == 3: # 3-tuple text
+            #if len(labelAnno.text) == 3 and \
+                #labelAnno.text[0] in ('0', '1', '-') and \
+                #labelAnno.text[1] in ('0', '1', '-') and \
+                #labelAnno.text[2] in ('R', 'L', '-'): # 3-tuple text
+            if len(labelAnno.text) == 3:
+                idx = 0
+                txtList = list(labelAnno.text)
+
+                txtList[0] = matchFirst(letters, labelAnno.alternates[0])
+                txtList[1] = matchFirst(letters, labelAnno.alternates[1])
+                txtList[2] = matchFirst(dirs, labelAnno.alternates[2])
+
+                if None in txtList:
+                    return
+                else:
+                    labelAnno.text = "".join(txtList)
+                    
                 tm_logger.debug("Found text to track %s" % (labelAnno.text))
                 tmGroups = self.labelMap.setdefault(labelAnno, set()) #All of the turing machines this label is a part of
                 self.refreshTuringMachines()
@@ -343,7 +369,7 @@ class TuringMachineCollector(BoardObserver):
 
         for textAnno in self.labelMap.keys():
             labelTL, labelBR = GeomUtils.strokelistBoundingBox(textAnno.Strokes)
-            #Midpoint of the labe's bounding box
+            #Midpoint of the label's bounding box
             labelCenterPt = Point ( (labelTL.X + labelBR.X) / 2.0, (labelTL.Y + labelBR.Y) / 2.0) 
 
             labelMatchDict = labelEdgeMatches.setdefault(textAnno, {}) 

@@ -1371,14 +1371,15 @@ class RubineClassifier():
 
 
     def classifyStroke(self, stroke):
-        """ Attempts to classify a stroke using the given training data """
+        """ Attempts to classify a stroke using the given training data. Returns a list of 
+        tuples: (SymbolClass, score), or empty if it's rejected."""
         #we need at least three points
         if len(stroke.Points) < 3:
-            return None
+            return []
         rubineVector =  self.featureSet.generateVector([stroke])
         maxScore = None
         maxCls = None
-        featureWeights = []
+        classScores = []
         for symCls in self.symbolClasses.values():
             clsWeights = symCls.getWeights()
             if clsWeights is None: #Have not run calculateWeights yet
@@ -1387,12 +1388,12 @@ class RubineClassifier():
             val = clsWeights[0]
             for f_idx in range(len(self.featureSet)):
                 val += rubineVector[f_idx] * clsWeights[f_idx+1]
-            featureWeights.append([val, symCls])
+            classScores.append({'symbol': symCls.name, 'score': val})
             if maxScore is None or (val > maxScore):
                 maxScore = val
                 maxCls = symCls
         maxScore = math.fabs(maxScore)
-        featureWeights.sort(key = (lambda x: x[0]) ) #Sort by the score
+        classScores.sort(key = (lambda x: - x['score']) ) #Sort by the score
         sum = 0
 
         # Mahalanobis distance
@@ -1406,11 +1407,9 @@ class RubineClassifier():
 
             if delta > len(self.featureSet) **2 / 2.0:
                 print "REJECT"
-                return None# pass # print "DON'T RECOGNISE!"
-            if self.debug:
-                print maxCls.name
-            return maxCls.name
-        return None
+                return []# pass # print "DON'T RECOGNISE!"
+            return classScores
+        return []
         #self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(self.names[maxIndex], height , 0))
 
     def saveWeights(self, fileName):

@@ -108,6 +108,8 @@ class Board(object):
 
         annos_el = ET.SubElement(root, "Annotations")
         for a in self.FindAnnotations():
+            #logger.debug("a:%s" % (str(a)))
+            #logger.debug("%s"%ET.tostring(a.xml()))
             annos_el.append(a.xml())
 
         return root
