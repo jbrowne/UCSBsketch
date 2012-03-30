@@ -44,8 +44,8 @@ from Observers import ObserverBase
 from xml.etree import ElementTree as ET
 
 
-logger = Logger.getLogger('DiGraphObserver', Logger.DEBUG)
-node_log = Logger.getLogger('DiGraphNode', Logger.DEBUG)
+logger = Logger.getLogger('DiGraphObserver', Logger.WARN)
+node_log = Logger.getLogger('DiGraphNode', Logger.WARN)
 
 #-------------------------------------
 class DiGraphNodeAnnotation(CircleObserver.CircleAnnotation):

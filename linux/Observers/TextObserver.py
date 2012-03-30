@@ -25,7 +25,8 @@ from Utils import GeomUtils
 from Observers import CircleObserver
 from Observers import LineObserver
 from Observers import ObserverBase
-from Observers.RubineObserver import RubineAnnotation
+#from Observers.RubineObserver import RubineAnnotation
+from Utils import Rubine
 
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
@@ -47,13 +48,10 @@ class TextAnnotation(Annotation):
         alternates is a tuple (indexed by letter) of a list of that letter's alternates"""
         Annotation.__init__(self)
         self.text = text # a string for the text
-
         assert len(stroke_letter_map) == len(text)
         self.letter2strokesMap = stroke_letter_map
-
         assert scale > 0.0
         self.scale = scale # an approximate "size" for the text
-
         self.alternates = alternates #([],) * len(text) # a tuple (indexed per letter) of lists of alternate letters
 
     def xml(self):
@@ -70,80 +68,43 @@ class TextAnnotation(Annotation):
         return 'Text("%s":%0.2f)' % (self.text, self.scale)
 
 #-------------------------------------
-l_logger = Logger.getLogger('LetterMarker', Logger.DEBUG)
+l_logger = Logger.getLogger('LetterMarker', Logger.WARN)
 class _LetterMarker( BoardObserver ):
     """Class initialized by the TextCollector object"""
     def __init__(self, board):
         BoardObserver.__init__(self, board) 
+        fname = "RL10dash.xml"
         self.getBoard().AddBoardObserver( self , [TextAnnotation])
         self.getBoard().RegisterForStroke( self )
-        self.getBoard().RegisterForAnnotation(  RubineAnnotation , self)
+        #self.getBoard().RegisterForAnnotation(  RubineAnnotation , self)
+
+        rubineDataFile = open(fname, "r")
+        featureSet = Rubine.BCPFeatureSet()
+        self.classifier = Rubine.RubineClassifier(featureSet = featureSet)
+        self.classifier.loadWeights(rubineDataFile)
+        rubineDataFile.close()
+
 
     def _makeLetterAnnotation(self, strokelist, char, alternates):
-        print "Making Letter from %s" % (alternates)
         bb = GeomUtils.strokelistBoundingBox(strokelist)
         height = bb[0].Y - bb[1].Y
         width = bb[1].X - bb[0].X 
         retAnnotation = TextAnnotation(char,  (alternates,), [strokelist],max(height, width))
         return retAnnotation
-        
-    def _makeZeroAnnotation(self, strokelist):
-        """Take in a list of strokes and return a TextAnnotation with them marked as "0"""
-        bb = GeomUtils.strokelistBoundingBox(strokelist)
-        height = bb[0].Y - bb[1].Y
-        oAnnotation = TextAnnotation("0", [strokelist], height)
-        return oAnnotation
-
-    def _makeOneAnnotation(self, strokelist):
-        bb = GeomUtils.strokelistBoundingBox(strokelist)
-        height = bb[0].Y - bb[1].Y
-        oneAnnotation = TextAnnotation("1", [strokelist], height)
-        return oneAnnotation
-    
-    def _makeDashAnnotation(self, strokelist):
-        bb = GeomUtils.strokelistBoundingBox(strokelist)
-        width = bb[1].X - bb[0].X 
-        dashAnnotation = TextAnnotation("-", [strokelist], width * 1.2) #Treat the dash's (boosted) width as its scale 
-        return dashAnnotation
-        
-    def onAnnotationAdded(self, strokes, annotation):
-        if type(annotation) == RubineAnnotation:
-            if annotation.name == "R" \
-               or annotation.name == '1' \
-               or annotation.name == '0' \
-               or annotation.name == '-' \
-               or annotation.name == 'L':
-                logger.debug("Saw a %s" % (annotation.name))
-                rAnnotation = self._makeLetterAnnotation( strokes, annotation.name, [s['symbol'] for s in annotation.scores])
-                l_logger.debug("Annotating %s with %s" % ( strokes, rAnnotation))
-                self.getBoard().AnnotateStrokes( strokes,  rAnnotation)
-
-    def onAnnotationRemoved(self, annotation):
-        if type(annotation) == RubineAnnotation:
-            l_logger.warn("Not handling removed annotation!")
-            pass
-
     def onStrokeAdded(self, stroke):
         "Tags 1's, dashes and 0's as letters (TextAnnotation)"
-        return
-        strokelist = [stroke]
-        if _scoreStrokesForLetter(strokelist, '0') > 0.9:
-            oAnnotation = self._makeZeroAnnotation(strokelist)
-            l_logger.debug("Annotating %s with %s" % ( stroke, oAnnotation))
-            self.getBoard().AnnotateStrokes( strokelist,  oAnnotation)
 
-        if _scoreStrokesForLetter(strokelist, '1') > 0.9:
-            oneAnnotation = self._makeOneAnnotation(strokelist)
-            l_logger.debug("Annotating %s with %s" % ( stroke, oneAnnotation.text))
-            self.getBoard().AnnotateStrokes( strokelist,  oneAnnotation)
+        scores = self.classifier.classifyStroke(stroke)
+        if len(scores) > 0:
+            best = scores[0]['symbol']
+            if best in ('R', 'L', '1', '0', '-', 'L'):
+                logger.debug("Saw a %s" % (best))
+                rAnnotation = self._makeLetterAnnotation( [stroke], best, [s['symbol'] for s in scores])
+                l_logger.debug("Annotating %s with %s" % ( stroke, rAnnotation))
+                self.getBoard().AnnotateStrokes( [stroke],  rAnnotation)
 
-        if _scoreStrokesForLetter(strokelist, '-') > 0.9:
-            dashAnnotation = self._makeDashAnnotation(strokelist)
-            l_logger.debug("Annotating %s with %s" % ( stroke, dashAnnotation.text))
-            self.getBoard().AnnotateStrokes( strokelist,  dashAnnotation)
 
     def onStrokeRemoved(self, stroke):
-        return
         all_text_annos = set(stroke.findAnnotations(TextAnnotation))
         all_text_strokes = set([])
         for ta in all_text_annos:
@@ -241,7 +202,7 @@ def _scoreStrokesForLetter(strokelist, letter):
     else:
         return 0.0
 #-------------------------------------
-tc_logger = Logger.getLogger("TextCollector", Logger.DEBUG)
+tc_logger = Logger.getLogger("TextCollector", Logger.WARN)
 
 class TextCollector( ObserverBase.Collector ):
     "Watches for strokes that look like text"
@@ -282,7 +243,7 @@ class TextCollector( ObserverBase.Collector ):
     def mergeCollections( self, from_anno, to_anno ):
         "merge from_anno into to_anno if possible"
         vertOverlapRatio = 0
-        horizDistRatio = 2.0
+        horizDistRatio = 2.3
         scaleDiffRatio = 2.0
         #if from_anno.scale > 0:
             #scale_diff = to_anno.scale / from_anno.scale
@@ -355,14 +316,14 @@ class TextCollector( ObserverBase.Collector ):
             elif letter_bb_to is None or \
                    (letter_bb_from is not None and letter_bb_from[0].X < letter_bb_to[0].X ):
                 #The next letter belongs to from_anno. Merge it
-                outText += from_anno.text[from_idx]
+                outText += from_anno.alternates[from_idx][0]
                 all_alternates.append(from_anno.alternates[from_idx]) #Merge the alternates for this letter, too
                 out_letter_stroke_map.append(from_anno.letter2strokesMap[from_idx])
                 from_idx += 1
             elif letter_bb_from is None or \
                    (letter_bb_to is not None and letter_bb_to[0].X <= letter_bb_from[0].X):
                 #The next letter belongs to to_anno. Merge it
-                outText += to_anno.text[to_idx]
+                outText += to_anno.alternates[to_idx][0]
                 all_alternates.append(to_anno.alternates[to_idx]) #Merge the alternates for this letter, too
                 out_letter_stroke_map.append(to_anno.letter2strokesMap[to_idx])
                 to_idx += 1

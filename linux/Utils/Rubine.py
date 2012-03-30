@@ -1196,7 +1196,7 @@ class ShellSymbolClass(SymbolClass):
         for a_elem in averages:
             self.averages.append(float(a_elem.text))
 
-        print "Name :%s\nWeights:%s\nAvgs%s" % (self.name, [self.weight0] + self.weights, self.averages)
+        logger.debug("Name :%s\nWeights:%s\nAvgs%s" % (self.name, [self.weight0] + self.weights, self.averages))
 
     def getAverageFeatureValues(self):
         """ Given list of example stroke feature vectors, calculates the averages 
@@ -1277,7 +1277,7 @@ class RubineClassifier():
         dividor = - len(self.symbolClasses)
         self.averages = {}
         for name, symCls in self.symbolClasses.items():
-            print "Class %s: %s examples" % (name, len(symCls))
+            logger.debug("Class %s: %s examples" % (name, len(symCls)))
             dividor += len(symCls) #Number of examples
         if dividor == 0:
             raise Exception("Not enough examples across the classes")
@@ -1326,7 +1326,6 @@ class RubineClassifier():
                 for j in range(len(self.featureSet)):
                     if avgCovMat[i,j] > 1:
                         factor = math.e ** (math.log(avgCovMat[i,j]) - 15)
-                        #print avgCovMat[i,j], "Yields", math.e ** (int(factor) - 7)
                         avgCovMat[i,j] += factor * random.random()
         """
         except Exception as e:
@@ -1398,7 +1397,7 @@ class RubineClassifier():
 
         # Mahalanobis distance
         if self.debug:
-            print "Mahalanobis distance"
+            logger.debug("Mahalanobis distance")
         if maxCls is not None:
             delta = 0
             for j in range(len(self.featureSet)):
@@ -1406,7 +1405,7 @@ class RubineClassifier():
                     delta += self.covarianceMatrixInverse[j,k] * (rubineVector[j] - self.averages[maxCls.name][j]) * (rubineVector[k] - self.averages[maxCls.name][k])
 
             if delta > len(self.featureSet) **2 / 2.0:
-                print "REJECT"
+                logger.debug( "REJECT")
                 return []# pass # print "DON'T RECOGNISE!"
             return classScores
         return []
@@ -1418,7 +1417,7 @@ class RubineClassifier():
         self.calculateWeights()
 
         if self.debug:
-            print "Saving training data to file: " + fileName
+            logger.info("Saving training data to file: " + fileName)
         
         TB = ET.TreeBuilder()
         TB.start("rubine", {})

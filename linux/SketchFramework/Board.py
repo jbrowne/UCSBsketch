@@ -10,7 +10,7 @@ from Utils import Logger
 from Utils import GeomUtils
 from xml.etree import ElementTree as ET
 
-logger = Logger.getLogger('Board', Logger.DEBUG )
+logger = Logger.getLogger('Board', Logger.WARN )
 
 #--------------------------------------------
 class BoardException (Exception):
@@ -98,10 +98,12 @@ class Board(object):
         self._removed_strokes = {}
         
 
-    def xml(self):
+    def xml(self, width, height):
         root = ET.Element("Board")
 
         root.attrib["id"] = str(self._id)
+        root.attrib["width"] = str(width)
+        root.attrib["height"] = str(height)
         strokes_el = ET.SubElement(root, "Strokes")
         for s in self.Strokes:
             strokes_el.append(s.xml())
