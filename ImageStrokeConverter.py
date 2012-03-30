@@ -55,6 +55,8 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
+CACHE = {}
+
 NORMWIDTH = 1025
 #NORMWIDTH = 2592
 #NORMWIDTH = 600
@@ -72,6 +74,7 @@ def cvimgToStrokes(in_img):
    temp_img = removeBackground(small_img)
    strokelist = blobsToStrokes(temp_img)
    prettyPrintStrokes(temp_img, strokelist)
+   saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().ctime()+".jpg")
    return strokelist
 def imageBufferToStrokes(data):
    "External interface to take in a PIL image buffer object and return a list of the strokes."
@@ -91,11 +94,6 @@ def imageToStrokes(filename):
 # Random Utility Functions
 #***************************************************
 
-def AllPtsIter(w,h):
-  "An iterator to generate pairs of points (x, y) where  0 <= x < w, and 0 <= y < h"
-  for i in xrange(w):
-     for j in xrange(h):
-        yield (i, j)
 def interiorAngle(P1, P2, P3):
     "Input: three points. Returns the interior angle (radians) of the three points with P2 at the center"
     X1 = P1[0]
@@ -706,6 +704,7 @@ def pointsToGraph(pointSet, rawImg):
    * Thinned strokes are trimmed according to line thickness for better results.
    * The graphs returned are trees, so closed cycles are split."""
    graphDict = {}
+   allThicknesses = {}
    while len(pointSet) > 0:
       seed = pointSet.pop()
       pointSet.add(seed)
@@ -735,28 +734,35 @@ def pointsToGraph(pointSet, rawImg):
          #Add this point as a "pivot" if it's the first, out of range of the last pivot, 
          #    or if it is an intersection point. Add all intermediate pixels that got here
          #    from the last pivot node
-         if len(path) == 1:
-            ptDict = graphDict.setdefault(pt, {'kids': set([]), 'thickness':thicknessAtPoint(pt,rawImg)})
+         if len(path) > 0:
+             ptThick = allThicknesses.setdefault(pt, thicknessAtPoint(pt, rawImg))
+             if len(path) == 1:
+                ptDict = graphDict.setdefault(pt, {'kids': set([]), 'thickness': ptThick})
 
-         elif not pointsOverlap(path[0], pt, rawImg) or (len(addNbors) > 1):
-            unusedPaths.remove(path)
-            for idx in xrange(1,len(path)):
-               par = path[idx-1]
-               kid = path[idx]
-               parDict = graphDict.setdefault(par, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
-               kidDict = graphDict.setdefault(kid, {'kids': set([]), 'thickness':thicknessAtPoint(par,rawImg)})
-               parDict['kids'].add(kid)
-               kidDict['kids'].add(par)
-            path = [pt]
-            unusedPaths.append(path)
+             elif not pointsOverlap(path[0], pt, rawImg,
+                                    pt1Thickness = allThicknesses.setdefault(path[0], thicknessAtPoint(path[0], rawImg)),
+                                    pt2Thickness = ptThick) \
+                                    or (len(addNbors) > 1):
+                unusedPaths.remove(path)
+                for idx in xrange(1,len(path)):
+                   par = path[idx-1]
+                   kid = path[idx]
+                   parThick = allThicknesses.setdefault(par, thicknessAtPoint(par, rawImg))
+                   parDict = graphDict.setdefault(par, {'kids': set([]), 'thickness':parThick})
+                   kidThick = allThicknesses.setdefault(kid, thicknessAtPoint(kid, rawImg))
+                   kidDict = graphDict.setdefault(kid, {'kids': set([]), 'thickness':kidThick})
+                   parDict['kids'].add(kid)
+                   kidDict['kids'].add(par)
+                path = [pt]
+                unusedPaths.append(path)
 
-         #Add the proper neighbors to the stack with the correct path
-         for i, nPt in enumerate(addNbors):
-            if i > 0:
-               path = list(path)
-               unusedPaths.append(path)
-            procStack.append({'pt':nPt, 'path': path})
-            ptsInStack.add(nPt)
+             #Add the proper neighbors to the stack with the correct path
+             for i, nPt in enumerate(addNbors):
+                if i > 0:
+                   path = list(path)
+                   unusedPaths.append(path)
+                procStack.append({'pt':nPt, 'path': path})
+                ptsInStack.add(nPt)
 
          #Cleanup the node as processed
          pointSet.remove(pt)
@@ -991,7 +997,7 @@ def graphToStrokes(graph, rawImg):
             
    return retStrokes
 
-def filledAndCrossingVals(point, img, skipCorners = False):
+def filledAndCrossingVals(point, img, valsCache, skipCorners = False):
    """
    http://fourier.eng.hmc.edu/e161/lectures/morphology/node2.html
    with some corner cutting capability from Louisa Lam 1992.
@@ -1001,11 +1007,16 @@ def filledAndCrossingVals(point, img, skipCorners = False):
    global CENTERVAL, BGVAL
    height = img.rows
    width = img.cols
-   retDict = {'filled':0, 'crossing':-1, 'esnwne': False, 'wnsesw': False}
    px, py = point
 
+   if point in valsCache:
+      return valsCache[point]
+
    pixval = getImgVal(px, py, img)
-   if pixval == CENTERVAL:
+   if pixval != CENTERVAL:
+      retDict = {'filled':0, 'crossing':-1, 'esnwne': False, 'wnsesw': False}
+      return retDict
+   else:
       crossing = 0
       filled = 1
 
@@ -1019,110 +1030,148 @@ def filledAndCrossingVals(point, img, skipCorners = False):
       sw = (px - 1 , py - 1)
 
       #counterclockwise crossing
-      nborList = [ne, n, nw, w, sw, s, se, e]
+      nborList = (ne, n, nw, w, sw, s, se, e)
+      totLen = 8#len(nborList)
       #Get all the values for these neighbors
-      nborVals = []
-      for i, pt in enumerate(nborList):
+      filledList = [0] * totLen
+      i = 0
+      someBGpixels = False #If the pixel is in all black, shortcut the crossing num
+      while i < totLen:
+         pt = nborList[i]
          if pt[0] > 0 and pt[0] < width and pt[1] > 0 and pt[1] < height:
             ptVal = img[pt[1], pt[0]]
          else:
             ptVal = BGVAL
-         nborVals.append(ptVal)
-      
-      #Get the counterclockwise crossing values
-      ne, n, nw, w, sw, s, se, e = nborVals
+         filledList[i] = ptVal == CENTERVAL
+         someBGpixels = someBGpixels or (not filledList[i]) #Turn True if any are NOT centerval
+         i+= 1
+         #nborVals.append(ptVal)
+      if False and not someBGpixels: #Short circuit the tracing for the trivial case
+         retDict = {'filled':9, 'crossing':0, 'esnwne': False, 'wnsesw': False}
+      else:
+         #Get the counterclockwise crossing values
+         retDict = {}
 
-      ne = ne == CENTERVAL
-      n = n == CENTERVAL
-      nw = nw == CENTERVAL
+         """
+         ne = ne == CENTERVAL
+         n = n == CENTERVAL
+         nw = nw == CENTERVAL
 
-      se = se == CENTERVAL
-      s = s == CENTERVAL
-      sw = sw == CENTERVAL
+         se = se == CENTERVAL
+         s = s == CENTERVAL
+         sw = sw == CENTERVAL
 
-      e = e == CENTERVAL
-      w = w == CENTERVAL
+         e = e == CENTERVAL
+         w = w == CENTERVAL
+         """
 
-      filledList = [ne, n, nw, w, sw, s, se, e]
-      prevFilled = e
-      for i, ptFilled in enumerate(filledList):
-         if ptFilled:
-            filled += 1
-         if prevFilled and not ptFilled:
-            if skipCorners and i in [0, 2, 4, 6]: #don't count if the missing corner doesn't affect connectivity
-               nextNborIdx = (i + 1) % 8
-               nextFilled = filledList[nextNborIdx]
-               if not nextFilled:
+         #filledList = (ne, n, nw, w, sw, s, se, e)
+         prevFilled = filledList[-1]
+         i = 0
+         while i < totLen:
+            ptFilled = filledList[i]
+            if ptFilled:
+               filled += 1
+            if prevFilled and not ptFilled:
+               if skipCorners and i in (0, 2, 4, 6): #don't count if the missing corner doesn't affect connectivity
+                  nextNborIdx = (i + 1) % 8
+                  nextFilled = filledList[nextNborIdx]
+                  if not nextFilled:
+                     crossing += 1
+               else:
                   crossing += 1
-            else:
-               crossing += 1
-         #print "%s, " % (ptVal),
-         prevFilled = ptFilled
+            #print "%s, " % (ptVal),
+            prevFilled = ptFilled
+            i+= 1
 
 
-      #print "\n%s filled, %s crossing" % (filled, crossing)
-      retDict['filled'] = filled
-      retDict['crossing'] = crossing
-      
+         #print "\n%s filled, %s crossing" % (filled, crossing)
+         retDict['filled'] = filled
+         retDict['crossing'] = crossing
+         
 
 
-      eEdge = (not ne and not e and not se and s)
-      sEdge = (not sw and not s and not se and (w and e) )
-      nwEdge = (not w  and not n and (sw and ne) )
-      neEdge = (not e  and not n and (se and nw) ) 
+         ne, n, nw, w, sw, s, se, e = filledList
+         eEdge = (not ne and not e and not se and s)
+         sEdge = (not sw and not s and not se and (w and e) )
+         nwEdge = (not w  and not n and (sw and ne) )
+         neEdge = (not e  and not n and (se and nw) ) 
 
-      wEdge = (not nw and not w and not sw and n)
-      nEdge = (not nw and not n and not ne and (w and e))
-      seEdge = (not s and not e and (ne and sw) )
-      swEdge = (not s and not w and (se and nw) )
+         wEdge = (not nw and not w and not sw and n)
+         nEdge = (not nw and not n and not ne and (w and e))
+         seEdge = (not s and not e and (ne and sw) )
+         swEdge = (not s and not w and (se and nw) )
 
-      esnwne = eEdge or sEdge or nwEdge or neEdge
-      wnsesw = wEdge or nEdge or seEdge or swEdge
+         esnwne = eEdge or sEdge or nwEdge or neEdge
+         wnsesw = wEdge or nEdge or seEdge or swEdge
 
 
-      retDict['esnwne'] = esnwne
-      retDict['wnsesw'] = wnsesw
+         retDict['esnwne'] = esnwne
+         retDict['wnsesw'] = wnsesw
+      #endif someBGpixels
    #endif
+   valsCache[point] = retDict
    return retDict
 
 
 def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPass = False):
    """Implements a single step of thinning over the whole image. 
    Returns the number of pixels changed, the total set of all remaining points, and the thinned image"""
-   global DEBUGIMG, FILLEDVAL, BGVAL
+   global DEBUGIMG, FILLEDVAL, BGVAL, CACHE
    minFill = 4
    maxFill = 6
    retPoints = set([])
    numChanged = 0
-   if finalPass:
-      print "Final pass"
-      minFill = 3
-      outImg = img #Edit inline
-   else:
-      outImg = cv.CloneMat(img)
-
+   cacheTag = 'filledVals%s' % (finalPass) #Whatever gets passed to filledAndCrossingVals
+   filledvalsCache = CACHE.setdefault(cacheTag, {})
    if cleanNoise:
       noise = 1
    else:
       noise = -1
-   for p in pointSet:
-      (i,j) = p
-      valDict = filledAndCrossingVals(p, img, skipCorners = finalPass)
-      filled = valDict['filled']
-      cnum_p = valDict['crossing']
+   if finalPass: #The final pass has to happen with the same input and output image
+      print "Final pass"
+      minFill = 3
+      outImg = img #Edit inline
+      for p in pointSet:
+         values = filledAndCrossingVals(p, img, filledvalsCache, skipCorners = True)
+         cnum_p = values['crossing']
+         filled = values['filled']
+         if cnum_p == 1 \
+            and filled >= minFill \
+            and filled <= maxFill:
+            setImgVal(p[0], p[1], FILLEDVAL, outImg)
+            numChanged += 1
+         else:
+            retPoints.add(p)
+   else:
+      outImg = cv.CloneMat(img)
+      valDict = {}
+      for p in pointSet:
+         (i,j) = p
+         valDict[p] = filledAndCrossingVals(p, img, filledvalsCache, skipCorners = False)
 
-      if evenIter:
-         badEdge = valDict['esnwne']
-      else:
-         badEdge = valDict['wnsesw']
+      for p, values in valDict.items():
+         (i,j) = p
+         filled = values['filled']
+         cnum_p = values['crossing']
 
-      shouldRemove = filled >= minFill and filled <= maxFill and cnum_p == 1 and (not badEdge or finalPass) or (filled == noise)
-      if shouldRemove:
-         numChanged += 1
-         setImgVal(i, j, FILLEDVAL, outImg)
-         #saveimg(outImg)
-      elif filled > 2: #No need to process otherwise
-         retPoints.add(p)
+         if evenIter:
+            badEdge = values['esnwne']
+         else:
+            badEdge = values['wnsesw']
+
+         shouldRemove = filled >= minFill and filled <= maxFill and cnum_p == 1 and (not badEdge or finalPass) or (filled == noise)
+         if shouldRemove:
+            numChanged += 1
+            if p in filledvalsCache:
+               del( filledvalsCache[p])
+            setImgVal(i, j, FILLEDVAL, outImg)
+            for nbor in getEightNeighbors(p):
+                if nbor in filledvalsCache:
+                    del( filledvalsCache[nbor])
+            #saveimg(outImg)
+         elif filled > 2: #No need to process otherwise
+            retPoints.add(p)
 
    return ( numChanged, retPoints, outImg )
 
@@ -1221,9 +1270,10 @@ def erodeBlobsPoints (pointSet, img, minFill = 1, maxFill = 9 ):
    numChanged = 0
    retPoints = set()
    outImg = cv.CloneMat(img)
+   valsCache = {}
    for p in pointSet:
       (i,j) = p
-      valDict = filledAndCrossingVals(p, img, skipCorners = False)
+      valDict = filledAndCrossingVals(p, img,valsCache, skipCorners = False)
 
       if valDict['filled'] > minFill:
          if valDict['filled'] < maxFill:
@@ -1234,18 +1284,14 @@ def erodeBlobsPoints (pointSet, img, minFill = 1, maxFill = 9 ):
 
    return ( numChanged, retPoints, outImg )
 
-def getImgVal(x,y,img, errorVal = -1):
+def getImgVal(x,y,img):
    """Returns the image value for pixel x,y in img or -1 as error."""
    global OOBVAL
-   h = img.rows
-   w = img.cols
-   if y < 0 or y >= h or x < 0 or x >= w:
-      return OOBVAL
-      #print "Returning -1 for %s, %s" % (x,y)
    try:
       return img[y,x]
    except Exception as e:
-      print "Trying to get invalid pixel %s" % (str( (x,y) ))
+      return OOBVAL
+      #print "Trying to get invalid pixel %s" % (str( (x,y) ))
      
 def setImgVal(x,y,val,img):
    img[y,x] = val
@@ -1621,7 +1667,16 @@ def blobsToStrokes(img):
 
 
    t1 = time.time()
-   pointSet = AllPtsIter(img.cols, img.rows)
+   pointSet = set()
+   x = 1
+   while x < img.cols:
+      y = 1
+      while y < img.rows:
+         if img[y,x] != BGVAL:
+            pointSet.add((x,y))
+         y+= 1
+      x+=1
+
    t2 = time.time()
    print "Candidate Points generated %s ms" % (1000 * (t2 - t1))
          
@@ -1649,7 +1704,7 @@ def blobsToStrokes(img):
       if psetSize == None:
          psetSize = len(pointSet)
 
-      print >> chartFile, numChanged, len(pointSet), numChanged / float(len(pointSet)), numChanged / float(psetSize)
+      #print >> chartFile, numChanged, len(pointSet), numChanged / float(len(pointSet)), numChanged / float(psetSize)
       
       """
       if numChanged / float(psetSize) < 0.04 and not isHollowed:
@@ -1741,7 +1796,7 @@ def saveimg(cv_img, name = None, outdir = "./temp/", title=""):
 
 def main(args):
    global SQUARE_ERROR, PRUNING_ERROR, DEBUG
-   DEBUG = True
+   #DEBUG = True
 
    #debugTester(args)
 
