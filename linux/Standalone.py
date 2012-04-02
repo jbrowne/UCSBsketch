@@ -534,7 +534,26 @@ class TkSketchFrame(Frame, _SketchGUI):
 
 
 if __name__ == "__main__":
-    TkSketchFrame()
+    if len(sys.argv) > 1:
+        #Do something with the CLI arguments
+        fname = sys.argv[1]
+        board = Board()
+        _initializeBoard(board)
+
+        stks = ImageStrokeConverter.imageToStrokes(fname)
+        for stk in stks:
+            newStroke = Stroke()
+            for x,y in stk.points:
+               scale = WIDTH / float(1280)
+               newPoint = Point(scale * x,HEIGHT - scale * y)
+               newStroke.addPoint(newPoint)
+            board.AddStroke(newStroke)
+        fout = open("standalone.xml", "w")
+        print >> fout, ET.tostring(board.xml(WIDTH, HEIGHT))
+        fout.close()
+
+    else:
+        TkSketchFrame()
 
 
 
