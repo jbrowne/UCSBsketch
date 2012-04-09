@@ -39,6 +39,7 @@ from Observers import DebugObserver
 from Observers import TextObserver
 from Observers import DiGraphObserver
 from Observers import TuringMachineObserver
+from Observers import RubineObserver
 
 
 from Utils.StrokeStorage import StrokeStorage
@@ -276,22 +277,26 @@ class SketchResponseThread(threading.Thread):
         newBoard = self._Board
         self._boards[newBoard.getID()] = newBoard
 
-        for stk in stks:
-            newStroke = Stroke()
-            for x,y in stk.points:
-               scale = WIDTH / GETNORMWIDTH()
-               newPoint = Point(scale * x, HEIGHT - scale * y)
-               newStroke.addPoint(newPoint)
-            newBoard.AddStroke(newStroke)
+        retXML = newBoard.xml(WIDTH, HEIGHT)
+        try:
+            for stk in stks:
+                newStroke = Stroke()
+                for x,y in stk.points:
+                   scale = WIDTH / float(GETNORMWIDTH())
+                   newPoint = Point(scale * x, HEIGHT - scale * y)
+                   newStroke.addPoint(newPoint)
+                newBoard.AddStroke(newStroke)
 
-        retXML = newBoard.xml()
-        retXML.attrib['height'] = str(HEIGHT)
-        retXML.attrib['width'] = str(WIDTH)
+            retXML = newBoard.xml(WIDTH, HEIGHT)
+        except Exception as e:
+            logger.error("ERROR: %s" % str(e))
         return retXML
 
     def resetBoard(self):
         "Clear all strokes and board observers from the board (logically and visually)"
         self._Board = Board()
+        RubineObserver.RubineMarker(self._Board, "RL10dash.xml", debug=True)
+
         CircleObserver.CircleMarker(self._Board)
         #CircleObserver.CircleVisualizer(self._Board)
         ArrowObserver.ArrowMarker(self._Board)
@@ -499,7 +504,10 @@ class NetSketchGUI(_SketchGUI):
 
         annos_el = ET.SubElement(root, "Annotations")
         for a in self._Board.FindAnnotations():
-            annos_el.append(a.xml())
+            anno_xml = a.xml()
+            print a
+            print ET.tostring(anno_xml)
+            annos_el.append(anno_xml)
 
         return root
  

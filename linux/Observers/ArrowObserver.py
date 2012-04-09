@@ -142,7 +142,7 @@ class ArrowMarker( BoardObserver ):
         #/DISABLED
         else:
             if _isArrowHead(smoothedStroke, self.arrowHeadMatcher):
-                logger.debug("Arrowhead Found")
+                logger.debug(" ARROWHEAD")
                 #head = smoothedStroke
                 head = stroke
                 isArrowHead = True
@@ -189,10 +189,11 @@ class ArrowMarker( BoardObserver ):
             self.getBoard().AnnotateStrokes([head, tail],anno)
         
         #Add this stroke to the pool for future evaluation
-        self._endpoints.append( (ep1, stroke) )
-        self._endpoints.append( (ep2, stroke) )
+        sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(GeomUtils.strokeLength(stroke) / 3, 1))
+        self._endpoints.append( (ep1, stroke, sNorm) )
+        self._endpoints.append( (ep2, stroke, sNorm) )
         if isArrowHead:
-            self._arrowHeads.append( (tip, stroke) )
+            self._arrowHeads.append( (tip, stroke, sNorm) )
 
         
             
@@ -205,63 +206,72 @@ class ArrowMarker( BoardObserver ):
             return retlist
 
             
-        if head is not None and tail is None: #Head is specified, find the tail
+        headStroke = head
+        tailStroke = tail
+
+        if headStroke is not None and tail is None: #Head is specified, find the tail
             tip = point
-            ep1, ep2 = head.Points[0], head.Points[-1]
+            ep1, ep2 = headStroke.Points[0], headStroke.Points[-1]
             headBreadth = GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y)
-            for endpoint, tailStroke in self._endpoints:
-                pointingLength = len(tailStroke.Points) / 5
+            for endpoint, origStk, tailStroke in self._endpoints:
+                pointingLength = len(tailStroke.Points) / 10
                 if endpoint == tailStroke.Points[0]: #Treat as drawn head2tail
                     tailpoints = tailStroke.Points
                     linept1, linept2 = tailStroke.Points[pointingLength], endpoint
                 elif endpoint== tailStroke.Points[-1]: #Treat as drawn tail2head
                     tailpoints = list(reversed(tailStroke.Points))
-                    linept1, linept2 = tailStroke.Points[-pointingLength], endpoint
+                    linept1, linept2 = tailStroke.Points[-(pointingLength+1)], endpoint
 
-                headLen = GeomUtils.strokeLength(head) 
+                headLen = GeomUtils.strokeLength(headStroke) 
                 tailLen = GeomUtils.strokeLength(tailStroke)
-                pointWithHead = _isPointWithHead(tailpoints, head, tip)
+                pointWithHead = _isPointWithHead(tailpoints, headStroke, tip)
                 if headLen < tailLen * 2 \
                 and pointWithHead:
                     logger.debug("Head stroke has a tail close and within cone")
                     #headToTail
                     pointsTo = GeomUtils.linePointsTowards(linept1, linept2, tip, headBreadth)
                     if pointsTo:
-                        retlist.append( (endpoint, tailStroke) )
+                        logger.debug("  Tail points to head")
+                        retlist.append( (endpoint, origStk) )
+                    else:
+                        logger.debug("  Tail does NOT point to head")
                 else:
                     if headLen < tailLen * 2:
                         logger.debug("  Head stroke scale is okay for this arrowhead")
                     else:
                         logger.debug("  Head stroke scale is BAD for this arrowhead")
                         logger.debug("  Head Len: %s, tail Len: %s" % (headLen, tailLen))
-                    if pointWithHead:
+                    if not pointWithHead:
                         logger.debug("  Head stroke is NOT close or within cone of an arrowhead\n")
                     else:
                         logger.debug("  Head stroke is close and within cone of an arrowhead\n")
 
-        elif tail is not None and head is None: #Find the head
+        elif tailStroke is not None and headStroke is None: #Find the head
             endpoint = point
-            pointingLength = len(tail.Points) / 5
+            pointingLength = len(tailStroke.Points) / 10
 
-            if endpoint == tail.Points[0]: #Treat as drawn head2tail
-                tailpoints = tail.Points
-                linept1, linept2 = tail.Points[pointingLength], endpoint
-            elif endpoint== tail.Points[-1]: #Treat as drawn tail2head
-                tailpoints = list(reversed(tail.Points))
-                linept1, linept2 = tail.Points[-pointingLength], endpoint
+            if endpoint == tailStroke.Points[0]: #Treat as drawn head2tail
+                tailpoints = tailStroke.Points
+                linept1, linept2 = tailStroke.Points[pointingLength], endpoint
+            elif endpoint== tailStroke.Points[-1]: #Treat as drawn tail2head
+                tailpoints = list(reversed(tailStroke.Points))
+                linept1, linept2 = tailStroke.Points[-pointingLength], endpoint
 
-            for tip, headStroke in self._arrowHeads:
+            for tip, origStk, headStroke in self._arrowHeads:
                 ep1, ep2 = headStroke.Points[0], headStroke.Points[-1]
                 headBreadth = GeomUtils.pointDistance(ep1.X, ep1.Y, ep2.X, ep2.Y)
                 headLen = GeomUtils.strokeLength(headStroke) 
-                tailLen = GeomUtils.strokeLength(tail)
+                tailLen = GeomUtils.strokeLength(tailStroke)
                 pointWithHead = _isPointWithHead(tailpoints, headStroke, tip)
                 if headLen < tailLen * 2\
                 and pointWithHead:
                     logger.debug("Tail stroke is close and within cone of an arrowhead")
                     pointsTo = GeomUtils.linePointsTowards(linept1, linept2, tip, headBreadth)
                     if pointsTo:
-                        retlist.append( (tip, headStroke) )
+                        logger.debug("  Tail points to head")
+                        retlist.append( (tip, origStk) )
+                    else:
+                        logger.debug("  Tail does NOT point to head")
                 else:
                     if headLen < tailLen * 2:
                         logger.debug("  Tail stroke scale is okay for this arrowhead")
@@ -373,7 +383,7 @@ def _isArrowHead(stroke, matcher):
         arrowHeadStroke = GeomUtils.strokeNormalizeSpacing(Stroke([sNorm.Points[0], sNorm.Points[maxCurvIdx], sNorm.Points[-1]]), numpoints = strkLen) #What would the approximated arrowhead look like?
         origStroke = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = strkLen)
         approxAcc = GeomUtils.strokeDTWDist(sNorm, arrowHeadStroke)
-        logger.debug("Stroke approximates arrowhead with %s accuracy" % (approxAcc))
+        #logger.debug("Stroke approximates arrowhead with %s accuracy" % (approxAcc))
 
         return approxAcc < 500000
         #_isArrowHead_Template(stroke, matcher) or _isArrowHead_Template(Stroke(list(reversed(stroke.Points))), matcher)
@@ -390,7 +400,6 @@ def _isArrowHead_Template(stroke, matcher):
 
 def _isSingleStrokeArrow(stroke):
     "Input: Single stroke for evaluation. Returns a tuple of points (tip, tail) if the stroke is an arrow, (None, None) otherwise"
-    logger.debug("stroke len %d", stroke.length() )
     if len(stroke.Points) < 10:
         logger.debug("Not a single-stroke arrow: stroke too short")
         return (None, None)# too small to be arrow

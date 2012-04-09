@@ -368,12 +368,12 @@ def strokeApproximatePolyLine(stroke, error= 0.002):
     return Stroke(polylinePts)
 
 
-def strokeApproximateCubicCurves(stroke, error = 0.005):
+def strokeApproximateCubicCurves(stroke, strokeLen, error = 0.005):
     """Approximate the incoming stroke with a list of cubic curves. Optionally give a
     point before the stroke and after the stroke for better joining of curves."""
 
     #logger.debug("Approximating stroke with curves")
-    strokeLen = strokeLength(stroke)
+    #strokeLen = strokeLength(stroke)
     errorThresh = max(error * strokeLen, 1.0)
     start = 0
     end = len(stroke.Points)
@@ -397,7 +397,7 @@ def strokeApproximateCubicCurves(stroke, error = 0.005):
 		postPt = stroke.Points[end + 1]
 	    else:
 		postPt = None
-            curve = strokeApproximateSingleCurve(subStroke, prePt = prePt, postPt = postPt)
+            curve = strokeApproximateSingleCurve(subStroke, strokeLength(subStroke), prePt = prePt, postPt = postPt)
             subError = strokeSumDists(subStroke, curve.toStroke()) / float(len(subStroke.Points))
             end -= inc
         allCurves.append(curve)
@@ -422,26 +422,26 @@ def lineGetPoint(line, dist):
 	dx = math.cos(angle) * dist
 	return Point(pt1.X + dx, pt1.Y + dy)
 
-def strokeApproximateSingleCurve(stroke, prePt = None, postPt = None):
+def strokeApproximateSingleCurve(sNorm, strokeLen, prePt = None, postPt = None):
     """Approximate a stroke with a single bezier curve"""
-    stroke = strokeNormalizeSpacing(stroke, max(len(stroke.Points), 3))
-    strokeLen = strokeLength(stroke)
+    #stroke = strokeNormalizeSpacing(stroke, max(len(stroke.Points), 3))
+    #strokeLen = strokeLength(sNorm)
     error = None
     #stretchFactors = [0.1, 0.25, 0.5, 0.75]
     stretchFactors = (0.25, 0.5, 0.85)
 
-    p0 = stroke.Points[0]
-    p3 = stroke.Points[-1]
+    p0 = sNorm.Points[0]
+    p3 = sNorm.Points[-1]
 
     t_pt0 = prePt
     t_pt1 = p0
-    t_pt2 = stroke.Points[1]
+    t_pt2 = sNorm.Points[1]
     line1 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p0
 
 
     t_pt0 = postPt 
     t_pt1 = p3
-    t_pt2 = stroke.Points[-2]
+    t_pt2 = sNorm.Points[-2]
     line3 = pointGetTangentLine(t_pt0, t_pt1, t_pt2) #Line tangent to p3
 
     #p2 = line3[1]
@@ -450,7 +450,7 @@ def strokeApproximateSingleCurve(stroke, prePt = None, postPt = None):
             p1 = lineGetPoint((t_pt1, line1[1]), stretchP1 *strokeLen)
             p2 = lineGetPoint((t_pt1, line3[1]), stretchP2 * strokeLen)
             curve = CubicCurve(p0, p1, p2, p3)
-            curError = strokeSumDists(curve.toStroke(), stroke)
+            curError = strokeSumDists(curve.toStroke(), sNorm)
             if error is None or curError < error:
                 bestStretch = (stretchP1, stretchP2)
                 bestCurve = curve
@@ -515,13 +515,14 @@ def rotateStroke(inStroke, angle):
         pointlist.append(rotatePoint(point, angle))
     return Stroke(points=pointlist)
 
-def strokeSegments( inStroke ):
-    "Input: Stroke. Return a list of the segments in that stroke"
-    point_list = [ (p.X,p.Y) for p in inStroke.Points ]  # if this looks like: [(0,0),(1,1),(2,2)] 
+def pointlistSegments( inPoints ):
+    "Input: list of points. Return a list of the segments in that stroke"
+    point_list = [ (p.X,p.Y) for p in inPoints ]  # if this looks like: [(0,0),(1,1),(2,2)] 
     if len(point_list)<2:
         return []
     segments = zip( point_list[:-1], point_list[1:] ); # this looks like: [((0, 0), (1, 1)), ((1, 1), (2, 2))]
     return segments
+
 def strokeGetPointsCurvature( inStroke ):
     "Input: stroke. Returns a list of curvatures at each point. *CAUTION* Endpoints have -1 curvature! "
     endPointCurvature = -1
@@ -554,26 +555,21 @@ def strokeGetPointsCurvature( inStroke ):
     return curvature_list
 
 
-def strokeNormalizeSpacing( inStroke, numpoints=50):
-    """Input: Stroke.  Return a stroke with points evenly distributed in distance across the original path described by inStroke. 
-    Single point strokes just return the point numpoints times"""
-    # TODO: right now, this does not retain any stroke properties other than the path of the points in X,Y (i.e. not time data)
-
-    # this is the final list of points to be returned
+def pointlistNormalizeSpacing(inPoints, numpoints):
+    """Input, a list of points and the number of points that should be generated"""
     normalized_points = []
-    inPoints = inStroke.Points
 
     # calculate the total euclidean distance traveled
-    total_dist = float(strokeLength(inStroke))
+    total_dist = float(pointlistLength(inPoints))
 
     #Single point strokes case
     if len(inPoints) == 1 or numpoints <= 1 or total_dist == 0: 
-        return Stroke(int(numpoints) * [inPoints[0]])
+        return int(numpoints) * [inPoints[0]]
         
     # set the new distance between points
     gap = total_dist/( numpoints - 1)
     # turn the list of point into a list of line segements
-    segments = strokeSegments( inStroke )
+    segments = pointlistSegments( inPoints )
 
     # start at first point
     i = 0; current_dist = 0; 
@@ -609,18 +605,23 @@ def strokeNormalizeSpacing( inStroke, numpoints=50):
 
         # move on to the next point
         target_dist += gap
-
-
     # make sure not to drop that last point
     normalized_points.append( inPoints[-1] ) # should be final point 
-    return Stroke(normalized_points)
+    return normalized_points
+
+def strokeNormalizeSpacing( inStroke, numpoints=None):
+    """Input: Stroke.  Return a stroke with points evenly distributed in distance across the original path described by inStroke. 
+    Single point strokes just return the point numpoints times"""
+    # TODO: right now, this does not retain any stroke properties other than the path of the points in X,Y (i.e. not time data)
+    if numpoints is None:
+        numpoints = max(strokeLength(inStroke) / 5, 2) #Round up to 5 pixel length
+
+    normPoints = pointlistNormalizeSpacing(inStroke.Points, numpoints)
+    return Stroke(normPoints)
     
-def strokeLength(inStroke):
-    "Input: Stroke.  Returns the total length of the stroke by summing up all of the segments."
-    
+def pointlistLength(inPoints):
+    """Input: List of points. Returns the total length of the path"""
     totalLength = 0.0
-    inPoints = inStroke.Points
-    
     for i in range(0, len(inPoints) - 1):
         cur = inPoints[i]
         nxt = inPoints[i + 1]
@@ -628,6 +629,10 @@ def strokeLength(inStroke):
         totalLength += vectorLength(cur.X - nxt.X, cur.Y - nxt.Y)
         
     return totalLength
+
+def strokeLength(inStroke):
+    "Input: Stroke.  Returns the total length of the stroke by summing up all of the segments."
+    return pointlistLength(inStroke.Points)
     #TODO: This func. looks like the perim function, except without closing it off, cause Perim just assumes it's been hulled...
 
 def strokeLinearity(inStroke):
@@ -688,7 +693,7 @@ def strokeLineSegOrientations( inStroke, normalize=True ):
     inPoints = inStroke.Points 
     if len(inPoints) < 3:
         return []
-    segments = strokeSegments( inStroke )
+    segments = pointlistSegments( inStroke.Points )
     orientations = [ pointOrientation(x1,y1,x2,y2) for ((x1,y1),(x2,y2)) in segments ]
 
     # normalize w.r.t to the first segement
@@ -1249,11 +1254,13 @@ def pointDistanceFromLine(point, lineseg):
     ep1 = lineseg[0]
     ep2 = lineseg[1]
 
-    assert ep1.X != ep2.X or ep1.Y != ep2.Y, "pointDistanceFromLine called with 0-length line segment"
+    if ep1.X == ep2.X and ep1.Y == ep2.Y:
+        logger.warn("Checking point distance from a zero-length line")
+        return pointDist(point, ep1)
     if ep1.X == ep2.X: #Vertical line segment
-        return math.abs(point.X - ep1.X)
+        return math.fabs(point.X - ep1.X)
     elif ep1.Y == ep2.Y:
-        return math.abs(point.Y - ep1.Y)
+        return math.fabs(point.Y - ep1.Y)
     else:
         inv_slope = - (ep1.X - ep2.X) / float(ep1.Y - ep2.Y) #Perpendicular slope!
         point2 = Point( point.X + 10, point.Y + (inv_slope * 10) )

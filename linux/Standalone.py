@@ -28,6 +28,7 @@ import Image
 from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkMessageBox import *
+from xml.etree import ElementTree as ET
 
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
@@ -38,13 +39,14 @@ from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke, strokeApproximateCubicCurves
 from Utils import GeomUtils
 from Utils import Logger
+from SketchFramework import ImageStrokeConverter
 
 from Observers.ObserverBase import Animator
 
 
 # Constants
-WIDTH = 1000
-HEIGHT = 800
+WIDTH = 1024
+HEIGHT = 615
 MID_W = WIDTH/2
 MID_H = HEIGHT/2
    
@@ -58,23 +60,39 @@ def _initializeBoard(board):
     from Bin import BinObserver, EqualsObserver, PlusObserver, MinusObserver, DivideObserver, MultObserver, ExpressionObserver, EquationObserver, DirectedLine
     from Observers import NumberObserver
 
-    """
     from Observers import CircleObserver
     from Observers import ArrowObserver
     from Observers import DiGraphObserver
     from Observers import TuringMachineObserver
     from Observers import LineObserver
     from Observers import TextObserver
+    """
     from Observers import RaceTrackObserver
     from Observers import TemplateObserver
     from Observers import TestAnimObserver
     """
 
     if board is not None:
-        #RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
-        RubineObserver.RubineVisualizer(board)
+
+        CircleObserver.CircleMarker(board)
+        #CircleObserver.CircleVisualizer(board)
+        ArrowObserver.ArrowMarker(board)
+        ArrowObserver.ArrowVisualizer(board)
+        LineObserver.LineMarker(board)
+        #LineObserver.LineVisualizer(board)
+        TextObserver.TextCollector(board)
+        TextObserver.TextVisualizer(board)
+        DiGraphObserver.DiGraphMarker(board)
+        DiGraphObserver.DiGraphVisualizer(board)
+        DiGraphObserver.DiGraphExporter(board)
+        TuringMachineObserver.TuringMachineCollector(board)
+        TuringMachineObserver.TuringMachineExporter(board)
+        TuringMachineObserver.TuringMachineVisualizer(board)
 
         """
+        RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
+        RubineObserver.RubineVisualizer(board)
+
         DirectedLine.DirectedLineMarker(board)
 
         NumberObserver.NumCollector(board)
@@ -97,20 +115,6 @@ def _initializeBoard(board):
         #EquationObserver.EquationObserver(board)
         #EquationObserver.EquationVisualizer(board)
 
-        CircleObserver.CircleMarker(board)
-        CircleObserver.CircleVisualizer(board)
-        ArrowObserver.ArrowMarker(board)
-        ArrowObserver.ArrowVisualizer(board)
-        LineObserver.LineMarker(board)
-        LineObserver.LineVisualizer(board)
-        TextObserver.TextCollector(board)
-        TextObserver.TextVisualizer(board)
-        DiGraphObserver.DiGraphMarker(board)
-        DiGraphObserver.DiGraphVisualizer(board)
-        DiGraphObserver.DiGraphExporter(board)
-        TuringMachineObserver.TuringMachineCollector(board)
-        TuringMachineObserver.TuringMachineExporter(board)
-        TuringMachineObserver.TuringMachineVisualizer(board)
 
         TestAnimObserver.TestMarker()
         TestAnimObserver.TestAnimator(fps = 1 / 3.0)
@@ -266,7 +270,7 @@ class TkSketchFrame(Frame, _SketchGUI):
         top_menu.add_command(label="Load strokes.dat", command = (lambda : self.LoadStrokes() or self.Redraw()), underline=1 )
         top_menu.add_command(label="Save strokes.dat", command = (lambda : self.SaveStrokes()), underline=1 )
         top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
-        #top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
+        top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
 
 
     def AddQueuedStroke(self):
@@ -287,7 +291,6 @@ class TkSketchFrame(Frame, _SketchGUI):
     def SaveStrokes(self):
       self.StrokeLoader.saveStrokes(self.StrokeList)
         
-    """
     def LoadStrokesFromImage(self):
         fname = askopenfilename(initialdir='/home/jbrowne/src/sketchvision/images/')
         if fname == "":
@@ -295,7 +298,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
         try:
            logger.debug( "Loading strokes...")
-           strokes = imageToStrokes(fname)
+           strokes = ImageStrokeConverter.imageToStrokes(fname)
         except Exception as e:
            logger.debug( "Error importing strokes from image '%s':\n %s" % (fname, e))
            return
@@ -309,7 +312,6 @@ class TkSketchFrame(Frame, _SketchGUI):
               newStroke.addPoint(newPoint)
            self.Board.AddStroke(newStroke)
            self.StrokeList.append(newStroke)
-    """
 
     def RemoveLatestStroke(self):
         if len (self.StrokeList) > 0:
@@ -491,37 +493,15 @@ class TkSketchFrame(Frame, _SketchGUI):
         observers = self.Board.BoardObservers
         for s in strokes:
            s.drawMyself()
-           #lr = GeomUtils.pointListLinearRegression(s.Points)
-           #self.drawLine(lr[0].X, lr[0].Y, lr[1].X, lr[1].Y, color = "#C0C000")
-
-           #for curv in strokeApproximateCubicCurves(s):
-               #self.drawCurve(curv, color="#FF0000")
-
-           """
-           s2 = GeomUtils.strokeApproximatePolyLine(s)
-           self.drawStroke(s2, color="#0FcF00")
-           for pt in s2.Points:
-               self.drawCircle(pt.X, pt.Y, radius=2, width = 2, color="#FF00FF")
-
-
-           angleList = GeomUtils.pointlistAnglesVector(s2.Points)
-           i = 1
-           cuspIdx = []
-           numCusps = 0
-           while i < len(angleList) - 1:
-               totalAngle = sum(angleList[i-1:i+2]) * 57
-               if totalAngle > 90 or totalAngle < -90:
-                   numCusps += 1
-                   cPt = s.Points[i]
-                   self.drawCircle(cPt.X, cPt.Y, radius = 2, color = "#c0fc00", width = 2)
-                   #cuspIdx.append(i)
-                   i = i + 2
-               i+= 1
-           """
-
-            
         for obs in observers:
            obs.drawMyself()
+
+        fout = open("standalone.xml", "w")
+        bxml = self.Board.xml(WIDTH, HEIGHT)
+        print >> fout, ET.tostring(bxml)
+        fout.close()
+
+        
 
     def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
          "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"
@@ -554,7 +534,26 @@ class TkSketchFrame(Frame, _SketchGUI):
 
 
 if __name__ == "__main__":
-    TkSketchFrame()
+    if len(sys.argv) > 1:
+        #Do something with the CLI arguments
+        fname = sys.argv[1]
+        board = Board()
+        _initializeBoard(board)
+
+        stks = ImageStrokeConverter.imageToStrokes(fname)
+        for stk in stks:
+            newStroke = Stroke()
+            for x,y in stk.points:
+               scale = WIDTH / float(1280)
+               newPoint = Point(scale * x,HEIGHT - scale * y)
+               newStroke.addPoint(newPoint)
+            board.AddStroke(newStroke)
+        fout = open("standalone.xml", "w")
+        print >> fout, ET.tostring(board.xml(WIDTH, HEIGHT))
+        fout.close()
+
+    else:
+        TkSketchFrame()
 
 
 

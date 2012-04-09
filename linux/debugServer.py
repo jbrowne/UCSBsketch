@@ -15,6 +15,7 @@ import threading
 import Queue
 import StringIO
 import Image
+import sys
 
 from xml.etree import ElementTree as ET
 
@@ -66,7 +67,7 @@ class FileResponseThread(threading.Thread):
             try:
                 output = fp.read()
                 msg = Message(Message.TYPE_XML, output)
-                time.sleep(3)
+                #time.sleep(3)
                 self.outQ.put(msg)
             except Exception as e:
                 print e
@@ -79,11 +80,12 @@ class FileResponseThread(threading.Thread):
 class DummyGUI(_SketchGUI):
 
     Singleton = None
-    def __init__(self):
+    def __init__(self, filename = "xmlout.xml"):
 
        # Private data members
        self._serverThread = None
        self._dummyProcThread = None
+       self._fname = filename
        self._setupImageServer()
 
 
@@ -97,7 +99,7 @@ class DummyGUI(_SketchGUI):
         img_recv_queue = self._serverThread.getRequestQueue()
         self._xmlResponseQueue = self._serverThread.getResponseQueue()
 
-        self._fileResponseThread = FileResponseThread(img_recv_queue, self._xmlResponseQueue)
+        self._fileResponseThread = FileResponseThread(img_recv_queue, self._xmlResponseQueue, filename = self._fname)
         self._fileResponseThread.start()
 
         self._serverThread.start()
@@ -110,4 +112,9 @@ class DummyGUI(_SketchGUI):
             
 
 if __name__ == "__main__":
-    DummyGUI()
+    if len(sys.argv) > 1:
+        xmlFilename = sys.argv[1]
+        DummyGUI(filename = xmlFilename)
+    else:
+        DummyGUI()
+

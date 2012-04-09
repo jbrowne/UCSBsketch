@@ -71,16 +71,17 @@ class BCPFeatureSet(FeatureSet):
 
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
         strokeLength = GeomUtils.strokeLength(stroke)
+        strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLength))
         boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
         curvatureList = GeomUtils.strokeGetPointsCurvature(
-                            GeomUtils.strokeNormalizeSpacing(stroke, \
-                                numpoints = max(1, strokeLength / 6)))
+                            GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
+                        ))
 
         anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
         #Generate the vector
         #Basic Features
         retVector = [ self.f1_12(stroke, strokeLength) , \
-                     self.f1_16(stroke, strokeLength) , \
+                     self.f1_16(strokeNorm) , \
                      self.f2_6(strokeLength, convexHull) , \
                      self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
@@ -92,7 +93,7 @@ class BCPFeatureSet(FeatureSet):
                     ]
         #The Rest
         retVector.extend([
-                     self.f1_01(stroke), \
+                     self.f1_01(strokeNorm, strokeLength), \
                      self.f1_07(boundingBox), \
                      self.f1_09(stroke), \
 
@@ -107,7 +108,7 @@ class BCPFeatureSet(FeatureSet):
                      self.f7_13(strokeLength), \
                      self.f7_14(boundingBox), \
 
-                     self.f1_06(stroke, strokeLength), \
+                     self.f1_06(strokeNorm), \
                      self.f1_18(stroke), \
                      self.f1_19(stroke), \
                      self.f1_21(stroke), \
@@ -131,10 +132,11 @@ class BCPFeatureSet(FeatureSet):
         return GeomUtils.pointDist(stroke.Points[0], stroke.Points[-1]) / strokeLen
 
     #@Timed
-    def f1_16(self, stroke, strokeLen):
+    def f1_16(self, sNorm):
         """Number of fragments in a stroke, according to its corners [BSH04]"""
         #pre = time.time()
-        sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLen/30))
+        #sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLen/30))
+        sNorm = Stroke([sNorm.Points[i] for i in range(0,len(sNorm.Points),30)])
         angles = GeomUtils.pointlistAnglesVector(sNorm.Points)
         positive = angles[0] >= 0.0
         segments = 2
@@ -181,7 +183,6 @@ class BCPFeatureSet(FeatureSet):
         #pre = time.time()
         selfIntersections = 0
         length = GeomUtils.strokeLength(stroke)
-        sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(length / 3, 1))
         for i in range(len(stroke.Points)-1):
             seg1 = (stroke.Points[i], stroke.Points[i+1])
             for j in range(i+1, len(stroke.Points)/3) + \
@@ -263,11 +264,14 @@ class BCPFeatureSet(FeatureSet):
     # Features that work great for Basic Shapes
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #@Timed
-    def f1_01(self, stroke): 
+    def f1_01(self, sNorm, strokeLen):
         """The number of bezier cusps. [PPG 07]"""
         #pre = time.time()
         numCusps = 0
-        curves = GeomUtils.strokeApproximateCubicCurves(stroke)
+        sNorm = Stroke([sNorm.Points[i] for i in range(0,len(sNorm.Points),3)])
+        while len(sNorm.Points) < 3:
+            sNorm.addPoint(sNorm.Points[-1])
+        curves = GeomUtils.strokeApproximateCubicCurves(sNorm, strokeLen)
         #bcp_logger.debug("%s time %s" % (sys._getframe(-1).f_code.co_name, 1000 * (time.time() - pre) ))
 
         for curve in curves:
@@ -436,10 +440,11 @@ class BCPFeatureSet(FeatureSet):
     #def f1_04(self, strokeLen): Also in Class
 
     #@Timed
-    def f1_06(self, stroke, strokeLen):
+    def f1_06(self, sNorm):
         """The total absolute curvature of the largest fragment [BSH04]"""
         #pre = time.time()
-        sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLen/30))
+        sNorm = Stroke([sNorm.Points[i] for i in range(0,len(sNorm.Points),30)])
+        #sNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLen/30))
         angles = GeomUtils.pointlistAnglesVector(sNorm.Points)
         positive = angles[0] >= 0.0
         segments = 2
@@ -535,17 +540,18 @@ class BCPFeatureSet_Combinable(BCPFeatureSet):
 
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
         strokeLength = GeomUtils.strokeLength(stroke)
+        strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLength))
         boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
         curvatureList = GeomUtils.strokeGetPointsCurvature(
-                            GeomUtils.strokeNormalizeSpacing(stroke, \
-                                numpoints = max(1, strokeLength / 6)))
+                            GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
+                        ))
 
         anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
         #Generate the vector
         #Basic Features
         retVector = [ 
                      #self.f1_12(stroke, strokeLength) , \
-                     self.f1_16(stroke, strokeLength) , \
+                     self.f1_16(strokeNorm) , \
                      self.f2_6(strokeLength, convexHull) , \
                      self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
@@ -557,7 +563,7 @@ class BCPFeatureSet_Combinable(BCPFeatureSet):
                     ]
         #The Rest
         retVector.extend([
-                     self.f1_01(stroke), \
+                     self.f1_01(strokeNorm, strokeLength), \
                      self.f1_07(boundingBox), \
                      #self.f1_09(stroke), \
 
@@ -572,7 +578,7 @@ class BCPFeatureSet_Combinable(BCPFeatureSet):
                      self.f7_13(strokeLength), \
                      self.f7_14(boundingBox), \
 
-                     self.f1_06(stroke, strokeLength), \
+                     self.f1_06(strokeNorm), \
                      self.f1_18(stroke), \
                      #self.f1_19(stroke), \
                      self.f1_21(stroke), \
@@ -610,6 +616,7 @@ class BCP_ShapeFeatureSet(BCPFeatureSet):
 
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
         strokeLength = GeomUtils.strokeLength(stroke)
+        strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLength))
         boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
         curvatureList = GeomUtils.strokeGetPointsCurvature(
                             GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
@@ -619,7 +626,7 @@ class BCP_ShapeFeatureSet(BCPFeatureSet):
         #Generate the vector
         #Basic Features
         retVector = [ self.f1_12(stroke, strokeLength) , \
-                     self.f1_16(stroke, strokeLength) , \
+                     self.f1_16(strokeNorm) , \
                      self.f2_6(strokeLength, convexHull) , \
                      self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
@@ -631,7 +638,7 @@ class BCP_ShapeFeatureSet(BCPFeatureSet):
                     ]
         #Specific to Shape
         retVector.extend([
-                     self.f1_01(stroke), \
+                     self.f1_01(strokeNorm, strokeLength), \
                      self.f1_07(boundingBox), \
                      self.f1_09(stroke), \
 
@@ -672,6 +679,7 @@ class BCP_ShapeFeatureSet_Combinable(BCPFeatureSet):
 
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
         strokeLength = GeomUtils.strokeLength(stroke)
+        strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLength))
         boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
         curvatureList = GeomUtils.strokeGetPointsCurvature(
                             GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
@@ -682,7 +690,7 @@ class BCP_ShapeFeatureSet_Combinable(BCPFeatureSet):
         #Basic Features
         retVector = [ 
                      #self.f1_12(stroke, strokeLength) , \
-                     self.f1_16(stroke, strokeLength) , \
+                     self.f1_16(strokeNorm) , \
                      self.f2_6(strokeLength, convexHull) , \
                      self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
@@ -694,7 +702,7 @@ class BCP_ShapeFeatureSet_Combinable(BCPFeatureSet):
                     ]
         #Specific to Shape
         retVector.extend([
-                     self.f1_01(stroke), \
+                     self.f1_01(strokeNorm, strokeLength), \
                      self.f1_07(boundingBox), \
                      #self.f1_09(stroke), \
 
@@ -736,6 +744,7 @@ class BCP_ClassFeatureSet(BCPFeatureSet):
 
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
         strokeLength = GeomUtils.strokeLength(stroke)
+        strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLength))
         boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
         curvatureList = GeomUtils.strokeGetPointsCurvature(
                             GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
@@ -745,7 +754,7 @@ class BCP_ClassFeatureSet(BCPFeatureSet):
         #Generate the vector
         #Basic Features
         retVector = [ self.f1_12(stroke, strokeLength) , \
-                     self.f1_16(stroke, strokeLength) , \
+                     self.f1_16(strokeNorm) , \
                      self.f2_6(strokeLength, convexHull) , \
                      self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
@@ -796,6 +805,7 @@ class BCP_ClassFeatureSet_Combinable(BCPFeatureSet):
 
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
         strokeLength = GeomUtils.strokeLength(stroke)
+        strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLength))
         boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
         curvatureList = GeomUtils.strokeGetPointsCurvature(
                             GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
@@ -806,7 +816,7 @@ class BCP_ClassFeatureSet_Combinable(BCPFeatureSet):
         #Basic Features
         retVector = [ 
                      #self.f1_12(stroke, strokeLength) , \
-                     self.f1_16(stroke, strokeLength) , \
+                     self.f1_16(strokeNorm) , \
                      self.f2_6(strokeLength, convexHull) , \
                      self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
@@ -862,6 +872,7 @@ class BCP_GraphFeatureSet(BCPFeatureSet):
 
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
         strokeLength = GeomUtils.strokeLength(stroke)
+        strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLength))
         boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
         curvatureList = GeomUtils.strokeGetPointsCurvature(
                             GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
@@ -871,7 +882,7 @@ class BCP_GraphFeatureSet(BCPFeatureSet):
         #Generate the vector
         #Basic Features
         retVector = [ self.f1_12(stroke, strokeLength) , \
-                     self.f1_16(stroke, strokeLength) , \
+                     self.f1_16(strokeNorm) , \
                      self.f2_6(strokeLength, convexHull) , \
                      self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
@@ -884,7 +895,7 @@ class BCP_GraphFeatureSet(BCPFeatureSet):
         #The Rest
         retVector.extend([
                      self.f1_04(stroke), \
-                     self.f1_06(stroke, strokeLength), \
+                     self.f1_06(strokeNorm), \
                      self.f1_09(stroke), \
                      self.f1_11(anglesVector), \
                      self.f1_13(stroke), \
@@ -923,6 +934,7 @@ class BCP_GraphFeatureSet_Combinable(BCPFeatureSet):
 
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
         strokeLength = GeomUtils.strokeLength(stroke)
+        strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLength))
         boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
         curvatureList = GeomUtils.strokeGetPointsCurvature(
                             GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
@@ -933,7 +945,7 @@ class BCP_GraphFeatureSet_Combinable(BCPFeatureSet):
         #Basic Features
         retVector = [
                      #self.f1_12(stroke, strokeLength) , \
-                     self.f1_16(stroke, strokeLength) , \
+                     self.f1_16(strokeNorm) , \
                      self.f2_6(strokeLength, convexHull) , \
                      self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
@@ -946,7 +958,7 @@ class BCP_GraphFeatureSet_Combinable(BCPFeatureSet):
         #The Rest
         retVector.extend([
                      self.f1_04(stroke), \
-                     self.f1_06(stroke, strokeLength), \
+                     self.f1_06(strokeNorm), \
                      self.f1_09(stroke), \
                      self.f1_11(anglesVector), \
                      self.f1_13(stroke), \
@@ -1178,6 +1190,32 @@ class SymbolClass (object):
         else:
             return None
 #------------------------------------------------------------
+class ShellSymbolClass(SymbolClass):
+    """This is a semi-functional symbol class used for classification only"""
+    def __init__(self, featureSet, name = None):
+        self.weight0 = None
+        self.weights = []
+        self.averages = []
+        
+    def fromXML(self, elem):
+        """Parses in this element from XML"""
+        self.name = elem.get("name")
+        self.weight0 = float(elem.find("weight0").text)
+        weights = elem.findall("weight")
+        for w_elem in weights:
+            self.weights.append(float(w_elem.text))
+        averages = elem.findall("average")
+        for a_elem in averages:
+            self.averages.append(float(a_elem.text))
+
+        logger.debug("Name :%s\nWeights:%s\nAvgs%s" % (self.name, [self.weight0] + self.weights, self.averages))
+
+    def getAverageFeatureValues(self):
+        """ Given list of example stroke feature vectors, calculates the averages 
+        feature values for a class. Returns list of averages indexed by feature 
+        number. For Internal use only """
+        return self.averages
+
 #------------------------------------------------------------
 
 class RubineClassifier():
@@ -1251,7 +1289,7 @@ class RubineClassifier():
         dividor = - len(self.symbolClasses)
         self.averages = {}
         for name, symCls in self.symbolClasses.items():
-            print "Class %s: %s examples" % (name, len(symCls))
+            logger.debug("Class %s: %s examples" % (name, len(symCls)))
             dividor += len(symCls) #Number of examples
         if dividor == 0:
             raise Exception("Not enough examples across the classes")
@@ -1300,7 +1338,6 @@ class RubineClassifier():
                 for j in range(len(self.featureSet)):
                     if avgCovMat[i,j] > 1:
                         factor = math.e ** (math.log(avgCovMat[i,j]) - 15)
-                        #print avgCovMat[i,j], "Yields", math.e ** (int(factor) - 7)
                         avgCovMat[i,j] += factor * random.random()
         """
         except Exception as e:
@@ -1345,14 +1382,15 @@ class RubineClassifier():
 
 
     def classifyStroke(self, stroke):
-        """ Attempts to classify a stroke using the given training data """
+        """ Attempts to classify a stroke using the given training data. Returns a list of 
+        tuples: (SymbolClass, score), or empty if it's rejected."""
         #we need at least three points
         if len(stroke.Points) < 3:
-            return None
+            return []
         rubineVector =  self.featureSet.generateVector([stroke])
         maxScore = None
         maxCls = None
-        featureWeights = []
+        classScores = []
         for symCls in self.symbolClasses.values():
             clsWeights = symCls.getWeights()
             if clsWeights is None: #Have not run calculateWeights yet
@@ -1361,32 +1399,28 @@ class RubineClassifier():
             val = clsWeights[0]
             for f_idx in range(len(self.featureSet)):
                 val += rubineVector[f_idx] * clsWeights[f_idx+1]
-            featureWeights.append([val, symCls])
+            classScores.append({'symbol': symCls.name, 'score': val})
             if maxScore is None or (val > maxScore):
                 maxScore = val
                 maxCls = symCls
         maxScore = math.fabs(maxScore)
-        featureWeights.sort(key = (lambda x: x[0]) ) #Sort by the score
-        #print featureWeights[len(featureWeights)-1][1]
+        classScores.sort(key = (lambda x: - x['score']) ) #Sort by the score
         sum = 0
 
         # Mahalanobis distance
         if self.debug:
-            print "Mahalanobis distance"
+            logger.debug("Mahalanobis distance")
         if maxCls is not None:
             delta = 0
             for j in range(len(self.featureSet)):
                 for k in range(len(self.featureSet)):
                     delta += self.covarianceMatrixInverse[j,k] * (rubineVector[j] - self.averages[maxCls.name][j]) * (rubineVector[k] - self.averages[maxCls.name][k])
-            if self.debug:
-                print str(delta) + " : " + str(len(self.weights[0]) * len(self.weights[0]) * 0.5)
+
             if delta > len(self.featureSet) **2 / 2.0:
-                print "REJECT"
-                return None# pass # print "DON'T RECOGNISE!"
-            if self.debug:
-                print maxCls.name
-            return maxCls.name
-        return None
+                logger.debug( "REJECT")
+                return []# pass # print "DON'T RECOGNISE!"
+            return classScores
+        return []
         #self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(self.names[maxIndex], height , 0))
 
     def saveWeights(self, fileName):
@@ -1395,7 +1429,7 @@ class RubineClassifier():
         self.calculateWeights()
 
         if self.debug:
-            print "Saving training data to file: " + fileName
+            logger.info("Saving training data to file: " + fileName)
         
         TB = ET.TreeBuilder()
         TB.start("rubine", {})
@@ -1441,9 +1475,18 @@ class RubineClassifier():
         """ Loads the training data in the file. File is a file name """
         et = ET.parse(file)
         classes = et.findall("class")
-        self.count = -1
 
+        self.symbolClasses = {}
+        self.averages = {}
+        for cls_elem in classes:
+            cls = ShellSymbolClass(self.featureSet)
+            cls.fromXML(cls_elem)
+            self.symbolClasses[cls.name] = cls
+            self.averages[cls.name] = cls.getAverageFeatureValues()
+            
+        """
         for i in classes:
+            
             self.names.append(i.get("name"))
             self.weight0.append(float(i.find("weight0").text))
             self.count += 1
@@ -1453,8 +1496,10 @@ class RubineClassifier():
             self.averages.append([])
             for j in i.findall("average"):
                 self.averages[self.count].append(float(j.text))
+        """
 
-        self.covarianceMatrixInverse = mat(zeros((len(self.averages[0]),len(self.averages[0]))))
+        dims = (len(self.featureSet), len(self.featureSet))
+        self.covarianceMatrixInverse = mat(zeros( dims ))
         covariance = et.find("covariance")
         rows = covariance.findall("row")
         for i in range(len(rows)):

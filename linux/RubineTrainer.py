@@ -29,6 +29,7 @@ from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkMessageBox import *
 
+from SketchFramework import ImageStrokeConverter
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
@@ -121,17 +122,28 @@ class TkSketchFrame(Frame, _SketchGUI):
         top_menu = Menu(win)
         win.config(menu=top_menu)
         
-        self.object_menu = Menu(top_menu)
-        top_menu.add_cascade(label="ObjectMenu", menu=self.object_menu)
+        #self.object_menu = Menu(top_menu)
+        #top_menu.add_cascade(label="ObjectMenu", menu=self.object_menu)
 
         top_menu.add_command(label="Reset Board", command = (lambda :self.ResetBoard() or self.Redraw()), underline=1 )
         top_menu.add_command(label="Load strokes.dat", command = (lambda : self.LoadStrokes() or self.Redraw()), underline=1 )
         top_menu.add_command(label="Save strokes.dat", command = (lambda : self.SaveStrokes()), underline=1 )
         top_menu.add_command(label="Undo Stroke", command = (lambda :self.RemoveLatestStroke() or self.Redraw()), underline=1 )
         top_menu.add_command(label="New Rubine Class", command = (lambda :self.NewTrainingClass() or self.Redraw()), underline=1 )
+        top_menu.add_command(label="Train Class on Strokes", command = (lambda :self.TrainClassOnStrokes() or self.Redraw()), underline=1 )
         top_menu.add_command(label="Save Training Data", command = (lambda :self.SaveTrainingWeights() or self.Redraw()), underline=1 )
-        #top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
+        top_menu.add_command(label="Strokes From Image", command = (lambda :self.LoadStrokesFromImage() or self.Redraw()), underline=1 )
 
+
+    def TrainClassOnStrokes(self):
+        if self.currentSymClass == None:
+            logger.warn("Cannot train on strokes. You must choose a class first!")
+            return
+        for stroke in self.StrokeList:
+            self._strokeTrainer.addStroke(stroke, self.currentSymClass)
+            logger.debug("Added stroke to examples for %s" % (self.currentSymClass))
+        self.StrokeList = []
+        self.currentSymClass = None
 
     def NewTrainingClass(self):
         name = None
@@ -150,9 +162,33 @@ class TkSketchFrame(Frame, _SketchGUI):
     def LoadStrokes(self):
       for stroke in self.StrokeLoader.loadStrokes():
          self.StrokeList.append(stroke)
+        #self.object_menu = Menu(top_menu)
+        #top_menu.add_cascade(label="ObjectMenu", menu=self.object_menu)
+
+    def LoadStrokesFromImage(self):
+        fname = askopenfilename(initialdir='./')
+        if fname == "":
+           return
+
+        try:
+           logger.debug( "Loading strokes...")
+           strokes = ImageStrokeConverter.imageToStrokes(fname)
+        except Exception as e:
+           logger.debug( "Error importing strokes from image '%s':\n %s" % (fname, e))
+           return
+        logger.debug( "Loaded %s strokes from '%s'" % (len(strokes), fname))
+
+        for s in strokes:
+           newStroke = Stroke()
+           for x,y in s.points:
+              scale = WIDTH / float(1280)
+              newPoint = Point(scale * x,HEIGHT - scale * y)
+              newStroke.addPoint(newPoint)
+           #self.Board.AddStroke(newStroke)
+           self.StrokeList.append(newStroke)
 
     def SaveStrokes(self):
-      self.StrokeLoader.saveStrokes(self.StrokeList)
+        self.StrokeLoader.saveStrokes(self.StrokeList)
 
     def RemoveLatestStroke(self):
         if len (self.StrokeList) > 0:
@@ -245,7 +281,6 @@ class TkSketchFrame(Frame, _SketchGUI):
         try:
             if len(self.CurrentPointList) > 0:
                 stroke = Stroke( self.CurrentPointList )#, smoothing=True )
-                self._strokeTrainer.addStroke(stroke, self.currentSymClass)
                 self.StrokeList.append(stroke)
                 logger.debug("StrokeAdded Successfully")
         except Exception as e:
@@ -299,7 +334,32 @@ class TkSketchFrame(Frame, _SketchGUI):
 
 if __name__ == "__main__":
     #Just start the GUI for the trainer
-    TkSketchFrame()
+    args = sys.argv
+    if len(args) > 1:
+        if args[1] == "batch" and len(args) > 2:
+            if len(args) > 3:
+                outfname = args[3]
+            else:
+                outfname = "RubineData.xml"
+            trainFile = open(args[2], "r")
+            featureSet = Rubine.BCPFeatureSet()
+            trainer = Rubine.RubineClassifier(featureSet = featureSet)
+            for line in trainFile.readlines():
+                name, strokeFname = line.strip().split()
+                print "Training %s from %s" % (name, strokeFname)
+                trainer.newClass (name = name)
+                strokes = StrokeStorage(filename = strokeFname).loadStrokes()
+                for stk in strokes:
+                    trainer.addStroke(stk, name)
+            print "Saving Weights to %s" % (outfname)
+            trainer.saveWeights(outfname)
+
+        else:   
+            print "Usage: %s batch <training_spec>" % (args[0])
+            exit(1)
+
+    else:
+        TkSketchFrame()
 
 
 

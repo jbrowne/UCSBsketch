@@ -36,24 +36,24 @@ logger = Logger.getLogger('TextObserver', Logger.WARN )
 #-------------------------------------
 
 class RubineAnnotation(Annotation):
-    def __init__(self, type, scale, accuracy):
+    def __init__(self, scores):
         "Create a Rubin annotation."
         Annotation.__init__(self)
-        self.type = type # a string for the text
-        self.accuracy = accuracy
-        self.scale = scale # an approximate "size" for the object
-        self.alternates = []
-    '''def xml(self):
+        #self.type = type # Deprecated
+        #self.accuracy = accuracy Deprecated
+        #self.scale = scale # Deprecated
+        self.scores = scores
+        self.name = ""
+        if len(self.scores) > 0:
+            self.name = scores[0]['symbol']
+    
+    def xml(self):
         root = Annotation.xml(self)
-        root.attrib["text"] = self.text
-        root.attrib['scale'] = str(self.scale)
-        for i, a in enumerate(self.alternates):
-            textEl = ET.SubElement(root, "alt")
-            textEl.attrib['priority'] = str(i)
-            textEl.attrib['text'] = str(a)
-            root.append(textEl)
+        root.attrib['name'] = self.name
+        #root.attrib["type"] = self.type
+        #root.attrib['scale'] = str(self.scale)
+        #root.attrib['accuracy'] = str(self.accuracy)
         return root
-    '''
 
 #------------------------------------------------------------
 
@@ -65,19 +65,27 @@ class RubineMarker( BoardObserver ):
         BoardObserver.__init__(self, board)
         #featureSet = Rubine.RubineFeatureSet()
         #featureSet = Rubine.BCPFeatureSet()
+        rubineDataFile = open(fname, "r")
         featureSet = Rubine.BCPFeatureSet()
         self.classifier = Rubine.RubineClassifier(featureSet = featureSet, debug = debug)
+        self.classifier.loadWeights(rubineDataFile)
+        rubineDataFile.close()
         self.getBoard().AddBoardObserver( self , [RubineAnnotation])
         self.getBoard().RegisterForStroke( self )
 
     def onStrokeAdded(self, stroke):
         """ Attempts to classify a stroke using the given training data """
 
-        name = self.classifier.classifyStroke(stroke)
-        if name == None:
-            return
-        height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y        
-        self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(name, height , 0))
+        scores = self.classifier.classifyStroke(stroke)
+        if len(scores) > 0:
+            height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y        
+            best = scores[0]['symbol']
+            self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(scores))
+
+    def onStrokeRemoved(self, stroke):
+        for rb_anno in stroke.findAnnotations(RubineAnnotation):
+            self.getBoard().RemoveAnnotation(rb_anno)
+
 
 
 #------------------------------------------------------------
@@ -102,9 +110,15 @@ class RubineVisualizer( ObserverBase.Visualizer ):
         midpointX = (ul.X + br.X) / 2
         left_x = midpointX - a.scale / 2.0
         right_x = midpointX + a.scale / 2.0
+        """
         self.getBoard().getGUI().drawBox(ul, br, color="#a0a0a0")
-        self.getBoard().getGUI().drawText( br.X - 15, br.Y, a.type , size=15, color="#a0a0a0" )
-
+        """
+        gui = self.getBoard().getGUI()
+        color = "#0C00F0"
+        gui.drawText( br.X - 15, br.Y, a.name , size=15, color=color )
+        for s in a.Strokes:
+            gui.drawStroke(s, width = 3, color = color)
+            gui.drawStroke(s, width = 1, color = "#000000")
 #-------------------------------------
 # if executed by itself, run all the doc tests
 
