@@ -632,7 +632,8 @@ def pointlistLength(inPoints):
 
 def strokeLength(inStroke):
     "Input: Stroke.  Returns the total length of the stroke by summing up all of the segments."
-    return pointlistLength(inStroke.Points)
+    length = pointlistLength(inStroke.Points)
+    return length
     #TODO: This func. looks like the perim function, except without closing it off, cause Perim just assumes it's been hulled...
 
 def strokeLinearity(inStroke):

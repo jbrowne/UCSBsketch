@@ -47,6 +47,7 @@ HEIGHT = 800
 MID_W = WIDTH/2
 MID_H = HEIGHT/2
    
+FEATURESET = Rubine.BCPFeatureSet_Combinable
 logger = Logger.getLogger("TkSketchGUI", Logger.DEBUG)
 
 def _initializeBoard(board):
@@ -99,9 +100,8 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.StrokeList = []
         self.StrokeLoader = StrokeStorage()
         self.ResetBoard()
-        featureset = Rubine.BCPFeatureSet()
-        self._strokeTrainer = Rubine.RubineClassifier(featureSet = featureset, debug = True)
-        self.NewTrainingClass()
+        self._strokeTrainer = Rubine.RubineClassifier(featureSet = FEATURESET(), debug = True)
+        #self.NewTrainingClass()
 
         self.Redraw()
 
@@ -342,8 +342,7 @@ if __name__ == "__main__":
             else:
                 outfname = "RubineData.xml"
             trainFile = open(args[2], "r")
-            featureSet = Rubine.BCPFeatureSet()
-            trainer = Rubine.RubineClassifier(featureSet = featureSet)
+            trainer = Rubine.RubineClassifier(featureSet = FEATURESET())
             for line in trainFile.readlines():
                 name, strokeFname = line.strip().split()
                 print "Training %s from %s" % (name, strokeFname)

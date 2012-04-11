@@ -89,7 +89,8 @@ class _LetterMarker( BoardObserver ):
         bb = GeomUtils.strokelistBoundingBox(strokelist)
         height = bb[0].Y - bb[1].Y
         width = bb[1].X - bb[0].X 
-        retAnnotation = TextAnnotation(char,  (alternates,), [strokelist],max(height, width))
+        scale = max(height, width, 1)
+        retAnnotation = TextAnnotation(char,  (alternates,), [strokelist], scale)
         return retAnnotation
     def onStrokeAdded(self, stroke):
         "Tags 1's, dashes and 0's as letters (TextAnnotation)"

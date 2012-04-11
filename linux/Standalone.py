@@ -39,7 +39,7 @@ from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke, strokeApproximateCubicCurves
 from Utils import GeomUtils
 from Utils import Logger
-from SketchFramework import ImageStrokeConverter
+from Utils import ImageStrokeConverter
 
 from Observers.ObserverBase import Animator
 
@@ -88,8 +88,8 @@ def _initializeBoard(board):
         TuringMachineObserver.TuringMachineCollector(board)
         TuringMachineObserver.TuringMachineExporter(board)
         TuringMachineObserver.TuringMachineVisualizer(board)
-
         """
+
         RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
         RubineObserver.RubineVisualizer(board)
 

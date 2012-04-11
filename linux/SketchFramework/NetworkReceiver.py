@@ -165,6 +165,7 @@ class ServerThread(threading.Thread):
         self.request_queue = Queue.Queue()
         self.response_queue = Queue.Queue()
         self.sock = None
+        self._alive = True
 
     def getRequestQueue(self):
         "Returns the queue used to receive data from connected clients"
@@ -174,16 +175,23 @@ class ServerThread(threading.Thread):
         "Returns the queue used to send response data back to clients"
         return self.response_queue
 
+    def stop(self):
+        """Stop the server from listening"""
+        print("Stopping thread")
+        self._alive = False
+        self.finish()
+
     def run(self):
         """Receives new connections forever.
             1) Listen for connection
             2) On new connection spawn new network handler thread for that connection
             3) Repeat
         """
-        self.sock = sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        while True:
+        self.sock =  socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        while self._alive:
             try:
-                sock.bind( ( self.host, self.port ) )
+                print "Binding"
+                self.sock.bind( ( self.host, self.port ) )
                 print "Server listening on port %s" % (self.port)
                 break
             except Exception as e:
@@ -191,23 +199,27 @@ class ServerThread(threading.Thread):
                 time.sleep(1)
 
         try:
-            sock.listen(1)
-            while True:
-                conn, addr = sock.accept()
-
+            print "Listening"
+            self.sock.listen(1)
+            while self._alive:
+                print "Accepting"
+                conn, addr = self.sock.accept()
+                print "Accepted"
                 nThread = NetworkHandler(self.request_queue, self.response_queue, conn, addr)
                 nThread.daemon=True
                 nThread.start()
-        except (KeyboardInterrupt, SystemExit) as e:
-            print "Server error: %s" % (e)
-            raise e
-        finally:
-            self.finish()
+        except socket.error as e:
+            print "Server error: %s:%s" % (type(e), e)
+            #raise e
 
     def finish(self):
-        print "Closing socket"
+        print( "Closing socket" )
         if self.sock is not None:
-            self.sock.close()
+            try:
+                self.sock.shutdown(socket.SHUT_RD)
+            except Exception as e:
+                print e
+            #self.sock.close()
         
         
 if __name__ == "__main__":
