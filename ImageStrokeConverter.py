@@ -67,15 +67,20 @@ DEBUGSCALE = 1
 
 def cvimgToStrokes(in_img):
    "External interface to take in an OpenCV image object and return a list of the strokes."
-   if(DEBUG):
+   if DEBUG:
        saveimg(in_img)
-   saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().ctime()+".jpg")
+   saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
    small_img = resizeImage(in_img)
-   temp_img = removeBackground(small_img)
+   #temp_img = removeBackground(small_img)
+   temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
+   cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
+   cv.AdaptiveThreshold(temp_img, temp_img, 255, blockSize=39)
    strokelist = blobsToStrokes(temp_img)
-   prettyPrintStrokes(temp_img, strokelist)
-   saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().ctime()+".jpg")
-   return strokelist
+   if DEBUG:
+       prettyPrintStrokes(temp_img, strokelist)
+   #saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
+   return {"strokes": strokelist, "dims" : (small_img.cols, small_img.rows)}
+
 def imageBufferToStrokes(data):
    "External interface to take in a PIL image buffer object and return a list of the strokes."
    pil_img = Image.open(StringIO.StringIO(data))
@@ -176,35 +181,42 @@ def thicknessAtPoint(point, img):
    """Determine the thickness at a point in img. Uses an expanding circle
    from that pixel until it encounters non-ink.
    Returns the minimum thickness as twice that radius + 1"""
-   global BGVAL, FILLEDVAL, CENTERVAL, OOBVAL
-   px, py = point
-   pixval = getImgVal(px, py, img)
-   errorThresh = 0.50 #Allow at most X percent white pixels while expanding
+   global BGVAL, FILLEDVAL, CENTERVAL, OOBVAL, CACHE
+   #Load the cached value
+   cacheTag = "Thickness%s%s" % (str(point), str(img))
+   thickness = CACHE.get(cacheTag, None)
+   if thickness is None:
+      px, py = point
+      pixval = getImgVal(px, py, img)
+      errorThresh = 0.50 #Allow at most X percent white pixels while expanding
 
-   startRad = None
-   endRad = None
-   if pixval == BGVAL or pixval == OOBVAL:
-      return 0
-   else:
-      rad = 1
-      while rad < img.rows:
-         cPixels = circlePixels(point, rad)
-         numBGpix = 0
-         allowableError = errorThresh * len(cPixels)
-         for p in cPixels:
-            pixval = getImgVal(p[0], p[1], img)
-            if pixval == BGVAL or pixval == OOBVAL:
-               numBGpix += 1
-               if numBGpix > allowableError:
-                   return 2 * (rad - 1) + 1
-         if startRad == None and numBGpix > 0:
-            endRad = startRad = rad - 1
-         if numBGpix > allowableError:
-            endRad = rad - 1
-            break
-         rad += 1
-      thickness =(startRad + endRad) 
-      return thickness
+      startRad = None
+      endRad = None
+      if pixval == BGVAL or pixval == OOBVAL:
+         thickness = 0
+      else:
+         rad = 1
+         #Phase 1: Double radius until too much error
+         while rad < img.rows:
+            cPixels = circlePixels(point, rad)
+            numBGpix = 0
+            allowableError = errorThresh * len(cPixels)
+            for p in cPixels:
+               pixval = getImgVal(p[0], p[1], img)
+               if pixval == BGVAL or pixval == OOBVAL:
+                  numBGpix += 1
+                  #if numBGpix > allowableError:
+                      #return 2 * (rad - 1) + 1
+            if startRad == None and numBGpix > 0:
+               endRad = startRad = rad - 1
+            if numBGpix > allowableError:
+               endRad = rad - 1
+               break
+            rad *= 2
+         thickness =(startRad + endRad) 
+      CACHE[cacheTag] = thickness
+
+   return thickness
 
 def circlePixels(center, rad):
    """Generates a list of pixels that lie on a circle, centered at center,
@@ -216,15 +228,19 @@ def circlePixels(center, rad):
    if rad == 0:
       return [center]
    dy = 0
+   prevDx = rad + 1
    while dy <= rad:
-      dx = int(math.sqrt(rad_sqr - dy **2 ))
-      points.update( [ (x+dx, y+dy), (x-dx, y+dy), (x+dx, y-dy), (x-dx, y-dy)])
+      curDx = int(math.sqrt(rad_sqr - dy **2 ) + 0.5)
+      dx = curDx
+      while dx <= prevDx:
+      #points.update( [ (x+dx, y+dy), (x-dx, y+dy), (x+dx, y-dy), (x-dx, y-dy)])
+          points.add( (x+dx, y+dy) )
+          points.add( (x-dx, y+dy) )
+          points.add( (x+dx, y-dy) )
+          points.add( (x-dx, y-dy) )
+          dx += 1
+      prevDx = curDx
       dy += 1
-   dx = 0
-   while dx <= rad:
-      dy = int(math.sqrt(rad_sqr - dx **2 ))
-      points.update( [ (x+dx, y+dy), (x-dx, y+dy), (x+dx, y-dy), (x-dx, y-dy)])
-      dx += 1
    return points
 
 
@@ -353,7 +369,6 @@ def _squareIntersections(graphDict, rawImg):
                 for db_pt in circlePixels(cp, (cpThickness -1)/ 2.0):
                     if db_pt[0] >= 0 and db_pt[0] < DEBUGIMG.cols and db_pt[1] >= 0 and db_pt[1] < DEBUGIMG.rows:
                        setImgVal(db_pt[0], db_pt[1], 128, DEBUGIMG)
-                saveimg(DEBUGIMG)
 
             #print "CrossPoint %s, thickness %s" % (str(cp), cpThickness/ 2.0)
             #Remove points from the edges such that they do not enter the "crossing region"
@@ -396,6 +411,8 @@ def _squareIntersections(graphDict, rawImg):
                         allIntersects.append( (x,y))
                         allCrossPointsY.append(y)
                         allCrossPointsX.append(x)
+                        if DEBUG:
+                            setImgVal(x,y, 0, DEBUGIMG)
 
             if len(allCrossPointsX) > 0 :
                 #The new crossing point has the median X and median Y coords of those intersections
@@ -413,6 +430,8 @@ def _squareIntersections(graphDict, rawImg):
 
             cpDict['thickness'] = thicknessAtPoint(newCrossPoint, rawImg)
             newPoints[newCrossPoint] = cpDict
+        if DEBUG:
+            saveimg(DEBUGIMG)
 
     for pt in removedPoints:
         _deletePointFromGraph(pt, graphDict)
@@ -472,7 +491,7 @@ def _collapseIntersections(graph, rawImg):
                   for db_pt in circlePixels(cp1, (p1Thick -1)/ 2.0):
                      if db_pt[0] >= 0 and db_pt[0] < DEBUGIMG.cols and db_pt[1] >= 0 and db_pt[1] < DEBUGIMG.rows:
                         setImgVal(db_pt[0], db_pt[1], 148, DEBUGIMG)
-               saveimg(DEBUGIMG)
+                  saveimg(DEBUGIMG)
                while len(procSet) > 0:
                   mergePt = procSet.pop()
                   mergeSet.add(mergePt)
@@ -778,10 +797,25 @@ def pointsToGraph(pointSet, rawImg):
          head = upath[0]
          if len(upath) == 1 or head in usedEndpoints or len(graphDict[head]['kids']) != 1: #Add it back in if it connects to an endpoint
             unusedPaths.remove(upath)
+            if DEBUG:
+               print "Add this edge back in!"
+               for db_pt in upath:
+                  setImgVal(db_pt[0], db_pt[1], 255, DEBUGIMG)
+         """
+         elif DEBUG:
+            for db_pt in upath:
+               setImgVal(db_pt[0], db_pt[1], 220, DEBUGIMG)
+            print "Remove this path"
+         """
          usedEndpoints.add(head)
 
       #Actually add in the extending paths
       for upath in unusedPaths:
+         if DEBUG:
+            print "Add this edge back in!"
+            for db_pt in upath:
+               setImgVal(db_pt[0], db_pt[1], 255, DEBUGIMG)
+         print "Adding back in a trimmed path"
          head = upath[0]
          for idx in xrange(1,len(upath)):
             par = upath[idx-1]
@@ -812,7 +846,7 @@ def pointsToGraph(pointSet, rawImg):
             graphDict[ep]['kids'].add(nPt)
             graphDict[nPt]['kids'].add(ep)
 
-   if(DEBUG):
+   if DEBUG :
        cv.Set(DEBUGIMG, 255)
        drawGraph(graphDict, DEBUGIMG)
        saveimg(DEBUGIMG)
@@ -822,7 +856,7 @@ def pointsToGraph(pointSet, rawImg):
 
    _collapseIntersections(graphDict, rawImg)
 
-   if(DEBUG):
+   if DEBUG :
        cv.Set(DEBUGIMG, 255)
        drawGraph(graphDict, DEBUGIMG)
        saveimg(DEBUGIMG)
@@ -830,7 +864,7 @@ def pointsToGraph(pointSet, rawImg):
 
    _squareIntersections(graphDict, rawImg)
 
-   if(DEBUG):
+   if DEBUG :
        cv.Set(DEBUGIMG, 255)
        drawGraph(graphDict, DEBUGIMG)
        saveimg(DEBUGIMG)
@@ -1169,7 +1203,6 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
             for nbor in getEightNeighbors(p):
                 if nbor in filledvalsCache:
                     del( filledvalsCache[nbor])
-            #saveimg(outImg)
          elif filled > 2: #No need to process otherwise
             retPoints.add(p)
 
@@ -1285,13 +1318,23 @@ def erodeBlobsPoints (pointSet, img, minFill = 1, maxFill = 9 ):
    return ( numChanged, retPoints, outImg )
 
 def getImgVal(x,y,img):
+   global OOBVAL
+   h = img.rows
+   w = img.cols
+   if x >=0 and x < w and y >= 0 and y < h:
+      return img[y,x]
+   else:
+      #print "Trying to get invalid pixel %s" % (str( (x,y) ))
+      return OOBVAL
+'''
+def getImgVal(x,y,img):
    """Returns the image value for pixel x,y in img or -1 as error."""
    global OOBVAL
    try:
       return img[y,x]
    except Exception as e:
       return OOBVAL
-      #print "Trying to get invalid pixel %s" % (str( (x,y) ))
+'''
      
 def setImgVal(x,y,val,img):
    img[y,x] = val
@@ -1318,7 +1361,6 @@ class Stroke(object):
    """A stroke consisting of a list of points"""
    def __init__(self):
       self.points = []
-      self.thicknesses = []
       self.thickness = 0
       self.center = (-1, -1)
       self.topleft = (-1, -1)
@@ -1326,35 +1368,11 @@ class Stroke(object):
    def addPoint(self,point, thickness = 1):
       """Add a point to the end of the stroke"""
       x,y = point
-      left = min( x, self.topleft[0])
-      right = max( x, self.bottomright[0])
-
-      top = max( y, self.topleft[1])
-      bottom = min( y, self.bottomright[1])
-
-      self.topleft = (left, top)
-      self.bottomright = (right, bottom)
-
-      self.center = ( (left + right ) / 2, 
-                      (top + bottom ) / 2 )
-
       self.points.append( (x, y) )
-      self.thicknesses.append(thickness)
       
    def getPoints(self):
       """Return a list of points"""
       return self.points
-   def getThickness(self):
-      "Return the median thickness of the points as the thickness of this stroke"
-      sortedList = list(self.thicknesses)
-      sortedList.sort()
-      if len(self.thicknesses) > 0:
-         return sortedList[(len(sortedList) / 2) ]
-      else:
-         return 0
-
-   def getThicknesses(self):
-      return self.thicknesses
 
 #***************************************************
 #  Image Processing
@@ -1447,6 +1465,7 @@ def smooth(img, ksize = 9, t='median'):
    #                            cols, rows, anchorx,y, shape
    #kernel = cv.CreateStructuringElementEx(3,3, 1,1, cv.CV_SHAPE_RECT,
                                           #(0,1,0,1,0,1,0,1,0))
+   ksize = min(ksize, img.rows/2, img.cols/2)
    cv.Smooth(img, retimg, smoothtype= smoothtype, param1=ksize)
    return retimg
 
@@ -1496,12 +1515,12 @@ def getHistogramList(img, normFactor = 1000):
 
 def isForeGroundGone(img):
    "Figure out whether the strokes of an image have been smoothed away or still remain"
-   borderThresh = 0.10 #How much of the border to ignore in figuring whether the foreground is gone
+   borderThresh = 0.25 #How much of the border to ignore in figuring whether the foreground is gone
    debug = False
    left = int( borderThresh * img.cols)
-   right = int( (1 - borderThresh) * img.cols)
+   right = int( (1 - 2 * borderThresh) * img.cols)
    top = int( borderThresh * img.rows)
-   bottom = int( (1 - borderThresh) * img.rows)
+   bottom = int( (1 - 2 * borderThresh) * img.rows)
 
    activeROI = ( left, top, right, bottom)
    print "Checking foreground of %s" % (str(activeROI))
@@ -1560,13 +1579,22 @@ def convertBlackboardImage(gray_img):
    maxIdx = hist.index(max(hist))
    bright3rd = ( maxIdx + len(hist) )/ 2
    dark3rd = ( maxIdx )/ 2
+   darkSum = sum(hist[:dark3rd])
+   brightSum = sum(hist[bright3rd:])
    print "Maximum bin: ", hist.index(max(hist))
-   if sum(hist[:dark3rd]) > sum(hist[bright3rd:]):
+   if maxIdx > 200:
+      print "Not a blackboard!"
+      ISBLACKBOARD = False
+   elif maxIdx < 50:
+      print "Blackboard seen"
+      ISBLACKBOARD = True 
+   elif darkSum > brightSum:
       print "Not a blackboard!"
       ISBLACKBOARD = False
    else:
       print "Blackboard seen"
       ISBLACKBOARD = True 
+
 
    if ISBLACKBOARD:
       print "Converting Blackboard image to look like a whiteboard"
@@ -1595,8 +1623,12 @@ def removeBackground(cv_img):
    print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
 
    inv_factor = 0.5
-   gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
-   cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
+   if cv_img.type != cv.CV_8UC1:
+      gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
+      cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
+   else:
+      gray_img = cv.CloneMat(cv_img)
+
 
    gray_img = convertBlackboardImage(gray_img)
    #Create histogram for single channel (0..255 range), into 255 bins
@@ -1604,47 +1636,49 @@ def removeBackground(cv_img):
    emph_img = bg_img
 
    #Generate the "background image"
-   while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows:
+   while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows / 2.0:
       print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
       bg_img = smooth(bg_img, ksize=smooth_k, t='median')
-      smooth_k = int(smooth_k * 1.05)
+      smooth_k = int(smooth_k * 1.15)
       if smooth_k % 2 == 0:
          smooth_k += 1
+      if DEBUG :
+         saveimg(bg_img)
    bg_img = invert(bg_img)
-   if(DEBUG):
+   if DEBUG :
       saveimg(gray_img)
 
    #Remove the "background" data from the original image
    cv.AddWeighted(gray_img, 0.5, bg_img, 0.5, 0.0, gray_img )
-   if(DEBUG):
+   if DEBUG :
       saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
 
    #Convert the black ink to white and amplify!
    gray_img = invert(gray_img)
-   if(DEBUG):
+   if DEBUG:
       saveimg(gray_img)
    #for i in [3, 2]: #xrange(3):
    if ISBLACKBOARD:
       amplifyList = [1]
    else:
-      amplifyList = [1,2]
+      amplifyList = [2]
    for i in amplifyList:
       gray_img2 = smooth(gray_img, ksize=3, t='median')
       #gamma = ( (i * 2 - 1)* -128)#- 127
       gamma = ( (i * 2 - 1)* -127)#- 127
       cv.AddWeighted(gray_img, i, gray_img2, i, gamma, gray_img )
-      if(DEBUG):
+      if DEBUG:
          saveimg(gray_img)
    gray_img = invert(gray_img)
-   if(DEBUG):
+   if DEBUG:
       saveimg(gray_img)
 
 
 
    #Binarize the amplified ink image
    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
-   if(DEBUG):
+   if DEBUG:
       saveimg(gray_img)
 
    #_, _, gray_img = erodeBlobsPoints(AllPtsIter(gray_img.cols, gray_img.rows), gray_img)
@@ -1695,7 +1729,7 @@ def blobsToStrokes(img):
    while changed1 or changed2:
       passnum += 1
       print "Pass %s" % (passnum)
-      if(DEBUG):
+      if DEBUG:
          saveimg(img)
       evenIter = (passnum %2 == 0)
       t1 = time.time()
@@ -1728,11 +1762,10 @@ def blobsToStrokes(img):
 
    print ""
    numChanged, pointSet, img = thinBlobsPoints(pointSet, img, finalPass = True)
-   print >> chartFile, numChanged, len(pointSet), numChanged / float(len(pointSet)), numChanged / float(psetSize)
 
    chartFile.close()
 
-   if(DEBUG):
+   if DEBUG:
       saveimg(img)
    print "Tracing strokes"
    strokelist = pointsToStrokes(pointSet, rawImg)
@@ -1762,7 +1795,7 @@ def prettyPrintStrokes(img, strokeList):
             cv.Circle(temp_img, p, 1, startColor, thickness=-1)
          prev = p 
       cv.Circle(temp_img, p, 1, stopColor, thickness=-1)
-      if(DEBUG):
+      if DEBUG:
          saveimg(temp_img)
 
 def pointDist(p1, p2):
@@ -1778,7 +1811,7 @@ def show(cv_img):
       Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
    elif cv_img.type == cv.CV_8UC3:
       Image.fromstring("RGB", cv.GetSize(cv_img), cv_img.tostring()).show()
-   if(DEBUG):
+   if DEBUG:
       saveimg(cv_img)
    
 
@@ -1796,7 +1829,7 @@ def saveimg(cv_img, name = None, outdir = "./temp/", title=""):
 
 def main(args):
    global SQUARE_ERROR, PRUNING_ERROR, DEBUG
-   #DEBUG = True
+   DEBUG = True
 
    #debugTester(args)
 
