@@ -88,8 +88,8 @@ def _initializeBoard(board):
         TuringMachineObserver.TuringMachineCollector(board)
         TuringMachineObserver.TuringMachineExporter(board)
         TuringMachineObserver.TuringMachineVisualizer(board)
-        """
 
+        """
         RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
         RubineObserver.RubineVisualizer(board)
 
@@ -163,12 +163,12 @@ class ImgProcThread (threading.Thread):
             stks = imageBufferToStrokes(image)
             logger.debug("Processed net image, converting strokes")
             for stk in stks:
-                newStroke = Stroke()
+                pointList = []
                 for x,y in stk.points:
                    scale = WIDTH / float(1280)
                    newPoint = Point(scale * x,HEIGHT - scale * y)
-                   newStroke.addPoint(newPoint)
-                self.stk_queue.put(newStroke)
+                   pointList.append(newPoint)
+                self.stk_queue.put(Stroke(pointList))
 
 
 class AnnotationDialog:
@@ -292,26 +292,29 @@ class TkSketchFrame(Frame, _SketchGUI):
       self.StrokeLoader.saveStrokes(self.StrokeList)
         
     def LoadStrokesFromImage(self):
-        fname = askopenfilename(initialdir='/home/jbrowne/src/sketchvision/images/')
+        fname = askopenfilename(initialdir='/home/jbrowne/src/photos/')
         if fname == "":
            return
 
         try:
            logger.debug( "Loading strokes...")
-           strokes = ImageStrokeConverter.imageToStrokes(fname)
+           strokeDict = ImageStrokeConverter.imageToStrokes(fname)
+           strokes = strokeDict['strokes']
+           WIDTH, HEIGHT = strokeDict['dims']
         except Exception as e:
            logger.debug( "Error importing strokes from image '%s':\n %s" % (fname, e))
            return
         logger.debug( "Loaded %s strokes from '%s'" % (len(strokes), fname))
 
         for s in strokes:
-           newStroke = Stroke()
+           pointList = []
            for x,y in s.points:
-              scale = WIDTH / float(1280)
-              newPoint = Point(scale * x,HEIGHT - scale * y)
-              newStroke.addPoint(newPoint)
-           self.Board.AddStroke(newStroke)
+              newPoint = Point(x, HEIGHT - y)
+              pointList.append(newPoint)
+           newStroke = Stroke(pointList)
            self.StrokeList.append(newStroke)
+           self.Board.AddStroke(newStroke)
+
 
     def RemoveLatestStroke(self):
         if len (self.StrokeList) > 0:
@@ -540,14 +543,20 @@ if __name__ == "__main__":
         board = Board()
         _initializeBoard(board)
 
-        stks = ImageStrokeConverter.imageToStrokes(fname)
-        for stk in stks:
-            newStroke = Stroke()
-            for x,y in stk.points:
-               scale = WIDTH / float(1280)
-               newPoint = Point(scale * x,HEIGHT - scale * y)
-               newStroke.addPoint(newPoint)
-            board.AddStroke(newStroke)
+        stkLoader = StrokeStorage(fname+".dat")
+        stkDict = ImageStrokeConverter.imageToStrokes(fname)
+        stks = stkDict['strokes']
+        WIDTH, HEIGHT = stkDict['dims']
+        strokeList = []
+        for s in stks:
+            pointList = []
+            for x,y in s.points:
+               newPoint = Point(x, HEIGHT - y)
+               pointList.append(newPoint)
+            strokeList.append(Stroke(pointList))
+            board.AddStroke(Stroke(pointList))
+
+        stkLoader.saveStrokes(strokeList)
         fout = open("standalone.xml", "w")
         print >> fout, ET.tostring(board.xml(WIDTH, HEIGHT))
         fout.close()

@@ -23,7 +23,6 @@ from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.NetworkReceiver import ServerThread, Message
-from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 
 from Observers import CircleObserver
 from Observers import ArrowObserver
@@ -33,6 +32,7 @@ from Observers import DiGraphObserver
 from Observers import TuringMachineObserver
 
 
+from Utils.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 from Utils.StrokeStorage import StrokeStorage
 from Utils import Logger
 
@@ -114,6 +114,7 @@ class DummyGUI(_SketchGUI):
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         xmlFilename = sys.argv[1]
+        logger.debug("Using %s" % (xmlFilename))
         DummyGUI(filename = xmlFilename)
     else:
         DummyGUI()

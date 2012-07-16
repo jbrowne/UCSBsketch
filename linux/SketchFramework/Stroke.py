@@ -1,10 +1,11 @@
 import sys
+import traceback
 from Utils import Logger
 from SketchFramework.Point import Point
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 from xml.etree import ElementTree as ET
 
-logger = Logger.getLogger('DiGraphObserver', Logger.WARN )
+logger = Logger.getLogger('Stroke', Logger.WARN )
 
 
 #FIXME: this module is in dire need of some documentation
@@ -42,8 +43,9 @@ class Stroke(AnnotatableObject):
         self.Y = None
         self.Center = None
         self.Color = Stroke.DefaultStrokeColor
+        self._featureVectors = {} #Rubine Feature vector for this stroke. Set by calling setFeatureVector(...)
 
-        self._length = -1
+        self._length = None
         self._resample = {}
         self.setBoard(board)# self._board = board
 
@@ -88,8 +90,16 @@ class Stroke(AnnotatableObject):
         return root
  
     
-    def drawMyself(self, color=None):
+    def getFeatureVector(self, featureSet):
+        """Get the feature vector for this stroke given featureSet, a FeatureSet() instance."""
+        if type(featureSet) in self._featureVectors:
+            logger.debug("Reusing feature vector for stroke %s" % (self.id))
+        else:
+            logger.debug("GENERATING feature vector for stroke %s" % (self.id))
+        retVect = self._featureVectors.setdefault(type(featureSet), featureSet.generateVector([self]))
+        return retVect
 
+    def drawMyself(self, color=None):
         if color: drawColor = color
         else: drawColor = self.Color 
 
@@ -98,7 +108,9 @@ class Stroke(AnnotatableObject):
             board.getGUI().drawStroke(self, color=drawColor, erasable = True)
                             
     def length (self, force = False):
-        if self._length == -1 or force:
+        """Calculate the pixel-length of the stroke as the sum of distances
+        between points."""
+        if self._length is None or force:
             if len(self.Points) > 0:
                 self._length = 0
                 prev = self.Points[0]
@@ -108,21 +120,25 @@ class Stroke(AnnotatableObject):
                     prev = next
             else:
                 self._length = 0
-
         return self._length
 
     def get_id(self):
 	return self.id
 
     def setBoard(self, board):
+        """Set the logical board object that this stroke belongs to."""
         self._board = board
     def getBoard(self):
+        """Get the board object that holds this stroke"""
         return self._board
 
-    def addPoint(self, x, y, t):
-        self.addPoint( Point( x, y, t ) )
+    #Removed: Overloading doesn't work in python
+    #def addPoint(self, x, y, t):
+        #self.addPoint( Point( x, y, t ) )
         
     def addPoint(self, point):
+        logger.warn("Deprecated: addPoint")
+        traceback.print_stack()
         self.Points.append( point )
         if self.X == None or self.Y == None:
            self.BoundTopLeft.X = self.BoundBottomRight.X = point.X
@@ -144,6 +160,7 @@ class Stroke(AnnotatableObject):
 
     def translate(self, xDist, yDist, overWrite = False):
         "Input: Stroke, and the distance in points to translate in X- and Y-directions. Returns a new translated stroke"
+        logger.warn("Deprecated: translate")
         if overWrite:
             for p in self.Points:
                 p.X += xDist

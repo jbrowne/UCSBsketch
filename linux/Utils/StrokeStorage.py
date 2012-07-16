@@ -19,14 +19,13 @@ class StrokeStorage(object):
       fd.close()
    def loadStrokes(self):
       fd = open(self._fname, "r")
-      curStroke = None
+      curPointList = None
       for line in fd.readlines():
          if line.startswith("#STROKE"):
-            curStroke = Stroke()
+            curPointList = []
          elif line.startswith("#ENDSTROKE"):
-            logger.debug("Loaded Stroke with %s points" % (len(curStroke.Points)) )
-            yield curStroke
-            curStroke = None
+            logger.debug("Loaded Stroke with %s points" % (len(curPointList)) )
+            yield Stroke(curPointList)
          else:
             fields = line.split()
             assert len(fields) <= 3 and len(fields) > 1, "Error: ill-formed point"
@@ -36,7 +35,7 @@ class StrokeStorage(object):
             elif len(fields) == 3:
                x, y, t = fields
                
-            curStroke.addPoint ( Point(float(x), float(y), float(t)) )
+            curPointList.append(Point(float(x), float(y), float(t)) )
       fd.close()
 
          

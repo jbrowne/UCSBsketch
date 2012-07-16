@@ -32,7 +32,6 @@ from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import Board
 from SketchFramework.NetworkReceiver import ServerThread, Message
-from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 
 from Observers import CircleObserver
 from Observers import ArrowObserver
@@ -43,6 +42,7 @@ from Observers import TuringMachineObserver
 from Observers import RubineObserver
 
 
+from Utils.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 from Utils.StrokeStorage import StrokeStorage
 from Utils import Logger
 
@@ -271,24 +271,25 @@ class SketchResponseThread(threading.Thread):
     def processNewImage(self, imageData):
         """Take in image data, process iself._Boardt and return a string of the resulting board XML"""
         logger.debug("Processing net image")
-        stks = imageBufferToStrokes(imageData)
+        stkDict = imageBufferToStrokes(imageData)
+        stks = stkDict['strokes']
+        width, height = stkDict['dims']
         logger.debug("Processed net image, converting strokes")
 
         self.resetBoard()
         newBoard = self._Board
         self._boards[newBoard.getID()] = newBoard
 
-        retXML = newBoard.xml(WIDTH, HEIGHT)
+        retXML = newBoard.xml(width, height)
         try:
             for stk in stks:
-                newStroke = Stroke()
+                pointList = []
                 for x,y in stk.points:
-                   scale = WIDTH / float(GETNORMWIDTH())
-                   newPoint = Point(scale * x, HEIGHT - scale * y)
-                   newStroke.addPoint(newPoint)
-                newBoard.AddStroke(newStroke)
+                   #scale = WIDTH / float(GETNORMWIDTH())
+                   pointList.append( Point(x, height - y) )
+                newBoard.AddStroke(Stroke(pointList))
 
-            retXML = newBoard.xml(WIDTH, HEIGHT)
+            retXML = newBoard.xml(width, height)
         except Exception as e:
             logger.error("ERROR: %s" % str(e))
             logger.error("%s" % traceback.format_exc())
@@ -312,11 +313,11 @@ class SketchResponseThread(threading.Thread):
         TuringMachineObserver.TuringMachineCollector(self._Board)
         #TuringMachineObserver.TuringMachineVisualizer(self._Board)
         #TuringMachineObserver.TuringMachineExporter(self._Board)
+        """
         
         #TemplateObserver.TemplateMarker(self._Board)
         #TemplateObserver.TemplateVisualizer(self._Board)
         
-        """
         RubineObserver.RubineMarker(self._Board, "RL10dash.xml", debug=True)
         
         d = DebugObserver.DebugObserver(self._Board)

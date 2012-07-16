@@ -52,9 +52,10 @@ class BCPFeatureSet(FeatureSet):
     def __init__(self):
         FeatureSet.__init__(self)
         self.rubineSet = RubineFeatureSet()
+        bcp_logger.warn("Feature f1_01 DISABLED")
 
     def __len__(self):
-        return 28
+        return 27
 
 
     def generateVector(self, strokeList):
@@ -93,7 +94,7 @@ class BCPFeatureSet(FeatureSet):
                     ]
         #The Rest
         retVector.extend([
-                     self.f1_01(strokeNorm, strokeLength), \
+                     #self.f1_01(strokeNorm, strokeLength), \
                      self.f1_07(boundingBox), \
                      self.f1_09(stroke), \
 
@@ -185,7 +186,6 @@ class BCPFeatureSet(FeatureSet):
         from [Qin05]"""
         #pre = time.time()
         selfIntersections = 0
-        length = GeomUtils.strokeLength(stroke)
         for i in range(len(stroke.Points)-1):
             seg1 = (stroke.Points[i], stroke.Points[i+1])
             for j in range(i+1, len(stroke.Points)/3) + \
@@ -271,10 +271,10 @@ class BCPFeatureSet(FeatureSet):
         """The number of bezier cusps. [PPG 07]"""
         #pre = time.time()
         numCusps = 0
-        sNorm = Stroke([sNorm.Points[i] for i in range(0,len(sNorm.Points),3)])
-        while len(sNorm.Points) < 3:
-            sNorm.addPoint(sNorm.Points[-1])
-        curves = GeomUtils.strokeApproximateCubicCurves(sNorm, strokeLen)
+        ptList = ([sNorm.Points[i] for i in range(0,len(sNorm.Points),3)])
+        while len(ptList) < 3:
+            ptList.append(ptList[-1])
+        curves = GeomUtils.strokeApproximateCubicCurves(Stroke(ptList), strokeLen)
         #bcp_logger.debug("%s time %s" % (sys._getframe(-1).f_code.co_name, 1000 * (time.time() - pre) ))
 
         for curve in curves:
@@ -1324,8 +1324,13 @@ class RubineClassifier():
         origMat = avgCovMat
 
         while linalg.det(avgCovMat) == 0.0: #While not invertible
-            logger.warn("Singular Matrix!!!!!!!!!!!!!!!!!!!!")
+            logger.warn("Singular Matrix!")
             avgCovMat = origMat.copy()
+            ignoreFeat = random.randint(0, len(self.featureSet) - 1)
+            print "Ignoring feature %s" % ignoreFeat
+            for x in range(0, len(self.featureSet)):
+                avgCovMat[ignoreFeat, x] = 1.0
+                avgCovMat[x, ignoreFeat] = 1.0
             """
             fp = open("ERROR.txt", "a")
             print >> fp, avgCovMat
@@ -1351,11 +1356,13 @@ class RubineClassifier():
                 avgCovMat[j,x] = avgCovMat[j,y]
                 avgCovMat[j,y] = temp
             """
+            """
             for i in range(len(self.featureSet)):
                 for j in range(len(self.featureSet)):
                     if avgCovMat[i,j] > 1:
                         factor = math.e ** (math.log(avgCovMat[i,j]) - 15)
                         avgCovMat[i,j] += factor * random.random()
+            """
         """
         except Exception as e:
             #Singular Matrix
@@ -1409,7 +1416,14 @@ class RubineClassifier():
         #we need at least three points
         #if len(stroke.Points) < 3:
             #return []
-        rubineVector =  self.featureSet.generateVector(strokeList)
+        if len(strokeList) == 1:
+            rubineVector = strokeList[0].getFeatureVector(self.featureSet)
+        else:
+            rubineVector =  self.featureSet.generateVector(strokeList)
+        return self.classifyVector(rubineVector)
+
+    def classifyVector(self, rubineVector):
+        """Classify directly on a vector of feature values."""
         maxScore = None
         maxCls = None
         classScores = []

@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+"""
+The network receiver works like this:
+A single server thread starts and listens on the 
+requisite port number. 
+On a connection being accepted, it spawns a new
+NetworkReceiver thread to handle the traffic for
+the connection.
+"""
 import tempfile
 import socket
 import Queue
@@ -15,6 +23,7 @@ from PIL import ImageFile
 class Message:
     TYPE_IMG = "Img"
     TYPE_XML = "Xml"
+    TYPE_INFO = "Info"
 
     @classmethod
     def parse(cls, inString):
@@ -27,11 +36,12 @@ class Message:
         dataString = inString[len(msgType):]
         msgType = msgType.rstrip()
 
-        if msgType in [Message.TYPE_XML, Message.TYPE_IMG]:
+        if msgType in [Message.TYPE_XML, Message.TYPE_IMG, Message.TYPE_INFO]:
             retMsg = Message(msgType, dataString)
         return retMsg
 
     def __init__(self, msgType, data):
+        """Create a new message with type msgType, and data"""
         self._type = msgType
         self._data = data
 
@@ -166,6 +176,7 @@ class ServerThread(threading.Thread):
         self.response_queue = Queue.Queue()
         self.sock = None
         self._alive = True
+        self.networkThreads = []
 
     def getRequestQueue(self):
         "Returns the queue used to receive data from connected clients"
@@ -181,6 +192,16 @@ class ServerThread(threading.Thread):
         self._alive = False
         self.finish()
 
+    def acceptConnection(self):
+        """Accept a connection and spawn a receiver thread"""
+        print "Accepting"
+        conn, addr = self.sock.accept()
+        print "Accepted"
+        nThread = NetworkHandler(self.request_queue, self.response_queue, conn, addr)
+        nThread.daemon=True
+        self.networkThreads.append(nThread)
+        nThread.start()
+        
     def run(self):
         """Receives new connections forever.
             1) Listen for connection
@@ -188,26 +209,21 @@ class ServerThread(threading.Thread):
             3) Repeat
         """
         self.sock =  socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print "Binding"
         while self._alive:
             try:
-                print "Binding"
                 self.sock.bind( ( self.host, self.port ) )
                 print "Server listening on port %s" % (self.port)
                 break
             except Exception as e:
-                print e
+                #print e
                 time.sleep(1)
 
         try:
             print "Listening"
             self.sock.listen(1)
             while self._alive:
-                print "Accepting"
-                conn, addr = self.sock.accept()
-                print "Accepted"
-                nThread = NetworkHandler(self.request_queue, self.response_queue, conn, addr)
-                nThread.daemon=True
-                nThread.start()
+                self.acceptConnection()
         except socket.error as e:
             print "Server error: %s:%s" % (type(e), e)
             #raise e
