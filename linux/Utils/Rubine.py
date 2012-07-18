@@ -1503,9 +1503,9 @@ class RubineClassifier():
         elem = TB.close()
 
         #ET.dump(elem)
-        fd = open(fileName, "w")
-        print >> fd, ET.tostring(elem)
-        fd.close()
+        #fd = open(fileName, "w")
+        #print >> fd, ET.tostring(elem)
+        #fd.close()
 
     def loadWeights(self, file):
         """ Loads the training data in the file. File is a file name """

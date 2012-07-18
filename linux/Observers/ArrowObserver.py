@@ -30,7 +30,7 @@ from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 from xml.etree import ElementTree as ET
 
-logger = Logger.getLogger('ArrowObserver', Logger.DEBUG)
+logger = Logger.getLogger('ArrowObserver', Logger.WARN)
 
 #-------------------------------------
 

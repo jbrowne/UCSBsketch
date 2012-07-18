@@ -445,7 +445,7 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
         ObserverBase.Visualizer.__init__( self, board, TuringMachineAnnotation)
 
     def drawAnno( self, a ):
-        tm_logger.debug(ET.tostring(a.xml()))
+        #tm_logger.debug(ET.tostring(a.xml()))
 
         edge_label_size = 15
         tape_label_size = 20
@@ -454,7 +454,7 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
         state_graph = a.state_graph_anno
         for from_node, connection_list in state_graph.connectMap.items():
             if from_node is not None:
-                nodeColor = "#000000"
+                nodeColor = "#FFFFFF"
                 if from_node == a.active_state:
                     nodeColor = active_color
                 x, y = ( from_node.center.X, from_node.center.Y )
@@ -465,9 +465,9 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
                 if edge == a.leading_edge['edge']:
                     edgeColor = active_color
                 else:
-                    edgeColor = "#000000"
+                    edgeColor = "#FFFFFF"
                 if to_node is not None:
-                    nodeColor = "#000000"
+                    nodeColor = "#FFFFFF"
                     nodeWidth = 3.0
                     if to_node == a.active_state:
                         nodeColor = active_color
@@ -494,7 +494,7 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
                     #Determine label offset
                      
                     for label in a.edge2labels_map[edge]:
-                        textColor = "#000000"
+                        textColor = "#FFFFFF"
                         if label == a.leading_edge['label']:
                             tm_logger.debug("Drawing leading label: %s" % (label.text))
                             textColor = active_color
@@ -518,7 +518,7 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
 
         for curIdx, tapeChar in enumerate(['-'] + a.tape_string + ['-']):
             curPt = Point(tape_label_pt.X + curIdx * tape_label_size, tape_label_pt.Y)
-            charColor = "#000000"
+            charColor = "#FFFFFF"
             if curIdx - 1== a.tape_idx:
                 charColor = active_color
             self.getBoard().getGUI().drawText (curPt.X, curPt.Y, InText=tapeChar, size=tape_label_size, color=charColor)

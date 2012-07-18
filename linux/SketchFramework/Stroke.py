@@ -99,13 +99,14 @@ class Stroke(AnnotatableObject):
         retVect = self._featureVectors.setdefault(type(featureSet), featureSet.generateVector([self]))
         return retVect
 
-    def drawMyself(self, color=None):
-        if color: drawColor = color
-        else: drawColor = self.Color 
+    def drawMyself(self, color = None):
 
         board = self.getBoard()
         if board is not None and board.getGUI() is not None and len(self.Points) > 0:
-            board.getGUI().drawStroke(self, color=drawColor, erasable = True)
+            if color is not None:
+                board.getGUI().drawStroke(self, color = color, erasable = True)
+            else:
+                board.getGUI().drawStroke(self, erasable = True)
                             
     def length (self, force = False):
         """Calculate the pixel-length of the stroke as the sum of distances
