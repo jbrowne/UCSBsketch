@@ -57,7 +57,7 @@ PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
 CACHE = {}
 
-NORMWIDTH = 1025
+NORMWIDTH = 1280
 #NORMWIDTH = 2592
 #NORMWIDTH = 600
 DEBUGSCALE = 1
@@ -71,10 +71,10 @@ def cvimgToStrokes(in_img):
        saveimg(in_img)
    saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
    small_img = resizeImage(in_img)
-   #temp_img = removeBackground(small_img)
-   temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
-   cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
-   cv.AdaptiveThreshold(temp_img, temp_img, 255, blockSize=39)
+   temp_img = removeBackground(small_img)
+   #temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
+   #cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
+   #cv.AdaptiveThreshold(temp_img, temp_img, 255, blockSize=39)
    strokelist = blobsToStrokes(temp_img)
    if DEBUG:
        prettyPrintStrokes(temp_img, strokelist)
@@ -1441,15 +1441,16 @@ def getHoughLines(img, numlines = 4, method = 1):
 
 def resizeImage(img, scale = None):
    "Take in an image and size it according to scale"
-   global NORMWIDTH
+   global NORMWIDTH, DEBUG
    if scale is None:
       targetWidth = NORMWIDTH
       realWidth = img.cols
       scale = targetWidth / float(realWidth) #rough scaling
 
-   print "Scaling %s" % (scale)
    img = cv.GetSubRect(img, (0,0, img.cols, img.rows -19) ) # HACK to skip the G2's corrupted pixel business
-   saveimg(img)
+   if DEBUG:
+       print "Scaling %s" % (scale)
+       saveimg(img)
    retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
    cv.Resize(img, retImg)
    return retImg
@@ -1523,7 +1524,7 @@ def isForeGroundGone(img):
    bottom = int( (1 - 2 * borderThresh) * img.rows)
 
    activeROI = ( left, top, right, bottom)
-   print "Checking foreground of %s" % (str(activeROI))
+   #print "Checking foreground of %s" % (str(activeROI))
    img = cv.GetSubRect(img, activeROI)
    
    hist = getHistogramList(img)
@@ -1575,13 +1576,13 @@ def convertBlackboardImage(gray_img):
    and then invert it so it looks more like a whiteboard"""
    global ISBLACKBOARD
    hist = getHistogramList(gray_img)
-   printHistogramList(hist, granularity = 5)
+   #printHistogramList(hist, granularity = 5)
    maxIdx = hist.index(max(hist))
    bright3rd = ( maxIdx + len(hist) )/ 2
    dark3rd = ( maxIdx )/ 2
    darkSum = sum(hist[:dark3rd])
    brightSum = sum(hist[bright3rd:])
-   print "Maximum bin: ", hist.index(max(hist))
+   #print "Maximum bin: ", hist.index(max(hist))
    if maxIdx > 200:
       print "Not a blackboard!"
       ISBLACKBOARD = False
@@ -1597,14 +1598,14 @@ def convertBlackboardImage(gray_img):
 
 
    if ISBLACKBOARD:
-      print "Converting Blackboard image to look like a whiteboard"
+      #print "Converting Blackboard image to look like a whiteboard"
       gray_img = invert(gray_img)
       saveimg(gray_img)
    return gray_img
 
 def removeBackground(cv_img):
    """Take in a color image and convert it to a binary image of just ink"""
-   global BGVAL, ISBLACKBOARD
+   global BGVAL, ISBLACKBOARD, DEBUG
    #Hardcoded for resolution/phone/distance
    #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
    denoise_k = 5 / 1000.0
@@ -1619,8 +1620,8 @@ def removeBackground(cv_img):
    if smooth_k % 2 == 0:
       smooth_k += 1
 
-   print "Foreground denoise kernel = %s x %s" % ( denoise_k, denoise_k)
-   print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
+   #print "Foreground denoise kernel = %s x %s" % ( denoise_k, denoise_k)
+   #print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
 
    inv_factor = 0.5
    if cv_img.type != cv.CV_8UC1:
@@ -1637,7 +1638,7 @@ def removeBackground(cv_img):
 
    #Generate the "background image"
    while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows / 2.0:
-      print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
+      #print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
       bg_img = smooth(bg_img, ksize=smooth_k, t='median')
       smooth_k = int(smooth_k * 1.15)
       if smooth_k % 2 == 0:
