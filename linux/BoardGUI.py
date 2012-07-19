@@ -48,32 +48,54 @@ def warpFrame(frame, corners):
 class CamProcessor(threading.Thread):
     def __init__(self, gui):
         threading.Thread.__init__(self)
-        self.daemon = True
         self.gui = gui
         
-    def run(self):
+        if self.gui is not None:
+            self.daemon = True
+
+        self.warpData = {'corners' : []}
         cv.NamedWindow("Raw", 1)
+        cv.SetMouseCallback("Raw", self.onMouseEvent, None)
+
+        
+    def onMouseEvent(self, event, x, y, flags, param):
+        if event == cv.CV_EVENT_LBUTTONDOWN:
+            print "(%s, %s), " % (x,y)
+            if len(self.warpData['corners']) == 4:
+                print "Reset Warp"
+                self.warpData['corners'] = []
+            else:
+                self.warpData['corners'].append((x, y))
+                
+        
+    def run(self):
         #cv.NamedWindow("Warp", 1)
-        corners = ((87, 66), (1010, 45), (1045, 750), (130, 790))
         try:
             frameCapture = getFrames(fps = 0)
             while True:
                 frame = frameCapture.next()
                 tempFrame = cv.CloneMat(frame)
-                cv.PolyLine(tempFrame, 
-                        (corners,), True, (255,0,0), 
-                        thickness=5, lineType=8, 
-                        shift=0)
-                small_img = ISC.resizeImage(tempFrame, scale =0.5)
-                tempFrame = cv.CreateMat(small_img.rows, 
-                            small_img.cols, 
-                            cv.CV_8UC1)
-                
-                cv.CvtColor(small_img, tempFrame, cv.CV_RGB2GRAY)
-                cv.AdaptiveThreshold(tempFrame, tempFrame, 255, blockSize=39)
+                #small_img = ISC.resizeImage(tempFrame, scale =0.5)
+                #tempFrame = cv.CreateMat(small_img.rows, 
+                #            small_img.cols, 
+                #            cv.CV_8UC1)
+                #
+                #cv.CvtColor(small_img, tempFrame, cv.CV_RGB2GRAY)
+                #cv.AdaptiveThreshold(tempFrame, tempFrame, 255, blockSize=39)
 
-                cv.ShowImage("Raw", frame)
-                #cv.ShowImage("Warp", warpFrame(frame, corners) )
+                corners = self.warpData['corners']
+                if len(corners) == 4:
+                    tempFrame = warpFrame(tempFrame, corners) 
+                else:
+                    cv.PolyLine(tempFrame, 
+                            (corners,), False, (255,0,0), 
+                            thickness=5, lineType=8, 
+                            shift=0)
+                    for pt in corners:
+                        cv.Circle(tempFrame, pt, 2, (0,255,0), thickness=-3)
+                cv.ShowImage("Raw", tempFrame )
+                    
+
                 if cv.WaitKey(10) == CVKEY_ENTER:
                     procFrame = warpFrame(frame, corners)
                     ISC.saveimg(frame)
@@ -88,15 +110,16 @@ class CamProcessor(threading.Thread):
 
     def processFrame(self, frame):
         """Send a frame to the GUI and let it process all the way"""
-        op = partial(self.gui.ResetBoard)
-        self.gui.post(op)
-        op = partial(self.gui.LoadStrokesFromImage, frame)
-        self.gui.post(op)
+        if self.gui is not None:
+            op = partial(self.gui.ResetBoard)
+            self.gui.post(op)
+            op = partial(self.gui.LoadStrokesFromImage, frame)
+            self.gui.post(op)
 
 def main(args):
     gui = Standalone.TkSketchFrame()
-    #capture = CamProcessor(gui)
-    #capture.start()
+    capture = CamProcessor(gui)
+    capture.start()
     gui.run()
 
 if __name__ == "__main__":
