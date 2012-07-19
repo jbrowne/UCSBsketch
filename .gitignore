@@ -1,2 +1,12 @@
 *.pyc
 *~
+*.dat
+*.log
+*.txt
+*.out
+*.swp
+linux/photos/
+linux/temp
+*.bak
+*.old
+
