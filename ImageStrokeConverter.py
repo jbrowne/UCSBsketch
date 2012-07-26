@@ -70,7 +70,8 @@ def cvimgToStrokes(in_img):
    if DEBUG:
        saveimg(in_img)
    saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
-   small_img = resizeImage(in_img)
+   #small_img = resizeImage(in_img)
+   small_img = in_img
    temp_img = removeBackground(small_img)
    #temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
    #cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
@@ -1439,15 +1440,16 @@ def getHoughLines(img, numlines = 4, method = 1):
 
 
 
-def resizeImage(img, scale = None):
+def resizeImage(img, scale = None, targetWidth = None):
    "Take in an image and size it according to scale"
    global NORMWIDTH, DEBUG
    if scale is None:
-      targetWidth = NORMWIDTH
+      if targetWidth is None:
+          targetWidth = NORMWIDTH
       realWidth = img.cols
       scale = targetWidth / float(realWidth) #rough scaling
 
-   img = cv.GetSubRect(img, (0,0, img.cols, img.rows -19) ) # HACK to skip the G2's corrupted pixel business
+   #img = cv.GetSubRect(img, (0,0, img.cols, img.rows -19) ) # HACK to skip the G2's corrupted pixel business
    if DEBUG:
        print "Scaling %s" % (scale)
        saveimg(img)
