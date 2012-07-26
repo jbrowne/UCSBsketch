@@ -218,6 +218,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
         #Set up all the logical board stuff before displaying anything
         self.running = False
+        self.isFullScreen = False
         self.OpQueue = Queue.Queue()
         self.StrokeQueue = Queue.Queue()
         self.Board = None
@@ -233,8 +234,8 @@ class TkSketchFrame(Frame, _SketchGUI):
         root = self.root = Tk()
         #capture = Tk() #Used exclusively to grab keyboard events
         #capture.focus_set()
-        sw = root.winfo_screenwidth()
-        sh = root.winfo_screenheight()
+        #sw = root.winfo_screenwidth()
+        #sh = root.winfo_screenheight()
 
         self.root.title("Sketchy/Scratch")
         #root.overrideredirect(True) # Get rid of the menu bars
@@ -250,8 +251,8 @@ class TkSketchFrame(Frame, _SketchGUI):
                     width=WIDTH, height = HEIGHT,
                     bg="black", bd=2)
         self.BoardCanvas.pack(side=BOTTOM)
-        self.root.bind("<Alt-Return>", lambda e: self.setFullscreen(True) )
-        self.root.bind("<Escape>", lambda e: self.setFullscreen(True) )
+        self.root.bind("<Alt-Return>", lambda e: self.toggleFullscreen() )
+        self.root.bind("<Escape>", lambda e: self.toggleFullscreen() )
         #Left click bindings
         self.BoardCanvas.bind("<ButtonPress-1>", self.CanvasMouseDown)
         self.BoardCanvas.bind("<B1-Motion>", self.CanvasMouseDown)
@@ -266,44 +267,48 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.BoardCanvas.bind("<ButtonPress-2>", self.CanvasMiddleMouseDown)
         self.BoardCanvas.bind("<B2-Motion>", self.CanvasMiddleMouseDown)
         self.BoardCanvas.bind("<ButtonRelease-2>", self.CanvasMiddleMouseUp)
-        self.SetCommandBindings(self.root)
+        self.SetCommandBindings(self.root, makeMenu=False)
         self.Redraw()
 
         #self.run()
 
-    def setFullscreen(self, goFullscreen):
-        if goFullscreen:
+    def toggleFullscreen(self):
+        if not self.isFullScreen:
             self.root.withdraw()
             sw = self.root.winfo_screenwidth()
             sh = self.root.winfo_screenheight()
-            self.root.geometry("%dx%d+0+0" % (sw, sh)) #Set to full screen
             self.BoardCanvas.config(width = sw, height= sh)
             self.root.overrideredirect(True) # Get rid of the menu bars
+            self.root.geometry("%dx%d+0+0" % (sw, sh)) #Set to full screen
             self.root.deiconify()
+            self.root.grab_set_global()
 
+            """
             self.capture = Tk() #Used exclusively to grab keyboard events
-            self.capture.focus_set()
+            self.capture.focus_force()
             self.capture.bind("<Escape>",  
-                    lambda e: self.setFullscreen(False))
+                    lambda e: self.toggleFullscreen())
             self.capture.bind("<Alt-Return>",  
-                    lambda e: self.setFullscreen(False))
-            self.SetCommandBindings(self.capture)
+                    lambda e: self.toggleFullscreen())
+            self.SetCommandBindings(self.capture, makeMenu=False)
+            """
 
-        elif self.capture != None:
+        else:
             self.root.withdraw()
             self.root.overrideredirect(False)
             self.BoardCanvas.config(width = WIDTH, height = HEIGHT)
             self.root.geometry("%dx%d+0+0" % (WIDTH, HEIGHT))
             self.root.deiconify()
-            self.capture.destroy()
-            self.capture = None
-            self.root.focus_set()
+            self.root.grab_release()
+            #self.capture.destroy()
+            #self.capture = None
+            self.root.focus_force()
+        self.isFullScreen = not self.isFullScreen
             
     def run(self):
        self.running = True
        #self.root.grab_set_global()
        self.root.update()
-       #self.root.grab_set_global()
        try:
            while self.running:
                self.root.update()
@@ -315,7 +320,7 @@ class TkSketchFrame(Frame, _SketchGUI):
            raise
        finally:
           pass
-          #self.root.grab_release()
+          self.root.grab_release()
 
     def stop(self):
         print "Stopping!"
@@ -393,6 +398,7 @@ class TkSketchFrame(Frame, _SketchGUI):
       self.StrokeLoader.saveStrokes(self.StrokeList)
 
     def LoadStrokesFromImage(self, image = None):
+        global WIDTH, HEIGHT
         if image != None:
             try:
                 strokeDict = ImageStrokeConverter.cvimgToStrokes(image)

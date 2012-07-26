@@ -11,21 +11,34 @@ import pdb
 from functools import partial
 
 CVKEY_ENTER = 1048586
+def getMedianFrames(window = 5, transform = (lambda x: x)):
+    if window > 0:
+        midIdx = (window + 1) / 2
+        frameCap = getFrames()
+        while True:
+            frameList = [ transform(frameCap.next())
+                            for i in range(window) ]
+            resFrame = copyFrame(frameList[0])
+            for x in range(resFrame.cols):
+                for y in range(resFrame.rows):
+                    vals = sorted([f[y,x] for f in frameList]) 
+                    val = vals[midIdx]
+                    resFrame[y,x] = val
+            yield resFrame
+            
+def copyFrame(frame):
+    """Create an empty image of the same size/type as frame"""
+    return cv.CreateMat(frame.rows, frame.cols, cv.GetElemType(frame))
 def getFrames (fps = 0):
     capture = cv.CaptureFromCAM(-1)
-    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT, 800)
-    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH, 1280)
+    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT, 1080)
+    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH, 1920)
     fps = float(fps)
     while True:
         if fps != 0:
             time.sleep(1 / fps )
         cv.GrabFrame(capture)
         frame = cv.CloneMat(cv.GetMat(cv.RetrieveFrame(capture), allowND=1))
-        for i in range(5):
-            cv.GrabFrame(capture)
-            tempFrame = cv.GetMat(cv.RetrieveFrame(capture), allowND=1)
-            #cv.AddWeighted(frame, 0.5, tempFrame, 0.5, 0.0, frame)
-            cv.Min(frame, tempFrame, frame)
         #frame = cv.CreateMat(tempCap.rows, tempCap.cols, cv.CV_8UC1)
         #cv.CvtColor(tempCap, frame, cv.CV_RGB2GRAY)
         yield frame
@@ -33,16 +46,19 @@ def getFrames (fps = 0):
 def warpFrame(frame, corners):
     """Transforms the frame such that the four corners (nw, ne, se, sw)
     are in the corner"""
-    w,h = frame.cols, frame.rows
-    targetCorners = ((0,0), (w,0), (w,h), (0,h))
-    warpMat = cv.CreateMat(3,3,cv.CV_32FC1) #Perspective warp matrix
-    cv.GetPerspectiveTransform( corners, 
-        targetCorners,
-        warpMat)
-    outImg = cv.CloneMat(frame)
-    cv.WarpPerspective(frame, outImg, warpMat, 
-        (cv.CV_INTER_CUBIC | cv.CV_WARP_FILL_OUTLIERS), 255)
-    return outImg
+    if len(corners) == 4:
+        w,h = frame.cols, frame.rows
+        targetCorners = ((0,0), (w,0), (w,h), (0,h))
+        warpMat = cv.CreateMat(3,3,cv.CV_32FC1) #Perspective warp matrix
+        cv.GetPerspectiveTransform( corners, 
+            targetCorners,
+            warpMat)
+        outImg = cv.CloneMat(frame)
+        cv.WarpPerspective(frame, outImg, warpMat, 
+            (cv.CV_INTER_CUBIC | cv.CV_WARP_FILL_OUTLIERS), 255)
+        return outImg
+    else:
+        return frame
 
 
 class CamProcessor(threading.Thread):
@@ -70,12 +86,13 @@ class CamProcessor(threading.Thread):
         
     def run(self):
         #cv.NamedWindow("Warp", 1)
+        scale = 0.5
         try:
-            frameCapture = getFrames(fps = 0)
+            frameCapture = getFrames()
             while True:
                 frame = frameCapture.next()
-                tempFrame = cv.CloneMat(frame)
-                #small_img = ISC.resizeImage(tempFrame, scale =0.5)
+                tempFrame = ISC.resizeImage(frame, scale)
+                #tempFrame = ISC.resizeImage(tempFrame, scale =0.5)
                 #tempFrame = cv.CreateMat(small_img.rows, 
                 #            small_img.cols, 
                 #            cv.CV_8UC1)
@@ -96,10 +113,13 @@ class CamProcessor(threading.Thread):
                 cv.ShowImage("Raw", tempFrame )
                     
 
-                if cv.WaitKey(10) == CVKEY_ENTER:
-                    procFrame = warpFrame(frame, corners)
+                if cv.WaitKey(10) != -1:
+                    procFrame = warpFrame(frame, 
+                        [(x/scale, y / scale) for x,y in corners] )
+                    procFrame = ISC.resizeImage(procFrame, targetWidth = 1680)
+                    ISC.saveimg(tempFrame)
                     ISC.saveimg(frame)
-                    #ISC.saveimg(procFrame)
+                    ISC.saveimg(procFrame)
                     self.processFrame(procFrame)
                 time.sleep(0.500)
         except:
