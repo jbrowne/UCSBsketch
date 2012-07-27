@@ -11,6 +11,14 @@ import pdb
 from functools import partial
 
 CVKEY_ENTER = 1048586
+MAXWINCORNERS = [(250, 92), 
+                (819, 107), 
+                (793, 463), 
+                (263, 452),]
+PROJCORNERS = [(251, 63), 
+                (822, 75), 
+                (791, 477), 
+                (260, 467),]
 def getMedianFrames(window = 5, transform = (lambda x: x)):
     if window > 0:
         midIdx = (window + 1) / 2
@@ -69,7 +77,7 @@ class CamProcessor(threading.Thread):
         if self.gui is not None:
             self.daemon = True
 
-        self.warpData = {'corners' : []}
+        self.warpData = {'corners' : MAXWINCORNERS }
         cv.NamedWindow("Raw", 1)
         cv.SetMouseCallback("Raw", self.onMouseEvent, None)
 
@@ -117,6 +125,7 @@ class CamProcessor(threading.Thread):
                     procFrame = warpFrame(frame, 
                         [(x/scale, y / scale) for x,y in corners] )
                     procFrame = ISC.resizeImage(procFrame, targetWidth = 1680)
+                    cv.DestroyWindow("Raw")
                     ISC.saveimg(tempFrame)
                     ISC.saveimg(frame)
                     ISC.saveimg(procFrame)
