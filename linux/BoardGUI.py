@@ -54,14 +54,15 @@ def getFrames (fps = 0):
 def warpFrame(frame, corners):
     """Transforms the frame such that the four corners (nw, ne, se, sw)
     are in the corner"""
+    outImg = cv.CreateMat(768, 1024, frame.type)
     if len(corners) == 4:
-        w,h = frame.cols, frame.rows
+        w,h = outFrame.cols, outFrame.rows #frame.cols, frame.rows
         targetCorners = ((0,0), (w,0), (w,h), (0,h))
         warpMat = cv.CreateMat(3,3,cv.CV_32FC1) #Perspective warp matrix
         cv.GetPerspectiveTransform( corners, 
             targetCorners,
             warpMat)
-        outImg = cv.CloneMat(frame)
+        #outImg = cv.CloneMat(frame)
         cv.WarpPerspective(frame, outImg, warpMat, 
             (cv.CV_INTER_CUBIC | cv.CV_WARP_FILL_OUTLIERS), 255)
         return outImg
@@ -124,8 +125,7 @@ class CamProcessor(threading.Thread):
                 if cv.WaitKey(10) != -1:
                     procFrame = warpFrame(frame, 
                         [(x/scale, y / scale) for x,y in corners] )
-                    procFrame = ISC.resizeImage(procFrame, targetWidth = 1680)
-                    cv.DestroyWindow("Raw")
+                    procFrame = ISC.resizeImage(procFrame, targetWidth = 1024)
                     ISC.saveimg(tempFrame)
                     ISC.saveimg(frame)
                     ISC.saveimg(procFrame)
