@@ -275,15 +275,15 @@ class TkSketchFrame(Frame, _SketchGUI):
     def toggleFullscreen(self):
         if not self.isFullScreen:
             self.root.withdraw()
-            sw = self.root.winfo_screenwidth()
-            sh = self.root.winfo_screenheight()
+            #sw = self.root.winfo_screenwidth()
+            #sh = self.root.winfo_screenheight()
+            sw, sh = 1024, 768
             self.BoardCanvas.config(width = sw, height= sh)
             self.root.overrideredirect(True) # Get rid of the menu bars
-            self.root.geometry("%dx%d+0+0" % (sw, sh)) #Set to full screen
+            self.root.geometry("%dx%d+1024+0" % (sw, sh)) #Set to full screen
             self.root.deiconify()
-            self.root.grab_set_global()
+            #self.root.grab_set_global()
 
-            """
             self.capture = Tk() #Used exclusively to grab keyboard events
             self.capture.focus_force()
             self.capture.bind("<Escape>",  
@@ -291,7 +291,6 @@ class TkSketchFrame(Frame, _SketchGUI):
             self.capture.bind("<Alt-Return>",  
                     lambda e: self.toggleFullscreen())
             self.SetCommandBindings(self.capture, makeMenu=False)
-            """
 
         else:
             self.root.withdraw()
@@ -299,9 +298,9 @@ class TkSketchFrame(Frame, _SketchGUI):
             self.BoardCanvas.config(width = WIDTH, height = HEIGHT)
             self.root.geometry("%dx%d+0+0" % (WIDTH, HEIGHT))
             self.root.deiconify()
-            self.root.grab_release()
-            #self.capture.destroy()
-            #self.capture = None
+            #self.root.grab_release()
+            self.capture.destroy()
+            self.capture = None
             self.root.focus_force()
         self.isFullScreen = not self.isFullScreen
             
@@ -320,7 +319,7 @@ class TkSketchFrame(Frame, _SketchGUI):
            raise
        finally:
           pass
-          self.root.grab_release()
+          #self.root.grab_release()
 
     def stop(self):
         print "Stopping!"
