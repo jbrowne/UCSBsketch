@@ -11,14 +11,39 @@ import pdb
 from functools import partial
 
 CVKEY_ENTER = 1048586
-MAXWINCORNERS = [(250, 92), 
-                (819, 107), 
-                (793, 463), 
-                (263, 452),]
+MAXWINCORNERS = [
+                (247, 176), 
+                (602, 180), 
+                (577, 406), 
+                (260, 398),
+                ]
 PROJCORNERS = [(251, 63), 
                 (822, 75), 
                 (791, 477), 
                 (260, 467),]
+PROJCORNERS_1024 = [(256, 75), 
+                    (824, 87), 
+                    (792, 480), 
+                    (263, 468),]
+
+def getModeFrames(frameCap, window = 5):
+    if window > 0:
+        scale = 1 / float(window)
+        colorframe = frameCap.next()
+        frame = cv.CreateMat(colorframe.rows, 
+                            colorframe.cols, 
+                            cv.CV_8UC1)
+        cv.CvtColor(colorframe, frame, cv.CV_RGB2GRAY)
+        frame = threshold(frame)
+        endFrame = copyFrame(frame)
+        cv.AddWeighted(frame, 0.0, frame, scale ,0.0,endFrame)
+        for i in range(window - 1):
+            colorframe = frameCap.next()
+            cv.CvtColor(colorframe, frame, cv.CV_RGB2GRAY)
+            frame = threshold(frame)
+            cv.AddWeighted(endFrame, 1.0, frame, scale ,0.0,endFrame)
+        return endFrame
+
 def getMedianFrames(window = 5, transform = (lambda x: x)):
     if window > 0:
         midIdx = (window + 1) / 2
@@ -37,26 +62,42 @@ def getMedianFrames(window = 5, transform = (lambda x: x)):
 def copyFrame(frame):
     """Create an empty image of the same size/type as frame"""
     return cv.CreateMat(frame.rows, frame.cols, cv.GetElemType(frame))
+
 def getFrames (fps = 0):
     capture = cv.CaptureFromCAM(-1)
-    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT, 1080)
-    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH, 1920)
+    #w,h = 1920, 1080
+    w,h = 2592,1944
+    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT, h)
+    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH, w)
     fps = float(fps)
     while True:
         if fps != 0:
             time.sleep(1 / fps )
         cv.GrabFrame(capture)
-        frame = cv.CloneMat(cv.GetMat(cv.RetrieveFrame(capture), allowND=1))
+        frame = cv.CloneMat(cv.GetMat(cv.RetrieveFrame(capture), allowND=0))
         #frame = cv.CreateMat(tempCap.rows, tempCap.cols, cv.CV_8UC1)
         #cv.CvtColor(tempCap, frame, cv.CV_RGB2GRAY)
         yield frame
 
+def threshold(img):
+    """A fast adaptive threshold using OpenCV's implementation"""
+    w, h = img.cols, img.rows
+    s = 0.05
+    region = (int(s * w), int(s * h), int( (1-2*s) * w), int( (1-2*s) * h))
+    subImg = cv.GetSubRect(img, region)
+    minVal, maxVal, _, _ = cv.MinMaxLoc(subImg)
+    cv.AdaptiveThreshold(img, img, 255, 
+        adaptive_method=cv.CV_ADAPTIVE_THRESH_GAUSSIAN_C, 
+        blockSize=21)
+    return img
+
 def warpFrame(frame, corners):
     """Transforms the frame such that the four corners (nw, ne, se, sw)
     are in the corner"""
-    outImg = cv.CreateMat(768, 1024, frame.type)
+    w,h = 1280, 1024
+    outImg = cv.CreateMat(h, w, frame.type)
     if len(corners) == 4:
-        w,h = outFrame.cols, outFrame.rows #frame.cols, frame.rows
+        #w,h = outImg.cols, outImg.rows #frame.cols, frame.rows
         targetCorners = ((0,0), (w,0), (w,h), (0,h))
         warpMat = cv.CreateMat(3,3,cv.CV_32FC1) #Perspective warp matrix
         cv.GetPerspectiveTransform( corners, 
@@ -95,7 +136,7 @@ class CamProcessor(threading.Thread):
         
     def run(self):
         #cv.NamedWindow("Warp", 1)
-        scale = 0.5
+        scale = 0.30
         try:
             frameCapture = getFrames()
             while True:
@@ -112,6 +153,7 @@ class CamProcessor(threading.Thread):
                 corners = self.warpData['corners']
                 if len(corners) == 4:
                     tempFrame = warpFrame(tempFrame, corners) 
+                    tempFrame = ISC.resizeImage(tempFrame, scale)
                 else:
                     cv.PolyLine(tempFrame, 
                             (corners,), False, (255,0,0), 
@@ -123,9 +165,11 @@ class CamProcessor(threading.Thread):
                     
 
                 if cv.WaitKey(10) != -1:
+                    frame = getModeFrames(frameCapture)
+
                     procFrame = warpFrame(frame, 
                         [(x/scale, y / scale) for x,y in corners] )
-                    procFrame = ISC.resizeImage(procFrame, targetWidth = 1024)
+                    #procFrame = ISC.resizeImage(procFrame, targetWidth = 1024)
                     ISC.saveimg(tempFrame)
                     ISC.saveimg(frame)
                     ISC.saveimg(procFrame)

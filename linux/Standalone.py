@@ -51,8 +51,8 @@ from Observers.ObserverBase import Animator
 from functools import partial
 
 # Constants
-WIDTH = 1280 
-HEIGHT = 800 
+WIDTH = 1008
+HEIGHT = 700
 #WIDTH = 1680 
 #HEIGHT =  1050
 MID_W = WIDTH/2
@@ -63,6 +63,7 @@ logger = Logger.getLogger("TkSketchFrame", Logger.DEBUG)
 def _initializeBoard(board):
     """Board initialization code, conveniently placed at the beginning of the
     file for easy modification"""
+    return
 
     from Observers import DebugObserver
     from Observers import RubineObserver
@@ -420,11 +421,13 @@ class TkSketchFrame(Frame, _SketchGUI):
                raise
 
         strokes = strokeDict['strokes']
-        WIDTH, HEIGHT = strokeDict['dims']
+        w,h = strokeDict['dims']
+        scale_x = WIDTH / float(w)
+        scale_y = HEIGHT / float(h)
         for s in strokes:
            pointList = []
            for x,y in s.points:
-              newPoint = Point(x, HEIGHT - y)
+              newPoint = Point(scale_x * x, HEIGHT - (scale_y *y))
               pointList.append(newPoint)
            newStroke = Stroke(pointList)
            self.AddStroke(newStroke)
@@ -476,6 +479,10 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.CurrentPointList = []
         self.StrokeList = []
         self._tempLines = []
+        #Clear pending strokes
+        while not self.StrokeQueue.empty():
+            self.StrokeQueue.get()
+            self.StrokeQueue.task_done()
 
 
     def RegisterAnimators(self):
