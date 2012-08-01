@@ -11,11 +11,18 @@ import pdb
 from functools import partial
 
 CVKEY_ENTER = 1048586
+TEMPCORNERS = [ 
+                (608, 340), 
+                (2028, 651), 
+                (2188, 1605), 
+                (371, 1482), 
+                ]
+
 MAXWINCORNERS = [
-                (247, 176), 
-                (602, 180), 
-                (577, 406), 
-                (260, 398),
+                (411, 292), 
+                (1006, 303), 
+                (962, 679), 
+                (433, 664),
                 ]
 PROJCORNERS = [(251, 63), 
                 (822, 75), 
@@ -34,13 +41,15 @@ def getModeFrames(frameCap, window = 5):
                             colorframe.cols, 
                             cv.CV_8UC1)
         cv.CvtColor(colorframe, frame, cv.CV_RGB2GRAY)
-        frame = threshold(frame)
+        #frame = threshold(frame)
         endFrame = copyFrame(frame)
-        cv.AddWeighted(frame, 0.0, frame, scale ,0.0,endFrame)
+        #cv.AddWeighted(frame, 0.0, frame, 1/window ,0.0,endFrame)
         for i in range(window - 1):
             colorframe = frameCap.next()
             cv.CvtColor(colorframe, frame, cv.CV_RGB2GRAY)
-            frame = threshold(frame)
+            #frame = threshold(frame)
+            cv.Smooth(frame, frame, smoothtype= cv.CV_MEDIAN, param1=3)
+            cv.Min(frame, endFrame, endFrame)
             cv.AddWeighted(endFrame, 1.0, frame, scale ,0.0,endFrame)
         return endFrame
 
@@ -75,8 +84,6 @@ def getFrames (fps = 0):
             time.sleep(1 / fps )
         cv.GrabFrame(capture)
         frame = cv.CloneMat(cv.GetMat(cv.RetrieveFrame(capture), allowND=0))
-        #frame = cv.CreateMat(tempCap.rows, tempCap.cols, cv.CV_8UC1)
-        #cv.CvtColor(tempCap, frame, cv.CV_RGB2GRAY)
         yield frame
 
 def threshold(img):
@@ -86,15 +93,18 @@ def threshold(img):
     region = (int(s * w), int(s * h), int( (1-2*s) * w), int( (1-2*s) * h))
     subImg = cv.GetSubRect(img, region)
     minVal, maxVal, _, _ = cv.MinMaxLoc(subImg)
-    cv.AdaptiveThreshold(img, img, 255, 
+    cv.AdaptiveThreshold(img, img, 130, 
         adaptive_method=cv.CV_ADAPTIVE_THRESH_GAUSSIAN_C, 
         blockSize=21)
     return img
 
-def warpFrame(frame, corners):
+def warpFrame(frame, corners, dimensions = None):
     """Transforms the frame such that the four corners (nw, ne, se, sw)
     are in the corner"""
-    w,h = 1280, 1024
+    if dimensions is None:
+        w,h = 1280, 1024
+    else:
+        (w,h) = dimensions
     outImg = cv.CreateMat(h, w, frame.type)
     if len(corners) == 4:
         #w,h = outImg.cols, outImg.rows #frame.cols, frame.rows
@@ -119,29 +129,35 @@ class CamProcessor(threading.Thread):
         if self.gui is not None:
             self.daemon = True
 
-        self.warpData = {'corners' : MAXWINCORNERS }
+        self.warpData = {'corners' : TEMPCORNERS}
         cv.NamedWindow("Raw", 1)
         cv.SetMouseCallback("Raw", self.onMouseEvent, None)
 
+        self.rawResolution = (2593,1944) #w, h
+        self.viewScale = 0.35
+
         
     def onMouseEvent(self, event, x, y, flags, param):
+        scale = self.viewScale
         if event == cv.CV_EVENT_LBUTTONDOWN:
-            print "(%s, %s), " % (x,y)
+            newX = int(x / scale)
+            newY = int(y / scale)
+            print "(%s, %s), " % (newX, newY)
             if len(self.warpData['corners']) == 4:
                 print "Reset Warp"
                 self.warpData['corners'] = []
             else:
-                self.warpData['corners'].append((x, y))
-                
+                self.warpData['corners'].append( (newX, newY) ) 
         
     def run(self):
-        #cv.NamedWindow("Warp", 1)
-        scale = 0.30
+        scale = self.viewScale
+        key_sleep = 10
+        boardDims = Standalone.WIDTH * 2, Standalone.HEIGHT * 2
         try:
             frameCapture = getFrames()
             while True:
-                frame = frameCapture.next()
-                tempFrame = ISC.resizeImage(frame, scale)
+                tempFrame = frameCapture.next()
+                #tempFrame = ISC.resizeImage(frame, scale)
                 #tempFrame = ISC.resizeImage(tempFrame, scale =0.5)
                 #tempFrame = cv.CreateMat(small_img.rows, 
                 #            small_img.cols, 
@@ -152,8 +168,9 @@ class CamProcessor(threading.Thread):
 
                 corners = self.warpData['corners']
                 if len(corners) == 4:
-                    tempFrame = warpFrame(tempFrame, corners) 
-                    tempFrame = ISC.resizeImage(tempFrame, scale)
+                    tempFrame = warpFrame(tempFrame, 
+                            corners, 
+                            dimensions = boardDims) 
                 else:
                     cv.PolyLine(tempFrame, 
                             (corners,), False, (255,0,0), 
@@ -161,20 +178,24 @@ class CamProcessor(threading.Thread):
                             shift=0)
                     for pt in corners:
                         cv.Circle(tempFrame, pt, 2, (0,255,0), thickness=-3)
+                tempFrame = ISC.resizeImage(tempFrame, scale)
                 cv.ShowImage("Raw", tempFrame )
                     
 
-                if cv.WaitKey(10) != -1:
-                    frame = getModeFrames(frameCapture)
+                if cv.WaitKey(key_sleep) != -1:
+                    print "Processing..."
+                    key_sleep = 5000
+                    #frame = getModeFrames(frameCapture)
+                    frame = frameCapture.next()
 
                     procFrame = warpFrame(frame, 
-                        [(x/scale, y / scale) for x,y in corners] )
+                                          corners,
+                                          dimensions = boardDims)
                     #procFrame = ISC.resizeImage(procFrame, targetWidth = 1024)
                     ISC.saveimg(tempFrame)
                     ISC.saveimg(frame)
                     ISC.saveimg(procFrame)
                     self.processFrame(procFrame)
-                time.sleep(0.500)
         except:
             raise
         finally:

@@ -51,8 +51,8 @@ from Observers.ObserverBase import Animator
 from functools import partial
 
 # Constants
-WIDTH = 1008
-HEIGHT = 700
+WIDTH = 950
+HEIGHT = 640
 #WIDTH = 1680 
 #HEIGHT =  1050
 MID_W = WIDTH/2
@@ -240,7 +240,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
         self.root.title("Sketchy/Scratch")
         #root.overrideredirect(True) # Get rid of the menu bars
-        root.geometry("%dx%d+0+0" % (WIDTH, HEIGHT)) #Set to full screen
+        #root.geometry("%dx%d+1024+1" % (WIDTH, HEIGHT)) #Set to full screen
         #root.focus_set() #Make sure we can grab keyboard
         Frame.__init__(self, self.root)
         self.pack()
@@ -276,13 +276,15 @@ class TkSketchFrame(Frame, _SketchGUI):
     def toggleFullscreen(self):
         if not self.isFullScreen:
             self.root.withdraw()
-            #sw = self.root.winfo_screenwidth()
+            #sw = 1024 #self.root.winfo_screenwidth()
             #sh = self.root.winfo_screenheight()
-            sw, sh = 1024, 768
+            #sw, sh = 1024, 768
+            sw = WIDTH
+            sh = HEIGHT
             self.BoardCanvas.config(width = sw, height= sh)
-            self.root.overrideredirect(True) # Get rid of the menu bars
-            self.root.geometry("%dx%d+1024+0" % (sw, sh)) #Set to full screen
+            #self.root.overrideredirect(True) # Get rid of the menu bars
             self.root.deiconify()
+            self.root.geometry("%dx%d+1023-50" % (sw, sh)) #Set to full screen
             #self.root.grab_set_global()
 
             self.capture = Tk() #Used exclusively to grab keyboard events
@@ -295,7 +297,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
         else:
             self.root.withdraw()
-            self.root.overrideredirect(False)
+            #self.root.overrideredirect(False)
             self.BoardCanvas.config(width = WIDTH, height = HEIGHT)
             self.root.geometry("%dx%d+0+0" % (WIDTH, HEIGHT))
             self.root.deiconify()
@@ -425,12 +427,13 @@ class TkSketchFrame(Frame, _SketchGUI):
         scale_x = WIDTH / float(w)
         scale_y = HEIGHT / float(h)
         for s in strokes:
-           pointList = []
-           for x,y in s.points:
-              newPoint = Point(scale_x * x, HEIGHT - (scale_y *y))
-              pointList.append(newPoint)
-           newStroke = Stroke(pointList)
-           self.AddStroke(newStroke)
+           if len(s.points) > 5:
+               pointList = []
+               for x,y in s.points:
+                  newPoint = Point(scale_x * x, HEIGHT - (scale_y *y))
+                  pointList.append(newPoint)
+               newStroke = Stroke(pointList)
+               self.AddStroke(newStroke)
 
 
     def RemoveLatestStroke(self):
