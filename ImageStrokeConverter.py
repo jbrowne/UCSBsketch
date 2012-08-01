@@ -55,7 +55,7 @@ PRUNING_ERROR = 0.2
 SQUARE_ERROR = 0.2
 PRUNING_ERROR = PRUNING_ERROR * SQUARE_ERROR
 
-CACHE = {}
+CACHE = None
 
 NORMWIDTH = 1280
 #NORMWIDTH = 2592
@@ -67,16 +67,22 @@ DEBUGSCALE = 1
 
 def cvimgToStrokes(in_img):
    "External interface to take in an OpenCV image object and return a list of the strokes."
+   global DEBUG, CACHE
+   CACHE = {}
+   DEBUG = True
    if DEBUG:
        saveimg(in_img)
-   saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
+   saveimg(in_img, outdir="./photos/", 
+           name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
    #small_img = resizeImage(in_img)
    small_img = in_img
+   saveimg(small_img)
    temp_img = removeBackground(small_img)
    #temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
    #cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
    #cv.AdaptiveThreshold(temp_img, temp_img, 255, blockSize=39)
    strokelist = blobsToStrokes(temp_img)
+   DEBUG = False
    if DEBUG:
        prettyPrintStrokes(temp_img, strokelist)
    #saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
@@ -431,8 +437,8 @@ def _squareIntersections(graphDict, rawImg):
 
             cpDict['thickness'] = thicknessAtPoint(newCrossPoint, rawImg)
             newPoints[newCrossPoint] = cpDict
-        if DEBUG:
-            saveimg(DEBUGIMG)
+    if DEBUG:
+        saveimg(DEBUGIMG)
 
     for pt in removedPoints:
         _deletePointFromGraph(pt, graphDict)
@@ -492,7 +498,7 @@ def _collapseIntersections(graph, rawImg):
                   for db_pt in circlePixels(cp1, (p1Thick -1)/ 2.0):
                      if db_pt[0] >= 0 and db_pt[0] < DEBUGIMG.cols and db_pt[1] >= 0 and db_pt[1] < DEBUGIMG.rows:
                         setImgVal(db_pt[0], db_pt[1], 148, DEBUGIMG)
-                  saveimg(DEBUGIMG)
+                  #saveimg(DEBUGIMG)
                while len(procSet) > 0:
                   mergePt = procSet.pop()
                   mergeSet.add(mergePt)
@@ -708,7 +714,8 @@ def drawGraph(graph, img):
       setImgVal(p[0], p[1], 220, img)
    
 def pointsToStrokes(pointSet, rawImg):
-   "Converts a set() of point tuples into a list of strokes making up those points"
+   """Converts a set() of point tuples into a list of strokes making up those
+   points"""
    global DEBUGIMG
    DEBUGIMG = cv.CloneMat(rawImg)
    cv.Set(DEBUGIMG, 255)
@@ -751,13 +758,14 @@ def pointsToGraph(pointSet, rawImg):
             if nPt in pointSet and nPt not in ptsInStack:
                addNbors.append(nPt)
 
-         #Add this point as a "pivot" if it's the first, out of range of the last pivot, 
-         #    or if it is an intersection point. Add all intermediate pixels that got here
-         #    from the last pivot node
+         #Add this point as a "pivot" if it's the first, out of range of the
+         #last pivot, or if it is an intersection point. Add all intermediate
+         #pixels that got here from the last pivot node
          if len(path) > 0:
              ptThick = allThicknesses.setdefault(pt, thicknessAtPoint(pt, rawImg))
              if len(path) == 1:
-                ptDict = graphDict.setdefault(pt, {'kids': set([]), 'thickness': ptThick})
+                ptDict = graphDict.setdefault(pt, {'kids': set([]),
+                    'thickness': ptThick})
 
              elif not pointsOverlap(path[0], pt, rawImg,
                                     pt1Thickness = allThicknesses.setdefault(path[0], thicknessAtPoint(path[0], rawImg)),
@@ -1005,7 +1013,9 @@ def graphToStrokes(graph, rawImg):
                allEdgeLen = sum([ len(edge) for edge in crossingEdges ])
                for i in xrange(len(crossingEdges)):
                   for j in xrange(i + 1, len(crossingEdges)):
-                     curSmoothness = scoreConcatSmoothness(list(reversed(crossingEdges[i])), crossingEdges[j])
+                     curSmoothness = \
+                        scoreConcatSmoothness(list(reversed(crossingEdges[i])),
+                                              crossingEdges[j])
                      #curSmoothness = curSmoothness * allEdgeLen / float(len(crossingEdges[i]) + len(crossingEdges[j]) )
                      if curSmoothness > bestSmoothness:
                         bestSmoothness = curSmoothness
@@ -1338,7 +1348,10 @@ def getImgVal(x,y,img):
 '''
      
 def setImgVal(x,y,val,img):
-   img[y,x] = val
+   try:
+       img[y,x] = val
+   except:
+       pass
 
 def getHeight(img):
    return img.rows
@@ -1439,6 +1452,18 @@ def getHoughLines(img, numlines = 4, method = 1):
 
 
 
+def adaptiveThreshold(img):
+    """A fast adaptive threshold using OpenCV's implementation"""
+    w, h = img.cols, img.rows
+    s = 0.05
+    blockSize = 39
+    region = (int(s * w), int(s * h), int( (1-2*s) * w), int( (1-2*s) * h))
+    subImg = cv.GetSubRect(img, region)
+    minVal, maxVal, _, _ = cv.MinMaxLoc(subImg)
+    cv.AdaptiveThreshold(img, img, 255, 
+        adaptive_method=cv.CV_ADAPTIVE_THRESH_GAUSSIAN_C, 
+        blockSize=blockSize)
+    return img
 
 def resizeImage(img, scale = None, targetWidth = None):
    "Take in an image and size it according to scale"
@@ -1450,9 +1475,9 @@ def resizeImage(img, scale = None, targetWidth = None):
       scale = targetWidth / float(realWidth) #rough scaling
 
    #img = cv.GetSubRect(img, (0,0, img.cols, img.rows -19) ) # HACK to skip the G2's corrupted pixel business
-   if DEBUG:
-       print "Scaling %s" % (scale)
-       saveimg(img)
+   #if DEBUG:
+   #    print "Scaling %s" % (scale)
+   #    saveimg(img)
    retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
    cv.Resize(img, retImg)
    return retImg
@@ -1507,47 +1532,53 @@ def getHistogramList(img, normFactor = 1000):
       print "Error, can only get histogram of grayscale image"
       return retVector
 
-   hist = cv.CreateHist( [255], cv.CV_HIST_ARRAY, [[0,255]], 1)
+   hist = cv.CreateHist( [256], cv.CV_HIST_ARRAY, [[0,256]], 1)
    cv.CalcHist([cv.GetImage(img)], hist)
    cv.NormalizeHist(hist, normFactor)
    gran = 5
    accum = 0
-   for idx in xrange(0, 255):
+   for idx in xrange(0, 256):
       retVector.append(cv.QueryHistValue_1D(hist, idx))
    return retVector
 
 def isForeGroundGone(img):
    "Figure out whether the strokes of an image have been smoothed away or still remain"
-   borderThresh = 0.25 #How much of the border to ignore in figuring whether the foreground is gone
    debug = False
+   #Define a region that we want to look at, so we don't try to 
+   #smudge out border artifacts and mess up the ink
+   borderThresh = 0.15 #How much of the border to ignore in figuring whether the foreground is gone
    left = int( borderThresh * img.cols)
    right = int( (1 - 2 * borderThresh) * img.cols)
    top = int( borderThresh * img.rows)
    bottom = int( (1 - 2 * borderThresh) * img.rows)
-
    activeROI = ( left, top, right, bottom)
-   #print "Checking foreground of %s" % (str(activeROI))
    img = cv.GetSubRect(img, activeROI)
    
+   #Get the histogram normalized to 1000 total
    hist = getHistogramList(img)
    histNorm = 1000
+   #Where is it safe to assume that the rest is foreground?
    foreGroundThresh = 80
+   #How far apartmust the background be from the foreground?
    smudgeFactor = 35
+
    total = 0
    targetTotal = 0.7 * histNorm
+   noForeground = False #The return value
 
    if sum(hist) == 0: #Empty image
       return True
-
-   noForeground = False
-   i = 254
-   while i >= foreGroundThresh and total < targetTotal: #Add up hist values from white to black, but don't bother going past foreGroundThresh darkness
+   i = 255
+   #Add up hist values from white to black, but 
+   #don't bother going past foreGroundThresh darkness
+   while i >= foreGroundThresh and total < targetTotal: 
       total += hist[i]
       i -= 1
 
    #print "foreGroundThresh %s reached at %s" % (total, i)
-   if total < targetTotal: #We didn't make it to the background
-      #print "Total at %s is %s" % (i, total)
+
+   if total < targetTotal: 
+      #Not enough background above what we assume is foreground ink
       return False
 
    #We have gotten past the peak of background
@@ -1557,18 +1588,26 @@ def isForeGroundGone(img):
    lastNum = i
    #print "last num > 1 reached at %s" % (i)
 
+   #Follow the tail of the peak to the first empty bucket
    while i >= 0 and hist[i] > 0.0:
       i -= 1
    firstZero = i
    #print "first zero reached at %s" % (i)
 
+   #If the range of remaining dark values are within a
+   #reasonable range of the background peak, just
+   #ignore them
    if lastNum - firstZero <= smudgeFactor:
-      noForeground = True
-      while i >= 0:
-         if hist[i] > 0.0:
-            noForeground = False
-            break
-         i -= 1
+      #If the foreground picks up again, there is
+      #still some ink remaining
+      remainingSum = sum(hist[:i])
+      if remainingSum > 0:
+         print "Ink remaining with value under %s (%s)" % (i, remainingSum)
+         noForeground = False
+      else:
+         print "Not enough Ink remaining with value under %s (%s)" % \
+                (i, remainingSum)
+         noForeground = True
 
    return noForeground
       
@@ -1578,7 +1617,7 @@ def convertBlackboardImage(gray_img):
    and then invert it so it looks more like a whiteboard"""
    global ISBLACKBOARD
    hist = getHistogramList(gray_img)
-   #printHistogramList(hist, granularity = 5)
+   printHistogramList(hist, granularity = 10)
    maxIdx = hist.index(max(hist))
    bright3rd = ( maxIdx + len(hist) )/ 2
    dark3rd = ( maxIdx )/ 2
@@ -1586,18 +1625,22 @@ def convertBlackboardImage(gray_img):
    brightSum = sum(hist[bright3rd:])
    #print "Maximum bin: ", hist.index(max(hist))
    if maxIdx > 200:
-      print "Not a blackboard!"
+      print "Not a blackboard: bright peak!"
       ISBLACKBOARD = False
    elif maxIdx < 50:
-      print "Blackboard seen"
+      print "Blackboard seen: dark peak!"
       ISBLACKBOARD = True 
    elif darkSum > brightSum:
-      print "Not a blackboard!"
+      print "Not a blackboard: more dark than light!"
       ISBLACKBOARD = False
    else:
-      print "Blackboard seen"
+      print "Blackboard seen: more light than dark"
       ISBLACKBOARD = True 
 
+   #HACK!
+   print "WARNING: Short circuiting blackboard evaluation"
+   ISBLACKBOARD = False
+   #HACK!
 
    if ISBLACKBOARD:
       #print "Converting Blackboard image to look like a whiteboard"
@@ -1636,7 +1679,6 @@ def removeBackground(cv_img):
    gray_img = convertBlackboardImage(gray_img)
    #Create histogram for single channel (0..255 range), into 255 bins
    bg_img = gray_img
-   emph_img = bg_img
 
    #Generate the "background image"
    while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows / 2.0:
@@ -1680,7 +1722,8 @@ def removeBackground(cv_img):
 
 
    #Binarize the amplified ink image
-   cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
+   #cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
+   gray_img = adaptiveThreshold(gray_img)
    if DEBUG:
       saveimg(gray_img)
 
