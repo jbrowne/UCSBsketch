@@ -33,6 +33,29 @@ PROJCORNERS_1024 = [(256, 75),
                     (792, 480), 
                     (263, 468),]
 
+def imageDiff(img1, img2):
+    """Return an image of the board containing only the difference between the
+    two frames"""
+    sanityThresh = img1.rows * img1.cols * 0.20 #No more than XX percent change 
+
+    diffImg = copyFrame(img1)
+    _, bg_img = ISC.removeBackground(img2)
+    retImg = cv.CloneMat(img2)
+
+    #Get the difference mask
+    cv.AddWeighted(img2, 1.0, img1, -1.0 ,255, diffImg)
+    cv.Smooth(diffImg, diffImg)
+    cv.Threshold(diffImg, diffImg, 245, 255, cv.CV_THRESH_BINARY)
+    cv.Erode(diffImg, diffImg, iterations=1)
+
+    #If there is a reasonable difference from the last frame
+    if cv.CountNonZero(diffImg) > sanityThresh:
+        cv.Copy(bg_img, retImg, mask = diffImg)
+        return retImg
+    else:   
+        return bg_img
+
+
 def getModeFrames(frameCap, window = 5):
     if window > 0:
         scale = 1 / float(window)
@@ -84,7 +107,9 @@ def getFrames (fps = 0):
             time.sleep(1 / fps )
         cv.GrabFrame(capture)
         frame = cv.CloneMat(cv.GetMat(cv.RetrieveFrame(capture), allowND=0))
-        yield frame
+        grayFrame = cv.CreateMat(frame.rows, frame.cols, cv.CV_8UC1)
+        cv.CvtColor(frame, grayFrame, cv.CV_RGB2GRAY)
+        yield grayFrame
 
 def threshold(img):
     """A fast adaptive threshold using OpenCV's implementation"""
@@ -134,7 +159,7 @@ class CamProcessor(threading.Thread):
         cv.SetMouseCallback("Raw", self.onMouseEvent, None)
 
         self.rawResolution = (2593,1944) #w, h
-        self.viewScale = 0.35
+        self.viewScale = 0.5
 
         
     def onMouseEvent(self, event, x, y, flags, param):
@@ -153,24 +178,20 @@ class CamProcessor(threading.Thread):
         scale = self.viewScale
         key_sleep = 10
         boardDims = Standalone.WIDTH * 2, Standalone.HEIGHT * 2
+        procFrame = None
+        procTime = None
         try:
             frameCapture = getFrames()
             while True:
                 tempFrame = frameCapture.next()
-                #tempFrame = ISC.resizeImage(frame, scale)
-                #tempFrame = ISC.resizeImage(tempFrame, scale =0.5)
-                #tempFrame = cv.CreateMat(small_img.rows, 
-                #            small_img.cols, 
-                #            cv.CV_8UC1)
-                #
-                #cv.CvtColor(small_img, tempFrame, cv.CV_RGB2GRAY)
-                #cv.AdaptiveThreshold(tempFrame, tempFrame, 255, blockSize=39)
 
                 corners = self.warpData['corners']
                 if len(corners) == 4:
                     tempFrame = warpFrame(tempFrame, 
                             corners, 
                             dimensions = boardDims) 
+                    #if procFrame is not None:
+                    #    tempFrame = imageDiff(procFrame, tempFrame)
                 else:
                     cv.PolyLine(tempFrame, 
                             (corners,), False, (255,0,0), 
@@ -182,20 +203,33 @@ class CamProcessor(threading.Thread):
                 cv.ShowImage("Raw", tempFrame )
                     
 
-                if cv.WaitKey(key_sleep) != -1:
+                capKey = cv.WaitKey(key_sleep)
+                if capKey != -1:
+                    if capKey == 1048603:
+                        procFrame = None
+
                     print "Processing..."
                     key_sleep = 5000
-                    #frame = getModeFrames(frameCapture)
+                    #Clear the buffered frames
+                    if procTime is not None and time.time() - procTime >= 1.0:
+                        for i in range(3):
+                            frame = frameCapture.next()
                     frame = frameCapture.next()
 
-                    procFrame = warpFrame(frame, 
+                    procTime = time.time()
+                    thisFrame = warpFrame(frame, 
                                           corners,
                                           dimensions = boardDims)
-                    #procFrame = ISC.resizeImage(procFrame, targetWidth = 1024)
-                    ISC.saveimg(tempFrame)
+                    if procFrame is not None:
+                        diffFrame = imageDiff(procFrame, thisFrame)
+                    else:
+                        diffFrame = thisFrame
+                    procFrame = thisFrame
+
                     ISC.saveimg(frame)
                     ISC.saveimg(procFrame)
-                    self.processFrame(procFrame)
+                    ISC.saveimg(diffFrame)
+                    self.processFrame(diffFrame)
         except:
             raise
         finally:
@@ -205,8 +239,8 @@ class CamProcessor(threading.Thread):
     def processFrame(self, frame):
         """Send a frame to the GUI and let it process all the way"""
         if self.gui is not None:
-            op = partial(self.gui.ResetBoard)
-            self.gui.post(op)
+            #op = partial(self.gui.ResetBoard)
+            #self.gui.post(op)
             op = partial(self.gui.LoadStrokesFromImage, frame)
             self.gui.post(op)
 

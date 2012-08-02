@@ -63,7 +63,6 @@ logger = Logger.getLogger("TkSketchFrame", Logger.DEBUG)
 def _initializeBoard(board):
     """Board initialization code, conveniently placed at the beginning of the
     file for easy modification"""
-    return
 
     from Observers import DebugObserver
     from Observers import RubineObserver
@@ -401,6 +400,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
     def LoadStrokesFromImage(self, image = None):
         global WIDTH, HEIGHT
+        pruneLen = 10
         if image != None:
             try:
                 strokeDict = ImageStrokeConverter.cvimgToStrokes(image)
@@ -427,7 +427,7 @@ class TkSketchFrame(Frame, _SketchGUI):
         scale_x = WIDTH / float(w)
         scale_y = HEIGHT / float(h)
         for s in strokes:
-           if len(s.points) > 5:
+           if len(s.points) > pruneLen:
                pointList = []
                for x,y in s.points:
                   newPoint = Point(scale_x * x, HEIGHT - (scale_y *y))
