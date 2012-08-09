@@ -12,11 +12,12 @@ from functools import partial
 
 CVKEY_ENTER = 1048586
 TEMPCORNERS = [ 
-                (608, 340), 
-                (2028, 651), 
-                (2188, 1605), 
-                (371, 1482), 
+                (572, 220), 
+                (2240, 444), 
+                (2496, 1556), 
+                (304, 1464), 
                 ]
+
 
 MAXWINCORNERS = [
                 (411, 292), 
@@ -159,7 +160,7 @@ class CamProcessor(threading.Thread):
         cv.SetMouseCallback("Raw", self.onMouseEvent, None)
 
         self.rawResolution = (2593,1944) #w, h
-        self.viewScale = 0.5
+        self.viewScale = 0.25
 
         
     def onMouseEvent(self, event, x, y, flags, param):
