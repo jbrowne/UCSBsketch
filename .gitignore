@@ -9,4 +9,5 @@ linux/photos/
 linux/temp
 *.bak
 *.old
+*.jpg
 

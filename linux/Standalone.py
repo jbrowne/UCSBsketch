@@ -48,116 +48,19 @@ from Utils import ImageStrokeConverter
 
 from Observers.ObserverBase import Animator
 
+import Config
+
 from functools import partial
 
 # Constants
-WIDTH = 1280 
-HEIGHT = 800 
+WIDTH = 950
+HEIGHT = 640
 #WIDTH = 1680 
 #HEIGHT =  1050
 MID_W = WIDTH/2
 MID_H = HEIGHT/2
 
 logger = Logger.getLogger("TkSketchFrame", Logger.DEBUG)
-
-def _initializeBoard(board):
-    """Board initialization code, conveniently placed at the beginning of the
-    file for easy modification"""
-
-    from Observers import DebugObserver
-    from Observers import RubineObserver
-    from Bin import (BinObserver, EqualsObserver, PlusObserver,
-                     MinusObserver, DivideObserver, MultObserver,
-                     ExpressionObserver, EquationObserver, DirectedLine)
-    from Observers import NumberObserver
-
-    from Observers import CircleObserver
-    from Observers import ArrowObserver
-    from Observers import DiGraphObserver
-    from Observers import TuringMachineObserver
-    from Observers import LineObserver
-    from Observers import TextObserver
-    """
-    from Observers import RaceTrackObserver
-    from Observers import TemplateObserver
-    from Observers import TestAnimObserver
-    """
-
-    if board is not None:
-
-        CircleObserver.CircleMarker(board)
-        #CircleObserver.CircleVisualizer(board)
-        ArrowObserver.ArrowMarker(board)
-        ArrowObserver.ArrowVisualizer(board)
-        LineObserver.LineMarker(board)
-        #LineObserver.LineVisualizer(board)
-        TextObserver.TextCollector(board)
-        #TextObserver.TextVisualizer(board)
-        DiGraphObserver.DiGraphMarker(board)
-        #DiGraphObserver.DiGraphVisualizer(board)
-        DiGraphObserver.DiGraphExporter(board)
-        TuringMachineObserver.TuringMachineCollector(board)
-        TuringMachineObserver.TuringMachineExporter(board)
-        TuringMachineObserver.TuringMachineVisualizer(board)
-
-        """
-        RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
-        RubineObserver.RubineVisualizer(board)
-
-        DirectedLine.DirectedLineMarker(board)
-
-        NumberObserver.NumCollector(board)
-        NumberObserver.NumVisualizer(board)
-
-        #BinObserver.BinCollector(board)
-        #BinObserver.BinVisualizer(board)
-        EqualsObserver.EqualsMarker(board)
-        EqualsObserver.EqualsVisualizer(board)
-        PlusObserver.PlusMarker(board)
-        PlusObserver.PlusVisualizer(board)
-        MinusObserver.MinusMarker(board)
-        MinusObserver.MinusVisualizer(board)
-        DivideObserver.DivideMarker(board)
-        DivideObserver.DivideVisualizer(board)
-        MultObserver.MultMarker(board)
-        MultObserver.MultVisualizer(board)
-        ExpressionObserver.ExpressionObserver(board)
-        ExpressionObserver.ExpressionVisualizer(board)
-        #EquationObserver.EquationObserver(board)
-        #EquationObserver.EquationVisualizer(board)
-
-
-        TestAnimObserver.TestMarker()
-        TestAnimObserver.TestAnimator(fps = 1 / 3.0)
-        RaceTrackObserver.SplitStrokeMarker()
-        RaceTrackObserver.SplitStrokeVisualizer()
-        RaceTrackObserver.RaceTrackMarker()
-        RaceTrackObserver.RaceTrackVisualizer()
-        TemplateObserver.TemplateMarker()
-        TemplateObserver.TemplateVisualizer()
-        """
-
-
-        d = DebugObserver.DebugObserver(board)
-        """
-        d.trackAnnotation(DiGraphObserver.DiGraphNodeAnnotation)
-        d.trackAnnotation(TestAnimObserver.TestAnnotation)
-        d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
-        d.trackAnnotation(MSAxesObserver.LegendAnnotation)
-        d.trackAnnotation(LineObserver.LineAnnotation)
-        d.trackAnnotation(ArrowObserver.ArrowAnnotation)
-        d.trackAnnotation(MSAxesObserver.AxesAnnotation)
-        d.trackAnnotation(TemplateObserver.TemplateAnnotation)
-        d.trackAnnotation(CircleObserver.CircleAnnotation)
-        d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
-        d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
-
-        d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
-        d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
-        d.trackAnnotation(TextObserver.TextAnnotation)
-        d.trackAnnotation(BarAnnotation)
-        """
-
 
 class ImgProcThread (threading.Thread):
     """A Thread that continually pulls image data from imgQ and puts the
@@ -218,6 +121,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
         #Set up all the logical board stuff before displaying anything
         self.running = False
+        self.isFullScreen = False
         self.OpQueue = Queue.Queue()
         self.StrokeQueue = Queue.Queue()
         self.Board = None
@@ -233,12 +137,12 @@ class TkSketchFrame(Frame, _SketchGUI):
         root = self.root = Tk()
         #capture = Tk() #Used exclusively to grab keyboard events
         #capture.focus_set()
-        sw = root.winfo_screenwidth()
-        sh = root.winfo_screenheight()
+        #sw = root.winfo_screenwidth()
+        #sh = root.winfo_screenheight()
 
         self.root.title("Sketchy/Scratch")
         #root.overrideredirect(True) # Get rid of the menu bars
-        root.geometry("%dx%d+0+0" % (WIDTH, HEIGHT)) #Set to full screen
+        #root.geometry("%dx%d+1024+1" % (WIDTH, HEIGHT)) #Set to full screen
         #root.focus_set() #Make sure we can grab keyboard
         Frame.__init__(self, self.root)
         self.pack()
@@ -250,8 +154,8 @@ class TkSketchFrame(Frame, _SketchGUI):
                     width=WIDTH, height = HEIGHT,
                     bg="black", bd=2)
         self.BoardCanvas.pack(side=BOTTOM)
-        self.root.bind("<Alt-Return>", lambda e: self.setFullscreen(True) )
-        self.root.bind("<Escape>", lambda e: self.setFullscreen(True) )
+        self.root.bind("<Alt-Return>", lambda e: self.toggleFullscreen() )
+        self.root.bind("<Escape>", lambda e: self.toggleFullscreen() )
         #Left click bindings
         self.BoardCanvas.bind("<ButtonPress-1>", self.CanvasMouseDown)
         self.BoardCanvas.bind("<B1-Motion>", self.CanvasMouseDown)
@@ -266,44 +170,49 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.BoardCanvas.bind("<ButtonPress-2>", self.CanvasMiddleMouseDown)
         self.BoardCanvas.bind("<B2-Motion>", self.CanvasMiddleMouseDown)
         self.BoardCanvas.bind("<ButtonRelease-2>", self.CanvasMiddleMouseUp)
-        self.SetCommandBindings(self.root)
+        self.SetCommandBindings(self.root, makeMenu=False)
         self.Redraw()
 
         #self.run()
 
-    def setFullscreen(self, goFullscreen):
-        if goFullscreen:
+    def toggleFullscreen(self):
+        if not self.isFullScreen:
             self.root.withdraw()
-            sw = self.root.winfo_screenwidth()
-            sh = self.root.winfo_screenheight()
-            self.root.geometry("%dx%d+0+0" % (sw, sh)) #Set to full screen
+            #sw = 1024 #self.root.winfo_screenwidth()
+            #sh = self.root.winfo_screenheight()
+            #sw, sh = 1024, 768
+            sw = WIDTH
+            sh = HEIGHT
             self.BoardCanvas.config(width = sw, height= sh)
-            self.root.overrideredirect(True) # Get rid of the menu bars
+            #self.root.overrideredirect(True) # Get rid of the menu bars
             self.root.deiconify()
+            self.root.geometry("%dx%d+1023-50" % (sw, sh)) #Set to full screen
+            #self.root.grab_set_global()
 
             self.capture = Tk() #Used exclusively to grab keyboard events
-            self.capture.focus_set()
+            self.capture.focus_force()
             self.capture.bind("<Escape>",  
-                    lambda e: self.setFullscreen(False))
+                    lambda e: self.toggleFullscreen())
             self.capture.bind("<Alt-Return>",  
-                    lambda e: self.setFullscreen(False))
-            self.SetCommandBindings(self.capture)
+                    lambda e: self.toggleFullscreen())
+            self.SetCommandBindings(self.capture, makeMenu=False)
 
-        elif self.capture != None:
+        else:
             self.root.withdraw()
-            self.root.overrideredirect(False)
+            #self.root.overrideredirect(False)
             self.BoardCanvas.config(width = WIDTH, height = HEIGHT)
             self.root.geometry("%dx%d+0+0" % (WIDTH, HEIGHT))
             self.root.deiconify()
+            #self.root.grab_release()
             self.capture.destroy()
             self.capture = None
-            self.root.focus_set()
+            self.root.focus_force()
+        self.isFullScreen = not self.isFullScreen
             
     def run(self):
        self.running = True
        #self.root.grab_set_global()
        self.root.update()
-       #self.root.grab_set_global()
        try:
            while self.running:
                self.root.update()
@@ -393,6 +302,8 @@ class TkSketchFrame(Frame, _SketchGUI):
       self.StrokeLoader.saveStrokes(self.StrokeList)
 
     def LoadStrokesFromImage(self, image = None):
+        global WIDTH, HEIGHT
+        pruneLen = 10
         if image != None:
             try:
                 strokeDict = ImageStrokeConverter.cvimgToStrokes(image)
@@ -415,14 +326,17 @@ class TkSketchFrame(Frame, _SketchGUI):
                raise
 
         strokes = strokeDict['strokes']
-        WIDTH, HEIGHT = strokeDict['dims']
+        w,h = strokeDict['dims']
+        scale_x = WIDTH / float(w)
+        scale_y = HEIGHT / float(h)
         for s in strokes:
-           pointList = []
-           for x,y in s.points:
-              newPoint = Point(x, HEIGHT - y)
-              pointList.append(newPoint)
-           newStroke = Stroke(pointList)
-           self.AddStroke(newStroke)
+           if len(s.points) > pruneLen:
+               pointList = []
+               for x,y in s.points:
+                  newPoint = Point(scale_x * x, HEIGHT - (scale_y *y))
+                  pointList.append(newPoint)
+               newStroke = Stroke(pointList)
+               self.AddStroke(newStroke)
 
 
     def RemoveLatestStroke(self):
@@ -457,7 +371,7 @@ class TkSketchFrame(Frame, _SketchGUI):
     def InitializeBoard(self):
         """Initialize all of the board observers and register debugable 
         annotations, etc."""
-        _initializeBoard(self.Board)
+        Config.initializeBoard(self.Board)
 
 
     def ResetBoard(self):
@@ -466,11 +380,15 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.p_x = self.p_y = None
 
         self.Board = Board(gui = self)
-        self.InitializeBoard()
+        Config.initializeBoard(self.Board)
         self.RegisterAnimators()
         self.CurrentPointList = []
         self.StrokeList = []
         self._tempLines = []
+        #Clear pending strokes
+        while not self.StrokeQueue.empty():
+            self.StrokeQueue.get()
+            self.StrokeQueue.task_done()
 
 
     def RegisterAnimators(self):

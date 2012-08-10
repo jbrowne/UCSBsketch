@@ -77,6 +77,7 @@ class Board(object):
             self._GUI = DummyGUI() #The GUI that the board observers registered to this board will be using
         else:
             self._GUI = gui
+        self.Lock = threading.RLock() #So that we can use the "with" syntax
 
     def getID(self):
         return self._id
