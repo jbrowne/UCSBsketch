@@ -15,21 +15,28 @@ import sys
 from Utils import Logger
 from Utils import GeomUtils
 
-from SketchFramework.Point import Point
-from SketchFramework.Stroke import Stroke
 from Observers import ObserverBase
 
 from xml.etree import ElementTree as ET
 
 import pdb
 
-from SketchFramework import SketchGUI
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 
 logger = Logger.getLogger('Rubine', Logger.WARN )
 
 #------------------------------------------------------------
+class Stroke:
+    COUNT = 0
+    def __init__(self, points = [], id = None):
+        if id is None:
+            self.id = Stroke.COUNT
+        else:
+            self.id = id
+        Stroke.COUNT = self.id + 1 #Try to avoid conflicts
+
+        self.points = points
 
 class Dataset():
     # top class of the data set. Containes each participant
@@ -86,7 +93,7 @@ class BoundingBox():
 class InkStroke:
 
     def __init__(self, id, stroke):
-        """ Initiates the InkStroke.
+        """ Initializes the InkStroke.
         """
         self.id = id # int 
         self.stroke = stroke # stroke
@@ -128,7 +135,7 @@ def loadDataset(file):
                     y = int(point.find("Y").text)
                     maxY = max(y, maxY)
                     maxX = max(x, maxX)
-                    points.append(Point(x,y))
+                    points.append((x,y))
                 strokeDict[stkId] = points
 
             for labels in diagram.find("MyStrokeLabels").findall("MyStrokeLabel"):

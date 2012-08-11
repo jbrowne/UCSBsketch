@@ -29,7 +29,7 @@ from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkMessageBox import *
 
-from SketchFramework import ImageStrokeConverter
+from Utils import ImageStrokeConverter
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
@@ -47,6 +47,7 @@ HEIGHT = 800
 MID_W = WIDTH/2
 MID_H = HEIGHT/2
    
+FEATURESET = Rubine.BCPFeatureSet
 logger = Logger.getLogger("TkSketchGUI", Logger.DEBUG)
 
 def _initializeBoard(board):
@@ -99,9 +100,8 @@ class TkSketchFrame(Frame, _SketchGUI):
         self.StrokeList = []
         self.StrokeLoader = StrokeStorage()
         self.ResetBoard()
-        featureset = Rubine.BCPFeatureSet()
-        self._strokeTrainer = Rubine.RubineClassifier(featureSet = featureset, debug = True)
-        self.NewTrainingClass()
+        self._strokeTrainer = Rubine.RubineClassifier(featureSet = FEATURESET(), debug = True)
+        #self.NewTrainingClass()
 
         self.Redraw()
 
@@ -334,6 +334,7 @@ class TkSketchFrame(Frame, _SketchGUI):
 
 if __name__ == "__main__":
     #Just start the GUI for the trainer
+    import cPickle as pickle
     args = sys.argv
     if len(args) > 1:
         if args[1] == "batch" and len(args) > 2:
@@ -342,16 +343,21 @@ if __name__ == "__main__":
             else:
                 outfname = "RubineData.xml"
             trainFile = open(args[2], "r")
-            featureSet = Rubine.BCPFeatureSet()
-            trainer = Rubine.RubineClassifier(featureSet = featureSet)
+            trainer = Rubine.RubineClassifier(featureSet = FEATURESET())
             for line in trainFile.readlines():
+                if line.startswith("#"):
+                    continue
                 name, strokeFname = line.strip().split()
                 print "Training %s from %s" % (name, strokeFname)
                 trainer.newClass (name = name)
                 strokes = StrokeStorage(filename = strokeFname).loadStrokes()
                 for stk in strokes:
-                    trainer.addStroke(stk, name)
+                    try:
+                        trainer.addStroke(stk, name)
+                    except Exception as e:
+                        print e
             print "Saving Weights to %s" % (outfname)
+            #pickle.dump(trainer, open("trainer.dmp", "wb"))
             trainer.saveWeights(outfname)
 
         else:   

@@ -632,7 +632,8 @@ def pointlistLength(inPoints):
 
 def strokeLength(inStroke):
     "Input: Stroke.  Returns the total length of the stroke by summing up all of the segments."
-    return pointlistLength(inStroke.Points)
+    length = inStroke.length()
+    return length
     #TODO: This func. looks like the perim function, except without closing it off, cause Perim just assumes it's been hulled...
 
 def strokeLinearity(inStroke):
@@ -1478,13 +1479,24 @@ def getLinesIntersection(line1, line2, infinite1 = False, infinite2 = False):
         
         
         if not infinite1:
-            line1_bb = strokelistBoundingBox([Stroke(points = list(line1))]) #Create a bounding box for this line
+            l1_left = p1.X
+            l1_right = p2.X
+            l1_top = max(p1.Y, p2.Y)
+            l1_bottom = min(p1.Y, p2.Y)
+            line1_bb = ( Point(l1_left, l1_top), Point(l1_right, l1_bottom) )
             if not pointInBox(xpoint, line1_bb[0], line1_bb[1]):
                 return None
         if not infinite2:
-            line2_bb = strokelistBoundingBox([Stroke(points = list(line2))])
+            l2_left = q1.X
+            l2_right = q2.X
+            l2_top = max(q1.Y, q2.Y)
+            l2_bottom = min(q1.Y, q2.Y)
+            line2_bb = ( Point(l2_left, l2_top), Point(l2_right, l2_bottom) )
             if not pointInBox(xpoint, line2_bb[0], line2_bb[1]):
                 return None
+            #line2_bb = strokelistBoundingBox([Stroke(points = list(line2))])
+            #if not pointInBox(xpoint, line2_bb[0], line2_bb[1]):
+                #return None
         
         return xpoint
     

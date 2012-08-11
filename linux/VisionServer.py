@@ -23,6 +23,7 @@ import threading
 import Queue
 import StringIO
 import Image
+import traceback
 
 from xml.etree import ElementTree as ET
 
@@ -31,7 +32,6 @@ from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import Board
 from SketchFramework.NetworkReceiver import ServerThread, Message
-from SketchFramework.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 
 from Observers import CircleObserver
 from Observers import ArrowObserver
@@ -42,6 +42,7 @@ from Observers import TuringMachineObserver
 from Observers import RubineObserver
 
 
+from Utils.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 from Utils.StrokeStorage import StrokeStorage
 from Utils import Logger
 
@@ -270,32 +271,33 @@ class SketchResponseThread(threading.Thread):
     def processNewImage(self, imageData):
         """Take in image data, process iself._Boardt and return a string of the resulting board XML"""
         logger.debug("Processing net image")
-        stks = imageBufferToStrokes(imageData)
+        stkDict = imageBufferToStrokes(imageData)
+        stks = stkDict['strokes']
+        width, height = stkDict['dims']
         logger.debug("Processed net image, converting strokes")
 
         self.resetBoard()
         newBoard = self._Board
         self._boards[newBoard.getID()] = newBoard
 
-        retXML = newBoard.xml(WIDTH, HEIGHT)
+        retXML = newBoard.xml(width, height)
         try:
             for stk in stks:
-                newStroke = Stroke()
+                pointList = []
                 for x,y in stk.points:
-                   scale = WIDTH / float(GETNORMWIDTH())
-                   newPoint = Point(scale * x, HEIGHT - scale * y)
-                   newStroke.addPoint(newPoint)
-                newBoard.AddStroke(newStroke)
+                   #scale = WIDTH / float(GETNORMWIDTH())
+                   pointList.append( Point(x, height - y) )
+                newBoard.AddStroke(Stroke(pointList))
 
-            retXML = newBoard.xml(WIDTH, HEIGHT)
+            retXML = newBoard.xml(width, height)
         except Exception as e:
             logger.error("ERROR: %s" % str(e))
+            logger.error("%s" % traceback.format_exc())
         return retXML
 
     def resetBoard(self):
         "Clear all strokes and board observers from the board (logically and visually)"
         self._Board = Board()
-        RubineObserver.RubineMarker(self._Board, "RL10dash.xml", debug=True)
 
         CircleObserver.CircleMarker(self._Board)
         #CircleObserver.CircleVisualizer(self._Board)
@@ -311,10 +313,12 @@ class SketchResponseThread(threading.Thread):
         TuringMachineObserver.TuringMachineCollector(self._Board)
         #TuringMachineObserver.TuringMachineVisualizer(self._Board)
         #TuringMachineObserver.TuringMachineExporter(self._Board)
+        """
         
         #TemplateObserver.TemplateMarker(self._Board)
         #TemplateObserver.TemplateVisualizer(self._Board)
         
+        RubineObserver.RubineMarker(self._Board, "RL10dash.xml", debug=True)
         
         d = DebugObserver.DebugObserver(self._Board)
         #d.trackAnnotation(TestAnimObserver.TestAnnotation)
@@ -332,58 +336,19 @@ class SketchResponseThread(threading.Thread):
         #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
         #d.trackAnnotation(TextObserver.TextAnnotation)
         #d.trackAnnotation(BarAnnotation)
+        """
         
 
-class ImgProcThread (threading.Thread):
-    "A Thread that continually pulls image data from imgQ and puts the resulting stroke list in strokeQ"
-    def __init__(self, imgQ, strokeQ):
-        "Initialize the thread as a daemon thread"
-        threading.Thread.__init__(self)
-        self.daemon = True
-
-        self.img_queue = imgQ
-        self.stk_queue = strokeQ
-
-    def run(self):
-        "Continually monitor img_queue for images, process the image, and add the strokes to stk_queue"
-        while True:
-            image = StringIO.StringIO(self.img_queue.get())
-            logger.debug("Processing net image")
-            stks = imageBufferToStrokes(image)
-            logger.debug("Processed net image, converting strokes")
-            newStrokeList = []
-            for stk in stks:
-                newStroke = Stroke()
-                for x,y in stk.points:
-                   scale = WIDTH / GETNORMWIDTH()
-                   newPoint = Point(scale * x, HEIGHT - scale * y)
-                   newStroke.addPoint(newPoint)
-                newStrokeList.append(newStroke)
-            self.stk_queue.put(newStrokeList)
     
 
-class NetSketchGUI(_SketchGUI):
-    "A _SketchGUI subclass that handles network communication and image processing."
-
+class VisionServer(object):
     def __init__(self):
-       "Set up members for this GUI"
-
-       #Board related init
-       self._Board = None
-
        # Private data members
        self._serverThread = None
        self._recv_q = None
        self._send_q = None
        self._netDispatchThread = None
        self._setupNetworkDispatcher()
-
-       self._strokeQueue = Queue.Queue()
-
-       self._drawQueue = []
-
-       self._onBoard = set([])
-       self._onBoardDrawOrder = []
 
 
     def _setupNetworkDispatcher(self):
@@ -394,146 +359,23 @@ class NetSketchGUI(_SketchGUI):
         self._netDispatchThread.start()
         self._serverThread.start()
 
-    def ResetBoard(self):
-        "Clear all strokes and board observers from the board (logically and visually)"
-        self._Board = Board(gui = self)
-        CircleObserver.CircleMarker(self._Board)
-        #CircleObserver.CircleVisualizer(self._Board)
-        ArrowObserver.ArrowMarker(self._Board)
-        #ArrowObserver.ArrowVisualizer(self._Board)
-        #LineObserver.LineMarker(self._Board)
-        #LineObserver.LineVisualizer(self._Board)
-        TextObserver.TextCollector(self._Board)
-        #TextObserver.TextVisualizer(self._Board)
-        DiGraphObserver.DiGraphMarker(self._Board)
-        #DiGraphObserver.DiGraphVisualizer(self._Board)
-        #DiGraphObserver.DiGraphExporter(self._Board)
-        TuringMachineObserver.TuringMachineCollector(self._Board)
-        #TuringMachineObserver.TuringMachineVisualizer(self._Board)
-        #TuringMachineObserver.TuringMachineExporter(self._Board)
-        
-        #TemplateObserver.TemplateMarker(self._Board)
-        #TemplateObserver.TemplateVisualizer(self._Board)
-        
-        
-        d = DebugObserver.DebugObserver(self._Board)
-        #d.trackAnnotation(TestAnimObserver.TestAnnotation)
-        #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
-        #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
-        #d.trackAnnotation(LineObserver.LineAnnotation)
-        #d.trackAnnotation(ArrowObserver.ArrowAnnotation)
-        #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
-        #d.trackAnnotation(TemplateObserver.TemplateAnnotation)
-        #d.trackAnnotation(CircleObserver.CircleAnnotation)
-        #d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
-        #d.trackAnnotation(RaceTrackObserver.SplitStrokeAnnotation)
-        
-        #d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
-        #d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
-        #d.trackAnnotation(TextObserver.TextAnnotation)
-        #d.trackAnnotation(BarAnnotation)
-        
-    def drawCircle(self, x, y, radius=1, color="#000000", fill="", width=1.0):
-        "Draw a circle on the canvas at (x,y) with radius rad. Color should be 24 bit RGB string #RRGGBB. Empty string is transparent"
-        drawAction = DrawCircle(x,y,radius, color, fill, width)
-        self._drawQueue.append(drawAction)
-    def drawLine(self, x1, y1, x2, y2, width=2, color="#000000"):
-        "Draw a line on the canvas from (x1,y1) to (x2,y2). Color should be 24 bit RGB string #RRGGBB"
-        drawAction = DrawLine(x1,y1,x2,y2, width, color)
-        self._drawQueue.append(drawAction)
-
-    def drawText (self, x, y, InText="", size=10, color="#000000"):
-        "Draw some text (InText) on the canvas at (x,y). Color as defined by 24 bit RGB string #RRGGBB"
-        drawAction = DrawText(x,y,InText,size,color)
-        self._drawQueue.append(drawAction)
-
-    def drawStroke(self, stroke, width = 2, color="#000000", erasable = False):
-        logger.debug("Drawing stroke")
-        drawAction = DrawStroke(stroke, width, color)       
-        self._drawQueue.append(drawAction)
-
-
-    def _serializeAnnotations(self):
-        "Add raw annotations to the draw queue so that they are sent with the strokes"
-        for anno in self._Board.FindAnnotations():
-            self._drawQueue.append(anno)
-
     def run(self):
         """Reset the board and wait for some entity to add strokes to the strokeQueue. 
         Add these strokes to the board, and build the xml view of the board, then queue the
         response to send back"""
         while True:
-
-            logger.debug("Waiting on queue")
-            try:
-                
-                #self.ResetBoard()
-                strokeList = self._strokeQueue.get(True, 300000)
-                for stk in strokeList:
-                    self._Board.AddStroke(stk)
-                self._strokeQueue.task_done()
-
-                respXML = self.boardXML()
-                self._xmlResponseQueue.put(ET.tostring(respXML))
-
-                fp = open("xmlout.xml", "w")
-                print >> fp, ET.tostring(respXML)
-                fp.close()
-
-                """
-                for stk in self._Board.Strokes:
-                    stk.drawMyself()
-
-                self._serializeAnnotations()
-                    
-                for obs in self._Board.GetBoardObservers():
-                    obs.drawMyself()
-
-                self._processDrawQueue()
-                """
-            except Queue.Empty as e:
-                logger.debug("No strokes yet...")
-    def boardXML(self):
-        root = ET.Element("Board")
-        root.attrib['height'] = str(HEIGHT)
-        root.attrib['width'] = str(WIDTH)
-
-        strokes_el = ET.SubElement(root, "Strokes")
-        for s in self._Board.Strokes:
-            strokes_el.append(s.xml())
-
-        annos_el = ET.SubElement(root, "Annotations")
-        for a in self._Board.FindAnnotations():
-            anno_xml = a.xml()
-            print a
-            print ET.tostring(anno_xml)
-            annos_el.append(anno_xml)
-
-        return root
- 
-    def _processDrawQueue(self):
-        "Go through the draw queue and draw what needs to be drawn"
-        drawXML = ET.Element("Board")
-        drawXML.attrib['height'] = str(HEIGHT)
-        drawXML.attrib['width'] = str(WIDTH)
-        count = 0
-        for action in self._drawQueue:
-            drawXML.append(action.xml())
-            count+= 1
-
-        fp = open("xmlout.xml", "w")
-        print >> fp, ET.tostring(drawXML)
-        fp.close()
-
-        self._xmlResponseQueue.put(ET.tostring(drawXML))
-        logger.debug("Drawing\n%s" % (ET.tostring(drawXML)[:5000]))
-        logger.debug("Done drawing")
-        self._drawQueue = []
-
+            action = raw_input()
+            if action.strip().upper() == "C":
+                self._serverThread.stop()
+                self._serverThread.join()
+                break
+            else:
+                print "unknown action"
             
 
+
 def main():
-    NetSketchGUI().run()
+    VisionServer().run()
     
 
 if __name__ == "__main__":

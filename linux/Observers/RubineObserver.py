@@ -31,7 +31,7 @@ from xml.etree import ElementTree as ET
 
 from numpy  import *
 
-logger = Logger.getLogger('TextObserver', Logger.WARN )
+logger = Logger.getLogger('RubineObserver', Logger.DEBUG )
 
 #-------------------------------------
 
@@ -64,23 +64,58 @@ class RubineMarker( BoardObserver ):
         """ Initiates the Rubine classifier. fname is the name of a file containing the training data to be used. """
         BoardObserver.__init__(self, board)
         #featureSet = Rubine.RubineFeatureSet()
-        #featureSet = Rubine.BCPFeatureSet()
         rubineDataFile = open(fname, "r")
         featureSet = Rubine.BCPFeatureSet()
+        #featureSet = Rubine.BCPFeatureSet_Combinable()
         self.classifier = Rubine.RubineClassifier(featureSet = featureSet, debug = debug)
+        logger.debug("Loading weights from %s" % (fname))
         self.classifier.loadWeights(rubineDataFile)
         rubineDataFile.close()
         self.getBoard().AddBoardObserver( self , [RubineAnnotation])
         self.getBoard().RegisterForStroke( self )
 
+        self.allStrokes = {} #Dict of {<stroke> : <set of connected strokes>}
+
     def onStrokeAdded(self, stroke):
         """ Attempts to classify a stroke using the given training data """
+        bbox1 = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+        s1_eps = (stroke.Points[0], stroke.Points[-1]) #Stroke 1 endpoints
+        matchStks = set()
+        for stk2, connectStrokes in self.allStrokes.items():
+            bbox2 = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+            s2_eps = (stk2.Points[0], stk2.Points[-1]) #Stroke 2 endpoints
 
-        scores = self.classifier.classifyStroke(stroke)
+            for ep in s1_eps: #Do any of the stroke's endpoints overlap stroke2?
+                if GeomUtils.pointInBox(ep, bbox2[0], bbox2[1]):
+                    if ep in stk2.Points:
+                        matchStks.update(connectStrokes)
+                        break
+            if len(connectStrokes) > 0:
+                break
+
+            for ep in s2_eps: #Do any of stroke2's endpoints overlap stroke?
+                if GeomUtils.pointInBox(ep, bbox1[0], bbox1[1]):
+                    if ep in stroke.Points:
+                        matchStks.update(connectStrokes)
+                        break
+            if len(connectStrokes) > 0:
+                break
+
+        matchStks.add(stroke) #Update the connected strokes list
+        for stk in matchStks:
+            self.allStrokes[stk] = matchStks
+
+        strokeList = list(matchStks)
+        scores = self.classifier.classifyStrokeList(strokeList)
+        #Remove the previous annotations
+        for stk in strokeList:
+            annotations = stk.findAnnotations(annoType = RubineAnnotation)
+            for anno in annotations:
+                self.getBoard().RemoveAnnotation(anno)
         if len(scores) > 0:
             height = stroke.BoundTopLeft.Y - stroke.BoundBottomRight.Y        
             best = scores[0]['symbol']
-            self.getBoard().AnnotateStrokes( [stroke],  RubineAnnotation(scores))
+            self.getBoard().AnnotateStrokes( strokeList,  RubineAnnotation(scores))
 
     def onStrokeRemoved(self, stroke):
         for rb_anno in stroke.findAnnotations(RubineAnnotation):
@@ -108,8 +143,8 @@ class RubineVisualizer( ObserverBase.Visualizer ):
         height = ul.Y - br.Y
         midpointY = (ul.Y + br.Y) / 2
         midpointX = (ul.X + br.X) / 2
-        left_x = midpointX - a.scale / 2.0
-        right_x = midpointX + a.scale / 2.0
+        #left_x = midpointX - a.scale / 2.0
+        #right_x = midpointX + a.scale / 2.0
         """
         self.getBoard().getGUI().drawBox(ul, br, color="#a0a0a0")
         """

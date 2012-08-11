@@ -22,12 +22,14 @@ class CubicCurve(object):
         p2 = self.p2
         p3 = self.p3
 
-        points = []
+        points = [None] * numpts
 
         numpts = max (1, numpts)
         inc = 1 / float(numpts)
         t = 0.0
-        while t < 1.0:
+        for i in range(numpts):
+        #while t < 1.0:
+            t = i * inc
             x = (1-t) **3 * p0.X \
                 + 3 * (1-t) ** 2 * t * p1.X \
                 + 3 * (1-t) * t **2 * p2.X \
@@ -37,9 +39,7 @@ class CubicCurve(object):
                 + 3 * (1-t) ** 2 * t * p1.Y \
                 + 3 * (1-t) * t **2 * p2.Y \
                 + t ** 3 * p3.Y
-            points.append(Point(x,y))
-            t += inc
-
+            points[i] = Point(x,y)
         return Stroke(points)
     def __repr__(self):
         return "C(%s,%s,%s,%s)" % (self.p0, self.p1, self.p2, self.p3)

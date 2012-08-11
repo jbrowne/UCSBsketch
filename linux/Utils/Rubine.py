@@ -52,9 +52,10 @@ class BCPFeatureSet(FeatureSet):
     def __init__(self):
         FeatureSet.__init__(self)
         self.rubineSet = RubineFeatureSet()
+        bcp_logger.warn("Feature f1_01 DISABLED")
 
     def __len__(self):
-        return 28
+        return 27
 
 
     def generateVector(self, strokeList):
@@ -93,7 +94,7 @@ class BCPFeatureSet(FeatureSet):
                     ]
         #The Rest
         retVector.extend([
-                     self.f1_01(strokeNorm, strokeLength), \
+                     #self.f1_01(strokeNorm, strokeLength), \
                      self.f1_07(boundingBox), \
                      self.f1_09(stroke), \
 
@@ -129,7 +130,10 @@ class BCPFeatureSet(FeatureSet):
     def f1_12(self, stroke, strokeLen): #NOT COMMUTATIVE
         """Distance from the first point of the stroke to the 
         last point of the stroke [Rub91]"""
-        return GeomUtils.pointDist(stroke.Points[0], stroke.Points[-1]) / strokeLen
+        if strokeLen > 0:
+            return GeomUtils.pointDist(stroke.Points[0], stroke.Points[-1]) / strokeLen
+        else:
+            return 0.0
 
     #@Timed
     def f1_16(self, sNorm):
@@ -182,7 +186,6 @@ class BCPFeatureSet(FeatureSet):
         from [Qin05]"""
         #pre = time.time()
         selfIntersections = 0
-        length = GeomUtils.strokeLength(stroke)
         for i in range(len(stroke.Points)-1):
             seg1 = (stroke.Points[i], stroke.Points[i+1])
             for j in range(i+1, len(stroke.Points)/3) + \
@@ -268,10 +271,10 @@ class BCPFeatureSet(FeatureSet):
         """The number of bezier cusps. [PPG 07]"""
         #pre = time.time()
         numCusps = 0
-        sNorm = Stroke([sNorm.Points[i] for i in range(0,len(sNorm.Points),3)])
-        while len(sNorm.Points) < 3:
-            sNorm.addPoint(sNorm.Points[-1])
-        curves = GeomUtils.strokeApproximateCubicCurves(sNorm, strokeLen)
+        ptList = ([sNorm.Points[i] for i in range(0,len(sNorm.Points),3)])
+        while len(ptList) < 3:
+            ptList.append(ptList[-1])
+        curves = GeomUtils.strokeApproximateCubicCurves(Stroke(ptList), strokeLen)
         #bcp_logger.debug("%s time %s" % (sys._getframe(-1).f_code.co_name, 1000 * (time.time() - pre) ))
 
         for curve in curves:
@@ -525,58 +528,71 @@ class BCPFeatureSet_Combinable(BCPFeatureSet):
     def __init__(self):
         BCPFeatureSet.__init__(self)
     def __len__(self):
-        return 23
+        return 13
     def generateVector(self, strokeList):
         """Assemble the vector of feature scores from a list of strokes, presumed to
         make up a single symbol."""
         retVector = []
 
+        #---------------------------------
         #Set up the common data
-        if len(strokeList) > 1:
-            bcp_logger.warn("Concatenating multiple strokes")
-            stroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
-        elif len(strokeList) == 1:
-            stroke = strokeList[0]
-
+        #---------------------------------
+        stroke = strokeList[0]
         convexHull = Stroke(GeomUtils.convexHull(stroke.Points))
         strokeLength = GeomUtils.strokeLength(stroke)
         strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = max(1,strokeLength))
         boundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+        anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
         curvatureList = GeomUtils.strokeGetPointsCurvature(
                             GeomUtils.strokeSmooth(stroke, width = max(1, int(strokeLength*0.05))
                         ))
 
-        anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
-        #Generate the vector
-        #Basic Features
+        if len(strokeList) > 1:
+            bcp_logger.warn("Concatenating multiple strokes")
+            concatStroke = Stroke( [ p for stk in strokeList for p in stk.Points ])
+            concatConvexHull = Stroke(GeomUtils.convexHull(stroke.Points))
+            concatStrokeLength = GeomUtils.strokeLength(stroke)
+            concatBoundingBox = (stroke.BoundTopLeft, stroke.BoundBottomRight)
+        elif len(strokeList) == 1:
+            concatStroke = stroke
+            concatConvexHull = convexHull
+            concatStrokeLength = strokeLength
+            concatBoundingBox = boundingBox
+
+        #---------------------------------
+        #Features that work the same over a concatenated stroke
+        #---------------------------------
+        concatFeats = [
+                     self.f2_6(concatStrokeLength, concatConvexHull) , \
+                     self.f2_8(concatStrokeLength, concatBoundingBox) , \
+                     self.f7_2(concatBoundingBox) , \
+                     self.f7_7(concatConvexHull, concatBoundingBox) , \
+                     self.f7_10(concatStrokeLength) , \
+                     self.f7_16(concatConvexHull) , \
+                     self.f7_17(concatConvexHull), \
+                     self.f1_07(concatBoundingBox), \
+                     self.f7_05(concatBoundingBox), \
+                     self.f7_11(concatBoundingBox), \
+                     self.f7_13(concatStrokeLength), \
+                     self.f1_13(stroke), \
+                     self.f7_14(concatBoundingBox)
+                     ]
+        """
         retVector = [ 
                      #self.f1_12(stroke, strokeLength) , \
                      self.f1_16(strokeNorm) , \
-                     self.f2_6(strokeLength, convexHull) , \
-                     self.f2_8(strokeLength, boundingBox) , \
                      self.f5_1(stroke), \
-                     self.f7_2(boundingBox) , \
-                     self.f7_7(convexHull, boundingBox) , \
-                     self.f7_10(strokeLength) , \
-                     self.f7_16(convexHull) , \
-                     self.f7_17(convexHull) \
                     ]
         #The Rest
         retVector.extend([
                      self.f1_01(strokeNorm, strokeLength), \
-                     self.f1_07(boundingBox), \
                      #self.f1_09(stroke), \
 
                      #self.f1_17(stroke, boundingBox), \
                      self.f1_23(stroke), \
-                     self.f7_05(boundingBox), \
-                     self.f7_11(boundingBox), \
 
                      self.f1_04(stroke), \
                      self.f1_11(anglesVector), \
-                     self.f1_13(stroke), \
-                     self.f7_13(strokeLength), \
-                     self.f7_14(boundingBox), \
 
                      self.f1_06(strokeNorm), \
                      self.f1_18(stroke), \
@@ -589,7 +605,9 @@ class BCPFeatureSet_Combinable(BCPFeatureSet):
                     ])
         #random.seed(0xDEADBEEF)
         #random.shuffle(retVector)
-        assert len(retVector) == len(self) 
+        """
+        retVector = concatFeats
+        assert len(retVector) == len(self) , "%s != %s" % (len(retVector), len(self))
         return retVector
 
 #------------------------------------------------------------
@@ -1127,7 +1145,6 @@ class SymbolClass (object):
         self.weights = None
         self.weight0 = None
 
-
     def addStrokes(self, strokeList):
         """Add an example list of strokes to this class"""
         #self.examples.append(stroke)
@@ -1307,8 +1324,13 @@ class RubineClassifier():
         origMat = avgCovMat
 
         while linalg.det(avgCovMat) == 0.0: #While not invertible
-            logger.warn("Singular Matrix!!!!!!!!!!!!!!!!!!!!")
+            logger.warn("Singular Matrix!")
             avgCovMat = origMat.copy()
+            ignoreFeat = random.randint(0, len(self.featureSet) - 1)
+            print "Ignoring feature %s" % ignoreFeat
+            for x in range(0, len(self.featureSet)):
+                avgCovMat[ignoreFeat, x] = 1.0
+                avgCovMat[x, ignoreFeat] = 1.0
             """
             fp = open("ERROR.txt", "a")
             print >> fp, avgCovMat
@@ -1334,11 +1356,13 @@ class RubineClassifier():
                 avgCovMat[j,x] = avgCovMat[j,y]
                 avgCovMat[j,y] = temp
             """
+            """
             for i in range(len(self.featureSet)):
                 for j in range(len(self.featureSet)):
                     if avgCovMat[i,j] > 1:
                         factor = math.e ** (math.log(avgCovMat[i,j]) - 15)
                         avgCovMat[i,j] += factor * random.random()
+            """
         """
         except Exception as e:
             #Singular Matrix
@@ -1382,12 +1406,24 @@ class RubineClassifier():
 
 
     def classifyStroke(self, stroke):
+        """*DEPRECATED*Classify a single stroke. """
+        logger.warn("DEPRECATED classifyStroke")
+        return self.classifyStrokeList([stroke])
+
+    def classifyStrokeList(self, strokeList):
         """ Attempts to classify a stroke using the given training data. Returns a list of 
         tuples: (SymbolClass, score), or empty if it's rejected."""
         #we need at least three points
-        if len(stroke.Points) < 3:
-            return []
-        rubineVector =  self.featureSet.generateVector([stroke])
+        #if len(stroke.Points) < 3:
+            #return []
+        if len(strokeList) == 1:
+            rubineVector = strokeList[0].getFeatureVector(self.featureSet)
+        else:
+            rubineVector =  self.featureSet.generateVector(strokeList)
+        return self.classifyVector(rubineVector)
+
+    def classifyVector(self, rubineVector):
+        """Classify directly on a vector of feature values."""
         maxScore = None
         maxCls = None
         classScores = []
@@ -1467,9 +1503,9 @@ class RubineClassifier():
         elem = TB.close()
 
         #ET.dump(elem)
-        fd = open(fileName, "w")
-        print >> fd, ET.tostring(elem)
-        fd.close()
+        #fd = open(fileName, "w")
+        #print >> fd, ET.tostring(elem)
+        #fd.close()
 
     def loadWeights(self, file):
         """ Loads the training data in the file. File is a file name """
@@ -1478,9 +1514,12 @@ class RubineClassifier():
 
         self.symbolClasses = {}
         self.averages = {}
+        logger.debug("Loading %s classes" % (len(classes)))
+        logger.debug("Using %s features" % (len(self.featureSet)))
         for cls_elem in classes:
             cls = ShellSymbolClass(self.featureSet)
             cls.fromXML(cls_elem)
+            assert len(cls.weights) == len(self.featureSet), "Error, wrong featureset used! Loading %s features, expecting %s" % (len(cls.weights), len(self.featureSet))
             self.symbolClasses[cls.name] = cls
             self.averages[cls.name] = cls.getAverageFeatureValues()
             
