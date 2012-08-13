@@ -8,14 +8,17 @@ from SketchFramework.Curve import CubicCurve
 from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import Board
 
+from Utils import Logger
 from Utils.GeomUtils import *
 from Utils.StrokeStorage import StrokeStorage
+from sketchvision import ImageStrokeConverter
 
 import Config
 from functools import partial
 
 import threading
 import Queue
+from multiprocessing import Queue as ProcQueue, Process
 import gobject
 import cairo
 import pangocairo
@@ -27,6 +30,38 @@ import gtk
 HEIGHT = 1280
 WIDTH = 720
 
+
+log = Logger.getLogger("GTK-GUI", Logger.DEBUG)
+def processImage(filename, opQueue, guiObject, scaleDims):
+    """This function will spawn a process to extract strokes
+    from an image file. It will independently place the addStroke
+    operations in the opQueue passed in, with the guiObject
+    as the operator"""
+    pruneLen = 10
+    width, height = scaleDims
+    print "Process spawned"
+    try:
+        strokeDict = ImageStrokeConverter.imageToStrokes(filename)
+    except Exception as e:
+        #print e
+        raise
+
+    strokes = strokeDict['strokes']
+    w,h = strokeDict['dims']
+    scale_x = width / float(w)
+    scale_y = height / float(h)
+    print "Got %s Strokes" % (len(strokes))
+    for s in strokes:
+        if len(s.points) > pruneLen:
+            pointList = []
+            for x,y in s.points:
+                newPoint = Point(scale_x * x, height - (scale_y *y))
+                pointList.append(newPoint)
+            newStroke = Stroke(pointList)
+            op = partial(GTKGui.addStroke, guiObject, newStroke)
+            opQueue.put(op)
+            #self.addStroke(newStroke)
+
 class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def __init__(self):
@@ -35,7 +70,9 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.resize(WIDTH, HEIGHT)
 
         #Cairo drawing data
-        self.context = None
+        self.renderBuffer = cairo.ImageSurface(cairo.FORMAT_ARGB32, 
+                                WIDTH, HEIGHT)
+        self.context = cairo.Context(self.renderBuffer)
 
         #Semantic board data
         self.board = Board(gui = self)
@@ -76,6 +113,21 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         key = chr(event.keyval % 256).lower()
         if key == 'r':
             self.resetBoard()
+        elif key == 'i':
+            def ok_callback(fileSelector):
+                fname = fileSelector.get_filename()
+                fileSelector.destroy()
+                self.loadStrokesFromImage(fname)
+
+            fileSelector = gtk.FileSelection("Choose a photo")
+            fileSelector.set_filename("./photos/")
+
+            fileSelector.ok_button.connect("clicked", 
+                                      (lambda w: ok_callback(fileSelector)) )
+            fileSelector.cancel_button.connect("clicked", 
+                                      (lambda w: fileSelector.destroy()) )
+                                      
+            fileSelector.show()
         elif key == 'l':
             self.loadStrokes()
         elif key == 's':
@@ -109,8 +161,44 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         return
 
     def boardChanged(self):
-        self.opQueue.put(partial(GTKGui.draw, self))
+        self.draw()
+        #self.opQueue.put(partial(GTKGui.draw, self))
 
+    def loadStrokesFromImage(self, filename):
+        pruneLen = 10
+        if filename == "":
+           return
+
+        width, height = self.window.get_size()
+        #p = Process(target = processImage,
+        #            args = (filename, self.opQueue, self, (width,height) )
+        #           )
+        #p.start()
+        processImage(filename, self.opQueue, self, (width, height) )
+        return
+        try:
+           log.debug( "Loading strokes...")
+           strokeDict = ImageStrokeConverter.imageToStrokes(filename)
+           log.debug( "Loaded %s strokes from '%s'" % 
+               (len(strokeDict['strokes']), filename))
+        except Exception as e:
+           log.debug( "Error importing strokes from image '%s':\n %s" % 
+               (filename, e))
+           raise
+
+        strokes = strokeDict['strokes']
+        w,h = strokeDict['dims']
+        scale_x = width / float(w)
+        scale_y = height / float(h)
+        for s in strokes:
+            if len(s.points) > pruneLen:
+                pointList = []
+                for x,y in s.points:
+                    newPoint = Point(scale_x * x, HEIGHT - (scale_y *y))
+                    pointList.append(newPoint)
+                newStroke = Stroke(pointList)
+                self.addStroke(newStroke)
+ 
     def loadStrokes(self):
         for stroke in self.strokeLoader.loadStrokes():
             self.addStroke(stroke)
@@ -169,19 +257,24 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.context.stroke()
         self.context.restore()
          
-    def _drawLine(self, x1, y1, x2, y2, width=2, color="#FFFFFF"):
+    def _drawLine(self, x1, y1, x2, y2, width=2, color="#FFFFFF", _context=None):
         """Draw a line on the canvas from (x1,y1) to (x2,y2). Color should be 24
         bit RGB string #RRGGBB"""
-        self.context.save()
+        if _context is None:
+            context = self.context
+        else:
+            context = _context
+
+        context.save()
         #Draw the line
         c = hexToTuple(color)
-        self.context.set_source_rgb(*c)
+        context.set_source_rgb(*c)
         p1 = self.b2c(Point(x1, y1))
         p2 = self.b2c(Point(x2, y2))
-        self.context.move_to( p1.X, p1.Y )
-        self.context.line_to( p2.X, p2.Y )
-        self.context.stroke()
-        self.context.restore()
+        context.move_to( p1.X, p1.Y )
+        context.line_to( p2.X, p2.Y )
+        context.stroke()
+        context.restore()
          
     def _drawText (self, x, y, InText="", size=10, color="#FFFFFF"):
         """Draw some text (InText) on the canvas at (x,y). Color as defined by 24
@@ -261,12 +354,10 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         """Respond to a mouse being pressed"""
         if e.button == 1:
             self.isMouseDown1 = True
-            self.context = self._getContext()
             self.currentPoints.append(self.b2c(Point(e.x, e.y)))
             return True
         elif e.button == 3:
             self.isMouseDown3 = True
-            self.context = self._getContext()
             self.currentPoints.append(self.b2c(Point(e.x, e.y)))
             return True
 
@@ -276,15 +367,17 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
             p = self.currentPoints[-1]
             curPt = self.b2c(Point(e.x, e.y))
             self.currentPoints.append(curPt)
-            self.context = self._getContext()
-            self._drawLine(p.X, p.Y, curPt.X, curPt.Y, color="#ffffff")
+            liveContext = self._getContext()
+            self._drawLine(p.X, p.Y, curPt.X, curPt.Y, 
+                            color="#ffffff", _context= liveContext)
             return True
         elif self.isMouseDown3:
             p = self.currentPoints[-1]
             curPt = self.b2c(Point(e.x, e.y))
             self.currentPoints.append(curPt)
-            self.context = self._getContext()
-            self._drawLine(p.X, p.Y, curPt.X, curPt.Y, color="#c00c0c")
+            liveContext = self._getContext()
+            self._drawLine(p.X, p.Y, curPt.X, curPt.Y, 
+                            color="#c00c0c", _context = liveContext)
             return True
     
     def onMouseUp(self, widget, e):
@@ -311,6 +404,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                     self.eraseStroke(stk)
                     shouldRedraw = False
             if shouldRedraw:
+                #pass
                 self.draw()
             return True
 
@@ -329,10 +423,9 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         """Respond to the window being uncovered"""
         print "Expose"
         if self.screenImage is not None:
-            self.window.draw_pixbuf(None, self.screenImage, 0,0, 0,0)#gc, pixbuf, src_x, src_y, dest_x, dest_y)
+            self.window.draw_pixbuf(None, self.screenImage, 0,0, 0,0)
         else:
             self.draw()
-        return False
 
     def clearBoard(self, bgColor="#000000"):
         """Erase the contents of the board"""
@@ -346,14 +439,27 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         
     def draw(self):
         """Draw the board"""
-        self.context = self._getContext()
         self.opQueue.put(partial(GTKGui.clearBoard, self))
         with self.board.Lock:
             for stk in self.board.Strokes:
                 stk.drawMyself()
             for obs in self.board.BoardObservers:
                 obs.drawMyself()
+        self.opQueue.put(partial( GTKGui.flipContext, self) )
         self.opQueue.put(partial( GTKGui._updateScreenImage, self) )
+        
+    def flipContext(self):
+        """Render the drawn surface to the screen"""
+        bufferToPaint = self.renderBuffer
+        #Set up a new buffer to paint from
+        x,y,w,h = self.allocation
+        self.renderBuffer = cairo.ImageSurface(cairo.FORMAT_ARGB32, w,h)
+        self.context = cairo.Context(self.renderBuffer)
+        #Paint the render buffer to the live context
+        liveContext = self._getContext()
+        liveContext.set_source_surface(bufferToPaint)
+        liveContext.paint()
+
 
     def _updateScreenImage(self):
         """Update the image of the screen we're dealing with"""
@@ -374,6 +480,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         and back"""
         rect = self.get_allocation()
         return Point(pt.X, rect.height - pt.Y)
+
 
 class BoardThread(threading.Thread):
     def __init__(self, board):
@@ -396,12 +503,10 @@ class BoardThread(threading.Thread):
     def addStroke(self, stroke, callback = (lambda : 0)):
         op = partial(Board.AddStroke, self.board, stroke)
         self.opQueue.put( (op, callback,) )
-        callback()
 
     def removeStroke(self, stroke, callback = (lambda : 0)):
         op = partial(Board.RemoveStroke, self.board, stroke)
         self.opQueue.put( (op, callback,) )
-        callback()
 
     def run(self):
         while self.running:

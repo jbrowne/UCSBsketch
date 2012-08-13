@@ -40,7 +40,7 @@ from Utils import GeomUtils
 from Utils.GeomUtils import getStrokesIntersection, strokeContainsStroke
 from Utils import DataManager
 from Utils import Logger
-from SketchFramework import ImageStrokeConverter
+from sketchvision import ImageStrokeConverter
 
 from Observers.ObserverBase import Animator
 

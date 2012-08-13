@@ -44,7 +44,7 @@ from Utils.GeomUtils import (getStrokesIntersection,
                              strokeApproximateCubicCurves)
 from Utils import GeomUtils
 from Utils import Logger
-from Utils import ImageStrokeConverter
+from sketchvision import ImageStrokeConverter
 
 from Observers.ObserverBase import Animator
 

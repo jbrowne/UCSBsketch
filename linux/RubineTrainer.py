@@ -29,7 +29,7 @@ from Tkinter import *
 from tkFileDialog import askopenfilename
 from tkMessageBox import *
 
-from Utils import ImageStrokeConverter
+from sketchvision import ImageStrokeConverter
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
