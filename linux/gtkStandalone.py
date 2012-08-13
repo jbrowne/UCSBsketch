@@ -32,11 +32,10 @@ WIDTH = 720
 
 
 log = Logger.getLogger("GTK-GUI", Logger.DEBUG)
-def processImage(filename, opQueue, guiObject, scaleDims):
+def processImage(filename, strokeQueue, scaleDims):
     """This function will spawn a process to extract strokes
-    from an image file. It will independently place the addStroke
-    operations in the opQueue passed in, with the guiObject
-    as the operator"""
+    from an image file. It will add the extracted strokes from
+    the image to strokeQueue, scaled according to scaleDims"""
     pruneLen = 10
     width, height = scaleDims
     print "Process spawned"
@@ -58,8 +57,8 @@ def processImage(filename, opQueue, guiObject, scaleDims):
                 newPoint = Point(scale_x * x, height - (scale_y *y))
                 pointList.append(newPoint)
             newStroke = Stroke(pointList)
-            op = partial(GTKGui.addStroke, guiObject, newStroke)
-            opQueue.put(op)
+            print "Inserting stroke"
+            strokeQueue.put(newStroke)
             #self.addStroke(newStroke)
 
 class GTKGui (_SketchGUI, gtk.DrawingArea):
@@ -83,6 +82,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
         #Event hooks
         gobject.idle_add(self.processOps) #Idle event
+        gobject.idle_add(self.processQueuedStrokes) #Async stroke processing
         self.set_property("can-focus", True) #So we can capture keyboard events
         self.connect("button_press_event", self.onMouseDown)
         self.connect("motion_notify_event", self.onMouseMove)
@@ -102,6 +102,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.isMouseDown3 = False
         self.currentPoints = []
         self.opQueue = Queue.Queue()
+        self.strokeQueue = ProcQueue()
         self.strokeLoader = StrokeStorage()
         self.screenImage = None
         self._pixbuf = None
@@ -143,10 +144,12 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self._pixbuf = None
         if makeFull:
             print "Fullscreen! %s" % (win)
+            self.screenImage = None
             win.fullscreen()
             self._isFullscreen = True
         else:
             print "UN-Fullscreen! %s" % (win)
+            self.screenImage = None
             win.unfullscreen()
             self._isFullscreen = False
         self.draw()
@@ -170,11 +173,11 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
            return
 
         width, height = self.window.get_size()
-        #p = Process(target = processImage,
-        #            args = (filename, self.opQueue, self, (width,height) )
-        #           )
-        #p.start()
-        processImage(filename, self.opQueue, self, (width, height) )
+        p = Process(target = processImage,
+                    args = (filename, self.strokeQueue, (width,height) )
+                   )
+        p.start()
+        #processImage(filename, self.opQueue, self, (width, height) )
         return
         try:
            log.debug( "Loading strokes...")
@@ -206,7 +209,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
            # self.opQueue.put(op)
 
     def saveStrokes(self):
-        self.strokeLoader.saveStrokes(self.StrokeList)
+        self.strokeLoader.saveStrokes(self.strokeList)
 
 
     def drawCircle(self, *args, **kargs):
@@ -341,6 +344,14 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         """Set the size of the canvas to w x h"""
         self.set_size_request(h, w)
 
+    def processQueuedStrokes(self):
+        if not self.strokeQueue.empty():
+            print "Adding queued stroke"
+            stroke = self.strokeQueue.get()
+            self.strokeList.append(stroke)
+            self.boardProcThread.addStroke(stroke, callback = self.boardChanged)
+        return True
+
     def processOps(self):
         """Process one operation from the opqueue"""
         if not self.opQueue.empty():
@@ -421,7 +432,6 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def onExpose(self, widget, e):
         """Respond to the window being uncovered"""
-        print "Expose"
         if self.screenImage is not None:
             self.window.draw_pixbuf(None, self.screenImage, 0,0, 0,0)
         else:
