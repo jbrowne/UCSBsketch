@@ -77,7 +77,7 @@ def cvimgToStrokes(in_img):
    #small_img = resizeImage(in_img)
    small_img = in_img
    saveimg(small_img)
-   temp_img = removeBackground(small_img)
+   temp_img, _ = removeBackground(small_img)
    #temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
    #cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
    #cv.AdaptiveThreshold(temp_img, temp_img, 255, blockSize=39)
@@ -134,7 +134,7 @@ def fname_iter():
    "Used to generate a list of filenames"
    imgnum = 0
    while True:
-      fname = "%06.0d.jpg" % (imgnum)
+      fname = "%06.0d" % (imgnum)
       imgnum += 1
       yield fname 
 
@@ -1453,16 +1453,24 @@ def getHoughLines(img, numlines = 4, method = 1):
 
 
 def adaptiveThreshold(img):
-    """A fast adaptive threshold using OpenCV's implementation"""
-    w, h = img.cols, img.rows
-    s = 0.05
-    blockSize = 39
-    region = (int(s * w), int(s * h), int( (1-2*s) * w), int( (1-2*s) * h))
-    subImg = cv.GetSubRect(img, region)
-    minVal, maxVal, _, _ = cv.MinMaxLoc(subImg)
+    """A fast adaptive threshold using OpenCV's implementation. The image is 
+    first brightened to wash out background artifacts, then adaptive threshold
+    is used to separate ink from the board."""
+    blockSize = 39 #How wide of a block to consider for Ad. Thresh.
+    numBins = 20 #The granularity to bin values for background estimation
+
+    #Get the background value using the most popular histogram bucket
+    histogram = getHistogramList(img, numBins = numBins)
+    #printHistogramList(histogram)
+    modeValue = int( histogram.index(max(histogram)) * 256 / float(numBins) )
+
+    #Wash out the background
+    cv.AddS(img, (256 - modeValue), img) 
+
     cv.AdaptiveThreshold(img, img, 255, 
         adaptive_method=cv.CV_ADAPTIVE_THRESH_GAUSSIAN_C, 
-        blockSize=blockSize)
+        blockSize=blockSize, 
+        )
     return img
 
 def resizeImage(img, scale = None, targetWidth = None):
@@ -1525,19 +1533,19 @@ def printHistogramList(hist, granularity = 1):
          accum -= granularity
       print "\t%3.6f" % (val)
    
-def getHistogramList(img, normFactor = 1000):
+def getHistogramList(img, normFactor = 1000, numBins = 256):
    """Returns a histogram of a GRAYSCALE image, normalized such that all bins add to 1.0"""
    retVector = []
    if img.type != cv.CV_8UC1:
       print "Error, can only get histogram of grayscale image"
       return retVector
 
-   hist = cv.CreateHist( [256], cv.CV_HIST_ARRAY, [[0,256]], 1)
+   hist = cv.CreateHist( [numBins], cv.CV_HIST_ARRAY, [[0,256]], 1)
    cv.CalcHist([cv.GetImage(img)], hist)
    cv.NormalizeHist(hist, normFactor)
    gran = 5
    accum = 0
-   for idx in xrange(0, 256):
+   for idx in xrange(0, numBins):
       retVector.append(cv.QueryHistValue_1D(hist, idx))
    return retVector
 
@@ -1556,6 +1564,7 @@ def isForeGroundGone(img):
    
    #Get the histogram normalized to 1000 total
    hist = getHistogramList(img)
+   printHistogramList(hist, granularity = 10)
    histNorm = 1000
    #Where is it safe to assume that the rest is foreground?
    foreGroundThresh = 80
@@ -1617,7 +1626,7 @@ def convertBlackboardImage(gray_img):
    and then invert it so it looks more like a whiteboard"""
    global ISBLACKBOARD
    hist = getHistogramList(gray_img)
-   printHistogramList(hist, granularity = 10)
+   #printHistogramList(hist, granularity = 10)
    maxIdx = hist.index(max(hist))
    bright3rd = ( maxIdx + len(hist) )/ 2
    dark3rd = ( maxIdx )/ 2
@@ -1625,16 +1634,16 @@ def convertBlackboardImage(gray_img):
    brightSum = sum(hist[bright3rd:])
    #print "Maximum bin: ", hist.index(max(hist))
    if maxIdx > 200:
-      print "Not a blackboard: bright peak!"
+      #print "Not a blackboard: bright peak!"
       ISBLACKBOARD = False
    elif maxIdx < 50:
-      print "Blackboard seen: dark peak!"
+      #print "Blackboard seen: dark peak!"
       ISBLACKBOARD = True 
    elif darkSum > brightSum:
-      print "Not a blackboard: more dark than light!"
+      #print "Not a blackboard: more dark than light!"
       ISBLACKBOARD = False
    else:
-      print "Blackboard seen: more light than dark"
+      #print "Blackboard seen: more light than dark"
       ISBLACKBOARD = True 
 
    #HACK!
@@ -1681,6 +1690,7 @@ def removeBackground(cv_img):
    bg_img = gray_img
 
    #Generate the "background image"
+   print "Remove foreground"
    while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows / 2.0:
       #print "Background Median kernel = %s x %s" % ( smooth_k, smooth_k)
       bg_img = smooth(bg_img, ksize=smooth_k, t='median')
@@ -1688,14 +1698,15 @@ def removeBackground(cv_img):
       if smooth_k % 2 == 0:
          smooth_k += 1
       if DEBUG :
+         print "Background Image:"
          saveimg(bg_img)
-   bg_img = invert(bg_img)
-   if DEBUG :
-      saveimg(gray_img)
+   print "Done"
+   #bg_img = invert(bg_img)
 
    #Remove the "background" data from the original image
-   cv.AddWeighted(gray_img, 0.5, bg_img, 0.5, 0.0, gray_img )
+   cv.AddWeighted(gray_img, 0.5, bg_img, -0.5, 128.0, gray_img )
    if DEBUG :
+      print "Background removed"
       saveimg(gray_img)
    #cv.EqualizeHist(gray_img, gray_img)
 
@@ -1717,6 +1728,7 @@ def removeBackground(cv_img):
          saveimg(gray_img)
    gray_img = invert(gray_img)
    if DEBUG:
+      print "Ink Amplified"
       saveimg(gray_img)
 
 
@@ -1725,13 +1737,14 @@ def removeBackground(cv_img):
    #cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
    gray_img = adaptiveThreshold(gray_img)
    if DEBUG:
+      print "Ink Isolated"
       saveimg(gray_img)
 
    #_, _, gray_img = erodeBlobsPoints(AllPtsIter(gray_img.cols, gray_img.rows), gray_img)
    #show(gray_img)
    #gray_img = smooth(gray_img, ksize=denoise_k)
 
-   return gray_img
+   return gray_img, bg_img
 
 
 
@@ -1861,16 +1874,12 @@ def show(cv_img):
       saveimg(cv_img)
    
 
-def saveimg(cv_img, name = None, outdir = "./temp/", title=""):
+def saveimg(cv_img, name = "", outdir = "./temp/", title=""):
    "save a cv Image"
    global FNAMEITER
 
-   if name is None:
-       outfname = outdir + FNAMEITER.next()
-   else:
-       outfname = outdir + name
+   outfname = outdir + FNAMEITER.next() + name + ".jpg"
    print "Saving %s: %s"  % (outfname, title)
-
    cv.SaveImage(outfname, cv_img)
 
 def main(args):
