@@ -32,24 +32,23 @@ WIDTH = 720
 
 
 log = Logger.getLogger("GTK-GUI", Logger.DEBUG)
-def processImage(filename, strokeQueue, scaleDims):
+def processImage(image, strokeQueue, scaleDims):
     """This function will spawn a process to extract strokes
     from an image file. It will add the extracted strokes from
     the image to strokeQueue, scaled according to scaleDims"""
     pruneLen = 10
     width, height = scaleDims
-    print "Process spawned"
+    log.debug("Process spawned")
     try:
-        strokeDict = ImageStrokeConverter.imageToStrokes(filename)
+        strokeDict = ImageStrokeConverter.cvimgToStrokes(image)
     except Exception as e:
-        #print e
         raise
 
     strokes = strokeDict['strokes']
     w,h = strokeDict['dims']
     scale_x = width / float(w)
     scale_y = height / float(h)
-    print "Got %s Strokes" % (len(strokes))
+    log.debug( "Got %s Strokes" % (len(strokes)) )
     for s in strokes:
         if len(s.points) > pruneLen:
             pointList = []
@@ -57,17 +56,25 @@ def processImage(filename, strokeQueue, scaleDims):
                 newPoint = Point(scale_x * x, height - (scale_y *y))
                 pointList.append(newPoint)
             newStroke = Stroke(pointList)
-            print "Inserting stroke"
             strokeQueue.put(newStroke)
-            #self.addStroke(newStroke)
 
 class GTKGui (_SketchGUI, gtk.DrawingArea):
-
-    def __init__(self):
+    def __init__(self, dims = (WIDTH, HEIGHT) ):
         # Create a new window
         gtk.DrawingArea.__init__(self)
-        self.resize(WIDTH, HEIGHT)
+        #self.resize(*dims) BREAKS when X forwarding
 
+        #GUI data variables
+        self.isMouseDown1 = False
+        self.isMouseDown3 = False
+        self.keyCallbacks = {}
+        self.currentPoints = []
+        self.opQueue = Queue.Queue()
+        self.strokeQueue = ProcQueue()
+        self.strokeLoader = StrokeStorage()
+        self.screenImage = None
+        self._pixbuf = None
+        self._isFullscreen = False
         #Cairo drawing data
         self.renderBuffer = cairo.ImageSurface(cairo.FORMAT_ARGB32, 
                                 WIDTH, HEIGHT)
@@ -78,7 +85,6 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.strokeList = []
         Config.initializeBoard(self.board)
         self.boardProcThread = BoardThread(self.board)
-        self.boardProcThread.start()
 
         #Event hooks
         gobject.idle_add(self.processOps) #Idle event
@@ -87,7 +93,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.connect("button_press_event", self.onMouseDown)
         self.connect("motion_notify_event", self.onMouseMove)
         self.connect("button_release_event", self.onMouseUp)
-        print self.connect("key_press_event", self.onKeyPress)
+        self.connect("key_press_event", self.onKeyPress)
         self.connect("expose_event", self.onExpose)
         self.set_events(gtk.gdk.BUTTON_RELEASE_MASK | 
                         gtk.gdk.BUTTON_PRESS_MASK |
@@ -95,20 +101,18 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                         gtk.gdk.EXPOSURE_MASK |
                         gtk.gdk.POINTER_MOTION_MASK )
 
-        self.window
-
-        #GUI data variables
-        self.isMouseDown1 = False
-        self.isMouseDown3 = False
-        self.currentPoints = []
-        self.opQueue = Queue.Queue()
-        self.strokeQueue = ProcQueue()
-        self.strokeLoader = StrokeStorage()
-        self.screenImage = None
-        self._pixbuf = None
-        self._isFullscreen = False
+        #Enable the board processing
+        self.boardProcThread.start()
 
 
+    def post(self, op):
+        self.opQueue.put(op)
+
+    def registerKeyCallback(self, keyVal, function):
+        """Register a function to be called when
+        a certain keyVal is pressed"""
+        log.debug("Registered function for %s" % (keyVal))
+        self.keyCallbacks.setdefault(keyVal, []).append(function)
 
     def onKeyPress(self, widget, event, data=None):
         key = chr(event.keyval % 256).lower()
@@ -118,7 +122,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
             def ok_callback(fileSelector):
                 fname = fileSelector.get_filename()
                 fileSelector.destroy()
-                self.loadStrokesFromImage(fname)
+                self.loadStrokesFromImage(filename=fname)
 
             fileSelector = gtk.FileSelection("Choose a photo")
             fileSelector.set_filename("./photos/")
@@ -138,20 +142,24 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         elif key == 'q':
             exit(0)
 
+        #Run the registered callbacks
+        for func in self.keyCallbacks.get(key, ()):
+            func()
+
     def setFullscreen(self, makeFull):
         """Set the application fullscreen according to makeFull(boolean)"""
         win = gtk.window_list_toplevels()[0]
         self._pixbuf = None
         if makeFull:
-            print "Fullscreen! %s" % (win)
             self.screenImage = None
-            win.fullscreen()
             self._isFullscreen = True
+            win.fullscreen()
+            self.boardChanged()
         else:
-            print "UN-Fullscreen! %s" % (win)
             self.screenImage = None
-            win.unfullscreen()
             self._isFullscreen = False
+            win.unfullscreen()
+            self.boardChanged()
         self.draw()
 
     def resetBoard(self):
@@ -161,24 +169,26 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.boardProcThread = BoardThread(self.board)
         self.boardProcThread.start()
         self.draw()
-        return
 
     def boardChanged(self):
         self.draw()
         #self.opQueue.put(partial(GTKGui.draw, self))
 
-    def loadStrokesFromImage(self, filename):
-        pruneLen = 10
-        if filename == "":
-           return
-
+    def loadStrokesFromImage(self, filename=None, image=None):
+        pruneLen = 1
         width, height = self.window.get_size()
+        if image is None:
+            if filename is None:
+                return
+            else:
+                image = ImageStrokeConverter.loadFile(filename)
+
         p = Process(target = processImage,
-                    args = (filename, self.strokeQueue, (width,height) )
+                    args = (image, self.strokeQueue, (width,height) )
                    )
         p.start()
-        #processImage(filename, self.opQueue, self, (width, height) )
         return
+        """
         try:
            log.debug( "Loading strokes...")
            strokeDict = ImageStrokeConverter.imageToStrokes(filename)
@@ -201,6 +211,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                     pointList.append(newPoint)
                 newStroke = Stroke(pointList)
                 self.addStroke(newStroke)
+        """
  
     def loadStrokes(self):
         for stroke in self.strokeLoader.loadStrokes():
@@ -346,7 +357,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def processQueuedStrokes(self):
         if not self.strokeQueue.empty():
-            print "Adding queued stroke"
+            log.debug("Adding queued stroke")
             stroke = self.strokeQueue.get()
             self.strokeList.append(stroke)
             self.boardProcThread.addStroke(stroke, callback = self.boardChanged)
@@ -356,7 +367,6 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         """Process one operation from the opqueue"""
         if not self.opQueue.empty():
             op = self.opQueue.get() #Call the next operation in the queue
-            print "GUI: Running %s" % (op.func.__name__)
             op()
             self.opQueue.task_done()
         return True #Call me again next idle time
@@ -523,13 +533,12 @@ class BoardThread(threading.Thread):
             if not self.opQueue.empty():
                 op, callback = self.opQueue.get()
                 with self.board.Lock:
-                    print "BPT: Running %s" % (op.func.__name__)
                     op()
                 self.opQueue.task_done()
                 callback()
             else:
                 time.sleep(0.3)
-        print "Board thred quitting"
+        log.debug("Board thread quitting")
         
 
 
@@ -540,7 +549,6 @@ def hexToTuple(hexString):
                  float(int(hexString[3:5], 16))/255.0,
                  float(int(hexString[5:7], 16))/255.0 )
     return retTuple
-
 
 def main():
     window = gtk.Window()

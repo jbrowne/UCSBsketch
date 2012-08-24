@@ -21,6 +21,9 @@ from Utils import Logger
 from Utils import GeomUtils
 from Utils.Timer import Timed
 
+from multiprocessing import Process, Queue
+from functools import partial
+
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 
@@ -45,6 +48,11 @@ class FeatureSet(object):
 
 #------------------------------------------------------------
 bcp_logger = Logger.getLogger('BCPFeatureSet', Logger.WARN )
+def spawnGetResult(func, args, retQueue):
+    """Call a function and put it's result in retQueue"""
+    print "calling %s with %s" % (func.__name__, args)
+    retQueue.put(func(*args))
+    
 class BCPFeatureSet(FeatureSet):
     """Feature set found to be best for Rubine's classifier in
     Blagojevic, et al. "The Power of Automatic Feature Selection: 
@@ -53,6 +61,8 @@ class BCPFeatureSet(FeatureSet):
         FeatureSet.__init__(self)
         self.rubineSet = RubineFeatureSet()
         bcp_logger.warn("Feature f1_01 DISABLED")
+        self.queueList = [Queue() for i in range(len(self))]
+
 
     def __len__(self):
         return 27
@@ -81,6 +91,26 @@ class BCPFeatureSet(FeatureSet):
         anglesVector = GeomUtils.pointlistAnglesVector(stroke.Points)
         #Generate the vector
         #Basic Features
+
+        # BEGINNINGS OF MULTOPROC
+        #func = self.f1_12
+        #f_args = (stroke, strokeLength)
+        #p = Process(target = spawnGetResult, args =(func, f_args, 
+        #            self.queueList[0],))
+        #p.start()
+
+        #func = self.f1_16
+        #f_args = (strokeNorm,)
+        #p = Process(target = spawnGetResult, args =(func, f_args, 
+        #            self.queueList[1],))
+        #p.start()
+
+        #func = self.f1_16
+        #f_args = (strokeNorm,)
+        #p = Process(target = spawnGetResult, args =(func, f_args, 
+        #            self.queueList[1],))
+        #p.start()
+
         retVector = [ self.f1_12(stroke, strokeLength) , \
                      self.f1_16(strokeNorm) , \
                      self.f2_6(strokeLength, convexHull) , \

@@ -88,19 +88,31 @@ def cvimgToStrokes(in_img):
    #saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
    return {"strokes": strokelist, "dims" : (small_img.cols, small_img.rows)}
 
-def imageBufferToStrokes(data):
-   "External interface to take in a PIL image buffer object and return a list of the strokes."
+def loadImageBuf(data):
+   """Convert a PIL image buffer to the image expected by cvimgtoStrokes"""
    pil_img = Image.open(StringIO.StringIO(data))
    cv_img = cv.CreateImageHeader(pil_img.size, cv.IPL_DEPTH_8U, 3)
    cv.SetData(cv_img, pil_img.tostring())
    cv_mat = cv.GetMat(cv_img)
    cv.CvtColor(cv_img, cv_img, cv.CV_RGB2BGR)
-   return cvimgToStrokes(cv_mat)
+   return cv_mat
     
+def imageBufferToStrokes(data):
+   "External interface to take in a PIL image buffer object and return a list of the strokes."
+   print "imageBufferToStrokes(..)"
+   print "DEPRECATED! Use cvimgToStrokes(loadImageBuf(data))"
+   return cvimgToStrokes(loadImageBuf(data))
+    
+def loadFile(filename):
+    """Load an image from a filename and return the image object"""
+    return cv.LoadImageM(filename)
+
 def imageToStrokes(filename):
    "External interface to take in a filename for an image and return a list of the strokes."
-   in_img = cv.LoadImageM(filename)
-   return cvimgToStrokes(in_img)
+   print "imageToStrokes(..)"
+   print "DEPRECATED! Use cvimgToStrokes(loadFile(filename))"
+   #in_img = cv.LoadImageM(filename)
+   return cvimgToStrokes(loadfile(filename))
 
 #***************************************************
 # Random Utility Functions

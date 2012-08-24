@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
-import Utils.ImageStrokeConverter as ISC
+import sketchvision.ImageStrokeConverter as ISC
 import Standalone
+from  gtkStandalone import GTKGui, main as GTKmain
 import threading
 import cv
 import time
 import sys
 import Image
 import pdb
+import gtk
 from functools import partial
+from Utils.CamArea import CamArea
 
 CVKEY_ENTER = 1048586
 TEMPCORNERS = [ 
@@ -64,13 +67,13 @@ def getModeFrames(frameCap, window = 5):
         frame = cv.CreateMat(colorframe.rows, 
                             colorframe.cols, 
                             cv.CV_8UC1)
-        cv.CvtColor(colorframe, frame, cv.CV_RGB2GRAY)
+        cv.CvtColor(colorframe, frame, cv.CV_BGR2GRAY)
         #frame = threshold(frame)
         endFrame = copyFrame(frame)
         #cv.AddWeighted(frame, 0.0, frame, 1/window ,0.0,endFrame)
         for i in range(window - 1):
             colorframe = frameCap.next()
-            cv.CvtColor(colorframe, frame, cv.CV_RGB2GRAY)
+            cv.CvtColor(colorframe, frame, cv.CV_BGR2GRAY)
             #frame = threshold(frame)
             cv.Smooth(frame, frame, smoothtype= cv.CV_MEDIAN, param1=3)
             cv.Min(frame, endFrame, endFrame)
@@ -202,7 +205,6 @@ class CamProcessor(threading.Thread):
                         cv.Circle(tempFrame, pt, 2, (0,255,0), thickness=-3)
                 tempFrame = ISC.resizeImage(tempFrame, scale)
                 cv.ShowImage("Raw", tempFrame )
-                    
 
                 capKey = cv.WaitKey(key_sleep)
                 if capKey != -1:
@@ -245,11 +247,34 @@ class CamProcessor(threading.Thread):
             op = partial(self.gui.LoadStrokesFromImage, frame)
             self.gui.post(op)
 
+def captureAndProcessImage(cam, sketchGui):
+    cvImage = cv.GetMat(cam.getCvImage())
+    cam.pause()
+    sketchGui.setFullscreen(True)
+    sketchGui.grab_focus()
+    sketchGui.loadStrokesFromImage(image=cvImage)
+ 
 def main(args):
-    gui = Standalone.TkSketchFrame()
-    capture = CamProcessor(gui)
-    capture.start()
-    gui.run()
+    dims = (800, 600)
+    gui = GTKGui(dims = dims)
+    cam = CamArea( dims= dims )
+    cam.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui) )
+    cam.registerKeyCallback('p', lambda : cam.resume() )
+    gui.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui) )
+    gui.registerKeyCallback('f', lambda : cam.pause() )
+
+    sketchWindow = gtk.Window()
+    sketchWindow.add(gui)
+    sketchWindow.connect("destroy", gtk.main_quit)
+    sketchWindow.show_all()
+
+    cameraWindow = gtk.Window()
+    cameraWindow.add(cam)
+    cameraWindow.connect("destroy", gtk.main_quit)
+    cameraWindow.show_all()
+
+    gtk.main()
+
 
 if __name__ == "__main__":
     main(sys.argv)

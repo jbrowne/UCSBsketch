@@ -32,7 +32,7 @@ from Observers import DiGraphObserver
 from Observers import TuringMachineObserver
 
 
-from Utils.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
+from sketchvision.ImageStrokeConverter import imageBufferToStrokes, GETNORMWIDTH
 from Utils.StrokeStorage import StrokeStorage
 from Utils import Logger
 
