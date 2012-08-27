@@ -187,31 +187,6 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                     args = (image, self.strokeQueue, (width,height) )
                    )
         p.start()
-        return
-        """
-        try:
-           log.debug( "Loading strokes...")
-           strokeDict = ImageStrokeConverter.imageToStrokes(filename)
-           log.debug( "Loaded %s strokes from '%s'" % 
-               (len(strokeDict['strokes']), filename))
-        except Exception as e:
-           log.debug( "Error importing strokes from image '%s':\n %s" % 
-               (filename, e))
-           raise
-
-        strokes = strokeDict['strokes']
-        w,h = strokeDict['dims']
-        scale_x = width / float(w)
-        scale_y = height / float(h)
-        for s in strokes:
-            if len(s.points) > pruneLen:
-                pointList = []
-                for x,y in s.points:
-                    newPoint = Point(scale_x * x, HEIGHT - (scale_y *y))
-                    pointList.append(newPoint)
-                newStroke = Stroke(pointList)
-                self.addStroke(newStroke)
-        """
  
     def loadStrokes(self):
         for stroke in self.strokeLoader.loadStrokes():

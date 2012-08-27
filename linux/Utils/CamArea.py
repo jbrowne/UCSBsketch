@@ -18,6 +18,14 @@ import cv
 
 log = Logger.getLogger("CamArea", Logger.DEBUG)
     
+MAXCAPSIZE = (2592, 1944)
+HDSIZE = (1920, 1080)
+DEFAULT_CORNERS = [
+                    (777.6, 239.76000000000002),
+                    (2080, 533),
+                    (2235.6, 1506.6000000000001),
+                    (625.32, 1441.8000000000002),
+                  ]
 class CamArea (gtk.EventBox):
     def __init__(self, dims = (1280, 1024,) ):
         # Create a new window
@@ -27,12 +35,14 @@ class CamArea (gtk.EventBox):
         self.gtkImage = gtk.Image()
         self.add(self.gtkImage)
         self.shouldUpdate = True
+        self.imageScale = 0.5
 
         #Camera Data
-        self.capture, self.dims = initializeCapture(dims = dims)
+
+        self.capture, self.captureDims = initializeCapture(dims = MAXCAPSIZE)
+        self.setDisplayDims(dims)
         self.cvImage = None
-        self.warpCorners = [
-                            ]
+        self.warpCorners = DEFAULT_CORNERS
 
         #Event hooks
         gobject.idle_add(self.idleUpdateImage)
@@ -60,13 +70,15 @@ class CamArea (gtk.EventBox):
         """Respond to the mouse moving"""
         return
     
+
     def onMouseUp(self, widget, e):
         """Respond to the mouse being released"""
         print e.x, e.y
         if len(self.warpCorners) >= 4:
-            self.warpCorners = []
+            self.warpCorners = getNewCorners(self.warpCorners)
         else:
-            self.warpCorners.append((e.x, e.y,))
+            self.warpCorners.append( (e.x / self.imageScale, 
+                                      e.y / self.imageScale) )
 
     def onKeyPress(self, widget, event, data=None):
         """Respond to a key being pressed"""
@@ -92,9 +104,10 @@ class CamArea (gtk.EventBox):
         #if self.flags() & gtk.HAS_FOCUS:
         cvImage = captureImage(self.capture)
         if len(self.warpCorners) == 4:
-            cvImage = warpFrame(cvImage, self.warpCorners, self.dims)
+            cvImage = warpFrame(cvImage, self.warpCorners, self.captureDims)
         self.cvImage = cvImage
-        self.setCvMat(self.cvImage)
+        displayImg = resizeImage(self.cvImage, self.imageScale)
+        self.setCvMat(displayImg)
         return self.shouldUpdate
 
     def pause(self):
@@ -116,10 +129,56 @@ class CamArea (gtk.EventBox):
                                                   iplImg.height,
                                                   iplImg.width*iplImg.nChannels)
         self.gtkImage.set_from_pixbuf(img_pixbuf)
+
+    def setDisplayDims(self, dims):
+        curDims = self.captureDims
+        wscale = dims[0] / float(curDims[0])
+        hscale = dims[1] / float(curDims[1])
+        self.imageScale = min(hscale, wscale)
+        log.debug("Scaling image to %s x %s" % (self.imageScale * curDims[0], 
+                                                self.imageScale * curDims[1]) )
+
+
+        
         
 #~~~~~~~~~~~~~~~~~~~~~~~`
 #Helper Functions for CamArea
 #~~~~~~~~~~~~~~~~~~~~~~~`
+
+def getNewCorners(corners):
+    nw, ne, se, sw = corners
+    print "1: %s\t2: %s\n\n3: %s\t4: %s" % (nw, ne, sw, se)
+    print "0: Reset"
+    try:
+        choice = int(raw_input("Edit Corner No.> "))
+        if choice == 0:
+            return []
+        else:
+            if choice == 1:
+                idx = 0
+            elif choice == 2:
+                idx = 1
+            elif choice == 3:
+                idx = 3
+            elif choice == 4:
+                idx = 2
+            print corners[idx]
+            newCorn = tuple([int(num) for num in raw_input("New corner> ").split()])
+            corners[idx] = newCorn
+
+            print "\n".join([str(c) for c in corners])
+            return corners
+    except Exception as e:
+        print "Input error"
+        return corners
+
+
+
+def resizeImage(img, scale):
+   retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
+   cv.Resize(img, retImg)
+   return retImg
+
 def warpFrame(frame, corners, dimensions):
     """Transforms the frame such that the four corners (nw, ne, se, sw)
     are in the corner"""
