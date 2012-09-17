@@ -94,7 +94,7 @@ def loadImageBuf(data):
    cv_img = cv.CreateImageHeader(pil_img.size, cv.IPL_DEPTH_8U, 3)
    cv.SetData(cv_img, pil_img.tostring())
    cv_mat = cv.GetMat(cv_img)
-   cv.CvtColor(cv_img, cv_img, cv.CV_RGB2BGR)
+   #cv.CvtColor(cv_img, cv_img, cv.CV_BGR2RGB)
    return cv_mat
     
 def imageBufferToStrokes(data):
@@ -1404,63 +1404,49 @@ class Stroke(object):
 #  Image Processing
 #***************************************************
 
-def getHoughLines(img, numlines = 4, method = 1):
-   """Largely taken from http://www.seas.upenn.edu/~bensapp/opencvdocs/ref/opencvref_cv.htm"""
-   global DEBUGIMG
-   linethresh = 300
-   rhoGran = 1
+def getHoughLines(img, numlines = 4):
+   """Largely taken from 
+   http://www.seas.upenn.edu/~bensapp/opencvdocs/ref/opencvref_cv.htm"""
+   linethresh = 50
+   rhoGran = 3
    thetaGran = math.pi / 180
-   minLen = 50
-   maxGap = 10
+   cannyThresh = (30, 70)
+   edgeKernel = 3
    
-
    gray_img = cv.CreateMat(img.rows, img.cols, cv.CV_8UC1)
    cv.CvtColor(img, gray_img, cv.CV_RGB2GRAY)
    img = gray_img
 
    edges_img = cv.CreateMat(img.rows, img.cols, cv.CV_8UC1)
-   cv.Canny(img, edges_img, 50, 200, 3)
+   cv.Canny(img, edges_img, cannyThresh[0], cannyThresh[1], edgeKernel)
+   saveimg(edges_img)
 
-   if method == 1:
-      seq = cv.HoughLines2(edges_img, cv.CreateMemStorage(), cv.CV_HOUGH_STANDARD, rhoGran, thetaGran, linethresh)
-      
-      numLines = 0
-      for line in seq:
-         if numLines > numlines:
-            break
-         rho, theta = line
+   seq = cv.HoughLines2(edges_img, 
+                        cv.CreateMemStorage(), 
+                        cv.CV_HOUGH_STANDARD,
+                        rhoGran, thetaGran, 
+                        linethresh)
+   
+   for line in seq:
+      if numlines == 0:
+         break
+      rho, theta = line
 
-         a = math.cos(theta)
-         b = math.sin(theta)
-         x0 = a * rho
-         y0 = b * rho
+      a = math.cos(theta)
+      b = math.sin(theta)
+      x0 = a * rho
+      y0 = b * rho
 
-         p1x = x0 + 2000 * (-b)
-         p1y = y0 + 2000 * (a)
-         p1 = (p1x, p1y)
+      p1x = int(x0 + 2000 * (-b))
+      p1y = int(y0 + 2000 * (a))
+      p1 = (p1x, p1y)
 
-         p2x = x0 - 2000 * (-b)
-         p2y = y0 - 2000 * (a)
-         p2 = (p2x, p2y)
+      p2x = int(x0 - 2000 * (-b))
+      p2y = int(y0 - 2000 * (a))
+      p2 = (p2x, p2y)
 
-
-         cv.Line(DEBUGIMG, p1,p2, 200, thickness=5)
-
-         numLines += 1
-
-   elif method == 2:
-      seq = cv.HoughLines2(edges_img, cv.CreateMemStorage(), cv.CV_HOUGH_PROBABILISTIC, rhoGran, thetaGran, linethresh, minLen, maxGap)
-      
-      numLines = 0
-      for line in seq:
-         if numLines > numlines:
-            break
-         p1, p2 = line
-
-
-         cv.Line(DEBUGIMG, p1,p2, 200, thickness=5)
-
-         numLines += 1
+      numlines -= 1
+      yield (p1, p2)
 
 
 
@@ -1759,10 +1745,18 @@ def removeBackground(cv_img):
    return gray_img, bg_img
 
 
-
-
-
-
+def floodFill(image, seedPt, thresholds = (0, 255), color=0):
+    """Fills a region with color from a seed point, as long as the
+    pixels are in the range defined by thresholds (inclusive)."""
+    x,y = seedPt
+    seedVal = image[y,x]
+    loDiff = seedVal - thresholds[0]
+    hiDiff = thresholds[1] - hidiff
+    print "Filling %s-%s with %s" % (seedVal - loDiff, seedVal + hiDiff, color)
+    cv.FloodFill(image, seedPt, 
+                 color, lo_diff=loDiff , up_diff=hiDiff, 
+                 flags = cv.CV_FLOODFILL_FIXED_RANGE)
+    
 
 def blobsToStrokes(img):
    "Take in a black and white image of a whiteboard, thin the ink, and convert the points to strokes."

@@ -27,11 +27,10 @@ import pygtk
 import math
 pygtk.require('2.0')
 import gtk
-HEIGHT = 1280
-WIDTH = 720
+WIDTH, HEIGHT = 1024, 768
 
 
-log = Logger.getLogger("GTK-GUI", Logger.DEBUG)
+log = Logger.getLogger("GTK-GUI", Logger.WARN)
 def processImage(image, strokeQueue, scaleDims):
     """This function will spawn a process to extract strokes
     from an image file. It will add the extracted strokes from
@@ -62,7 +61,13 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
     def __init__(self, dims = (WIDTH, HEIGHT) ):
         # Create a new window
         gtk.DrawingArea.__init__(self)
-        #self.resize(*dims) BREAKS when X forwarding
+        self.resize(*dims)# BREAKS when X forwarding
+
+        #Semantic board data
+        self.board = Board(gui = self)
+        self.strokeList = []
+        Config.initializeBoard(self.board)
+        self.boardProcThread = BoardThread(self.board)
 
         #GUI data variables
         self.isMouseDown1 = False
@@ -76,15 +81,10 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self._pixbuf = None
         self._isFullscreen = False
         #Cairo drawing data
-        self.renderBuffer = cairo.ImageSurface(cairo.FORMAT_ARGB32, 
-                                WIDTH, HEIGHT)
-        self.context = cairo.Context(self.renderBuffer)
+        self.renderBuffer = None
+        self.context = None 
+        self.resetBackBuffer()
 
-        #Semantic board data
-        self.board = Board(gui = self)
-        self.strokeList = []
-        Config.initializeBoard(self.board)
-        self.boardProcThread = BoardThread(self.board)
 
         #Event hooks
         gobject.idle_add(self.processOps) #Idle event
@@ -105,6 +105,10 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.boardProcThread.start()
 
 
+    def getDimensions(self):
+        "Return the (width, height) of the visible board area"
+        return self.window.get_size()
+
     def post(self, op):
         self.opQueue.put(op)
 
@@ -115,7 +119,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.keyCallbacks.setdefault(keyVal, []).append(function)
 
     def onKeyPress(self, widget, event, data=None):
-        key = chr(event.keyval % 256).lower()
+        key = chr(event.keyval % 256)
         if key == 'r':
             self.resetBoard()
         elif key == 'i':
@@ -146,6 +150,16 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         for func in self.keyCallbacks.get(key, ()):
             func()
 
+    def resetBackBuffer(self):
+        """Reset the back painting buffer, for example when the screen
+        size changes"""
+        x,y,w,h = self.allocation
+        log.debug("Reset back buffer %sx%s" % (w,h))
+        self.renderBuffer = cairo.ImageSurface(cairo.FORMAT_ARGB32, w,h)
+        self.context = cairo.Context(self.renderBuffer)
+        #self.screenImage = None
+
+        
     def setFullscreen(self, makeFull):
         """Set the application fullscreen according to makeFull(boolean)"""
         win = gtk.window_list_toplevels()[0]
@@ -153,14 +167,21 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         if makeFull:
             self.screenImage = None
             self._isFullscreen = True
+            print ""
+            log.debug("Fullscreen")
             win.fullscreen()
-            self.boardChanged()
+            self.opQueue.put(lambda : self._updateScreenImage())
+            self.opQueue.put(lambda : self.resetBackBuffer())
+            #self.resetBackBuffer()
+            #self.boardChanged()
         else:
             self.screenImage = None
             self._isFullscreen = False
+            log.debug("UNFullscreen")
             win.unfullscreen()
-            self.boardChanged()
-        self.draw()
+            self.opQueue.put(lambda : self.resetBackBuffer())
+            #self.resetBackBuffer()
+            #self.boardChanged()
 
     def resetBoard(self):
         self.opQueue = Queue.Queue()
@@ -239,10 +260,13 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         24 bit RGB string #RRGGBB. Empty string is transparent"""
         self.context.save()
         #Draw the line
-        c = hexToTuple(color)
-        self.context.set_source_rgb(*c)
         pt = self.b2c(Point(x,y))
         self.context.arc(pt.X, pt.Y, radius, 0, math.pi * 2)
+        if fill != "":
+            self.context.set_source_rgb(* hexToTuple(fill) )
+            self.context.fill_preserve()
+        #c = hexToTuple(color)
+        self.context.set_source_rgb(*hexToTuple(color))
         self.context.stroke()
         self.context.restore()
          
@@ -285,7 +309,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
     # ------------------------------------------------
     #      Optional overloads
     def _drawBox(self, tl, br, topright = None, 
-                bottomleft = None, color="#FFFFFF", width=2):
+                bottomleft = None, color="#FFFFFF", fill = "", width=2):
         self.context.save()
         tl = self.b2c(tl)
         br = self.b2c(br)
@@ -295,9 +319,12 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         w = br.X - tl.X
         h = br.Y - tl.Y
 
-        c = hexToTuple(color)
-        self.context.set_source_rgb(*c)
+        self.context.set_source_rgb(* hexToTuple(color))
+        self.context.set_line_width(width)
         self.context.rectangle(x,y,w,h)
+        if fill != "":
+            self.context.set_source_rgb(* hexToTuple(fill))
+            self.context.fill_preserve()
         self.context.stroke()
         self.context.restore()
     
@@ -328,7 +355,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def resize(self, w,h):
         """Set the size of the canvas to w x h"""
-        self.set_size_request(h, w)
+        self.set_size_request(w,h)
 
     def processQueuedStrokes(self):
         if not self.strokeQueue.empty():
@@ -417,6 +444,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def onExpose(self, widget, e):
         """Respond to the window being uncovered"""
+        log.debug("Expose")
         if self.screenImage is not None:
             self.window.draw_pixbuf(None, self.screenImage, 0,0, 0,0)
         else:
@@ -424,6 +452,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def clearBoard(self, bgColor="#000000"):
         """Erase the contents of the board"""
+        log.debug("Clear")
         self.context.save()
         c = hexToTuple(bgColor)
         self.context.set_source_rgb(*c)
@@ -434,22 +463,29 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         
     def draw(self):
         """Draw the board"""
+        log.debug("Redraw")
         self.opQueue.put(partial(GTKGui.clearBoard, self))
         with self.board.Lock:
             for stk in self.board.Strokes:
                 stk.drawMyself()
             for obs in self.board.BoardObservers:
                 obs.drawMyself()
+        self.doPaint()
+
+    def doPaint(self):
+        """A method to commit the current queue of draw events to 
+        the screen"""
         self.opQueue.put(partial( GTKGui.flipContext, self) )
         self.opQueue.put(partial( GTKGui._updateScreenImage, self) )
         
     def flipContext(self):
         """Render the drawn surface to the screen"""
+        log.debug("Flip image to surface")
         bufferToPaint = self.renderBuffer
+        (nw, nh) = bufferToPaint.get_width(), bufferToPaint.get_height()
+        log.debug(" Current buffer: %sx%s" % (nw, nh) )
         #Set up a new buffer to paint from
-        x,y,w,h = self.allocation
-        self.renderBuffer = cairo.ImageSurface(cairo.FORMAT_ARGB32, w,h)
-        self.context = cairo.Context(self.renderBuffer)
+        self.resetBackBuffer()
         #Paint the render buffer to the live context
         liveContext = self._getContext()
         liveContext.set_source_surface(bufferToPaint)
@@ -458,15 +494,17 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def _updateScreenImage(self):
         """Update the image of the screen we're dealing with"""
-        if not self._isFullscreen:
-            width, height = self.window.get_size()
-            if self._pixbuf is None:
-                self._pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8,
-                                        width, height)
-            self.screenImage = self._pixbuf.get_from_drawable(self.window, 
-                                                self.window.get_colormap(), 
-                                                0, 0, 0, 0, width, height)
-            #self.screenImage.save('screenshot.png', 'png')
+        log.debug("Update Screenshot")
+        #if not self._isFullscreen:
+        width, height = self.window.get_size()
+        #if self._pixbuf is None:
+        log.debug("  pixbuf size: %sx%s" % (width, height))
+        _pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8,
+                                width, height)
+        self.screenImage = _pixbuf.get_from_drawable(self.window, 
+                                        self.window.get_colormap(), 
+                                        0, 0, 0, 0, width, height)
+        self.screenImage.save('screenshot.png', 'png')
 
         
 

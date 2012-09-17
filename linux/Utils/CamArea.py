@@ -7,6 +7,7 @@ if __name__ == "__main__":
     sys.path.append("./")
     print sys.path
 from Utils import Logger
+from sketchvision import ImageStrokeConverter as ISC
 import pangocairo
 import pdb
 import pygtk
@@ -39,16 +40,16 @@ class CamArea (gtk.EventBox):
 
         #Camera Data
 
+        self.cvImage = None
+        self.warpCorners = []#DEFAULT_CORNERS
         self.capture, self.captureDims = initializeCapture(dims = MAXCAPSIZE)
         self.setDisplayDims(dims)
-        self.cvImage = None
-        self.warpCorners = DEFAULT_CORNERS
 
         #Event hooks
         gobject.idle_add(self.idleUpdateImage)
         self.set_property("can-focus", True) #So we can capture keyboard events
         self.connect("button_press_event", self.onMouseDown)
-        self.connect("visibility_notify_event", self.onVisibilityChange)
+        #self.connect("visibility_notify_event", self.onVisibilityChange)
         #self.connect("motion_notify_event", self.onMouseMove)
         self.connect("button_release_event", self.onMouseUp)
         self.connect("key_press_event", self.onKeyPress)
@@ -60,9 +61,6 @@ class CamArea (gtk.EventBox):
                        )
         self.callBacks = {}
     
-    def onVisibilityChange(self, widget, e):
-        print e.state
-
     def onMouseDown(self, widget, e):
         """Respond to a mouse being pressed"""
         return
@@ -71,20 +69,75 @@ class CamArea (gtk.EventBox):
         return
     
 
+    def findCalibrationChessboard(self):
+        patternSize = (7,7) #Internal corners of 8x8 chessboard
+        img = cv.CreateMat(self.cvImage.rows, self.cvImage.cols, cv.CV_8UC1)
+        cv.CvtColor(self.cvImage, img, cv.CV_RGB2GRAY)
+        cv.AddWeighted(img, -1.0, img, 0, 255,img )
+        ISC.saveimg(img)
+        #cv.AdaptiveThreshold(img, img, 255, blockSize=39)
+        #ISC.saveimg(img)
+        numFound, corners = cv.FindChessboardCorners(img, 
+                                        patternSize,
+                                        flags= cv.CV_CALIB_CB_ADAPTIVE_THRESH | 
+                                               cv.CV_CALIB_CB_NORMALIZE_IMAGE)
+        if len(corners) == 49:
+            self.warpCorners = [corners[0], corners[6], corners[48], corners[42]]
+        return corners
+        
+    def findCalibrationCorner(self, x, y, window = 10):
+        """find the most likely pixel-precise calibration corner in the 
+        neighborhood of (x,y), range is the number of pixels radius to check"""
+        #print ""
+        def asciiVal(val):
+            retlist = (" ", ".", "-", "!", "x", "#")
+            idx = int(val / 42)
+            return retlist[idx]
+
+        curMaxPt = (x,y)
+        curMaxVal = -1
+        for ySpan in range(1,window):
+            for xSpan in range(1,window):
+                try:
+                    for dx, dy in ( (xSpan, ySpan), 
+                                    (-xSpan, ySpan), 
+                                    (-xSpan, -ySpan), 
+                                    (xSpan, -ySpan) ):
+                        pt = (x+dx, y+dy)
+                        value = sum(self.cvImage[pt[1], pt[0]])
+                        #log.debug("Value: %s at %s" % (value, pt))
+                        if curMaxVal < value:
+                            curMaxVal = value
+                            curMaxPt = (x + dx, y + dy)
+                            #log.debug("Max Val update %s at %s" % (curMaxVal, curMaxPt))
+                except Exception as e:
+                    print e
+        return curMaxPt
+
+       
+
     def onMouseUp(self, widget, e):
         """Respond to the mouse being released"""
-        print e.x, e.y
         if len(self.warpCorners) >= 4:
-            self.warpCorners = getNewCorners(self.warpCorners)
+            #self.warpCorners = getNewCorners(self.warpCorners)
+            log.debug("Reset Corners")
+            self.warpCorners = []
         else:
-            self.warpCorners.append( (e.x / self.imageScale, 
-                                      e.y / self.imageScale) )
+            x,y = self.findCalibrationCorner(e.x / self.imageScale, 
+                                             e.y / self.imageScale,
+                                             window = int(4 / self.imageScale))
+            self.warpCorners.append( (x,y) )
+            if len(self.warpCorners) == 4:
+                self.resume()
+            log.debug("Corner %s, %s" % (x,y))
 
     def onKeyPress(self, widget, event, data=None):
         """Respond to a key being pressed"""
-        key = chr(event.keyval % 256).lower()
+        key = chr(event.keyval % 256)
         if key == 'q':
             exit(0)
+        elif key == 'c':
+            log.debug("Corners: %s" % (str(self.findCalibrationChessboard()) ))
 
         #Go through all the registered callbacks
         for func in self.callBacks.get(key, []):
@@ -145,6 +198,14 @@ class CamArea (gtk.EventBox):
 #Helper Functions for CamArea
 #~~~~~~~~~~~~~~~~~~~~~~~`
 
+def findChessboard(img, patternSize):
+    """Take an 8bit image and return corners found for
+    a chessboard pattern with (w,h) number of internal corners"""
+    corners = cv.FindChessboardCorners(img, 
+                                    patternSize,
+                                    flags= cv.CV_CALIB_CB_NORMALIZE_IMAGE)
+    return corners
+
 def getNewCorners(corners):
     nw, ne, se, sw = corners
     print "1: %s\t2: %s\n\n3: %s\t4: %s" % (nw, ne, sw, se)
@@ -181,12 +242,27 @@ def resizeImage(img, scale):
 
 def warpFrame(frame, corners, dimensions):
     """Transforms the frame such that the four corners (nw, ne, se, sw)
-    are in the corner"""
+    are dx in from the left/right sides and dy from top/bottom. dx and dy
+    are calculated given a standard 8x8 chessboard pattern
+    """
     (w,h) = dimensions
+    #targetCorners = ( (0,0),
+    #                   (w,0),
+    #                   (w,h),
+    #                   (0,h),
+    #                 )
+    #dx = w/4.0
+    #dy = h/4.0
+    dx = 5 * w / 16.0
+    dy = 5 * h / 16.0
+    targetCorners = ( (int(dx)    , int(dy)),
+                      (int(w - dx), int(dy)),
+                      (int(w - dx), int(h - dy)),
+                      (int(dx)    , int(h - dy)),
+                    )
     outImg = cv.CreateMat(h, w, frame.type)
     if len(corners) == 4:
         #w,h = outImg.cols, outImg.rows #frame.cols, frame.rows
-        targetCorners = ((0,0), (w,0), (w,h), (0,h))
         warpMat = cv.CreateMat(3,3,cv.CV_32FC1) #Perspective warp matrix
         cv.GetPerspectiveTransform( corners, 
             targetCorners,
@@ -212,7 +288,7 @@ def captureImage(capture):
     of gtkImage.
     Returns cv Image of the capture"""
     cvImg=cv.QueryFrame(capture)
-    cv.CvtColor(cvImg, cvImg, cv.CV_BGR2RGB)
+    #cv.CvtColor(cvImg, cvImg, cv.CV_BGR2RGB)
     cvMat = cv.GetMat(cvImg)
     return cvMat
 

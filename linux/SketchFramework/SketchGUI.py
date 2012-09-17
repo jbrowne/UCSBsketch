@@ -49,7 +49,7 @@ class _SketchGUI(object):
         
 # ------------------------------------------------
 #      Optional overloads
-    def drawBox(self, topleft, bottomright, topright = None, bottomleft = None, color="#000000", width=2):
+    def drawBox(self, topleft, bottomright, topright = None, bottomleft = None, color="#000000", fill = "", width=2):
         if topright is None:
             topright = Point(bottomright.X, topleft.Y)
         if bottomleft is None:
@@ -129,9 +129,9 @@ def drawLine(x1, y1, x2, y2, width=2, color="#000000"):
     s = SketchGUISingleton()
     s.drawLine(x1,y1,x2,y2, width=width, color=color)
     
-def drawBox(topleft, bottomright, topright = None, bottomleft = None, color="#000000", width=2):
+def drawBox(topleft, bottomright, topright = None, bottomleft = None, color="#000000", fill="", width=2):
     s = SketchGUISingleton()
-    s.drawBox(topleft, bottomright, topright = topright, bottomleft = bottomleft, color=color, width=width)
+    s.drawBox(topleft, bottomright, topright = topright, bottomleft = bottomleft, color=color, fill=fill, width=width)
     
 def drawStroke(stroke, width = 2, color="#000000", erasable = False):
     s = SketchGUISingleton()
