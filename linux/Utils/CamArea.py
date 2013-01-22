@@ -137,7 +137,9 @@ class CamArea (gtk.EventBox):
         if key == 'q':
             exit(0)
         elif key == 'c':
-            log.debug("Corners: %s" % (str(self.findCalibrationChessboard()) ))
+            log.debug("Searching for chessboard...")
+            corners = self.findCalibrationChessboard()
+            log.debug("%s Corners found" % (len(corners)))
 
         #Go through all the registered callbacks
         for func in self.callBacks.get(key, []):

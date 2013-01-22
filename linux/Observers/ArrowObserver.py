@@ -29,9 +29,36 @@ from SketchFramework.Stroke import Stroke
 from SketchFramework.Board import BoardObserver
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 from xml.etree import ElementTree as ET
+from Observers.Semantics_Class1 import Class1Annotation
 
 logger = Logger.getLogger('ArrowObserver', Logger.WARN)
 
+arrowHeadMatcher = Template.TemplateDict(filename = "Utils/arrowheads.templ")
+
+class ArrowHeadAnnotation( Class1Annotation ):
+    def __init__(self, end1, cusp, end2):
+        Class1Annotation.__init__(self)
+        self.addKeyPoint("end1", end1)
+        self.addKeyPoint("cusp", cusp)
+        self.addKeyPoint("end2", end2)
+
+def classifyArrowhead(board, stroke):
+    """Following the class 1 semantics, this classifies arrowheads"""
+    if _isArrowHead(stroke, arrowHeadMatcher):
+        #                * (tip-point)
+        #              o   o
+        #             o      o
+        #            o         o
+        #          o            o
+        
+        #Get the endpoints/tip point as max curvature
+        strokeNorm = GeomUtils.strokeNormalizeSpacing(stroke, numpoints = 7)
+        curvatures = GeomUtils.strokeGetPointsCurvature(strokeNorm)
+        ptIdx = curvatures.index(max(curvatures))
+        tip = strokeNorm.Points[ptIdx] #Middle is the point of max curvature
+        annotation = ArrowHeadAnnotation(stroke.Points[0], tip, stroke.Points[-1])
+        return annotation
+    return None
 #-------------------------------------
 
 class ArrowAnnotation( Annotation ):

@@ -357,7 +357,7 @@ class TextVisualizer( ObserverBase.Visualizer ):
             self.getBoard().getGUI().drawLine( left_x, midpointY, right_x, midpointY, color="#a0a0a0")
             x = br.X
             y = br.Y
-            self.getBoard().getGUI().drawText( br.X, y, a.text, size=15, color="#a0a0a0" )
+            self.getBoard().getGUI().drawText( br.X, y - 15, a.text, size=15, color="#a0a0a0" )
             """
             for letterList in a.alternates:
                 y = br.Y

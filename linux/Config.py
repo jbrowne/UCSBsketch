@@ -1,3 +1,5 @@
+import pdb
+from Observers import Semantics_Class1
 from Observers import DebugObserver
 from Observers import RubineObserver
 from Bin import (BinObserver, EqualsObserver, PlusObserver,
@@ -20,7 +22,6 @@ def initializeBoard(board):
     file for easy modification"""
 
     if board is not None:
-
         CircleObserver.CircleMarker(board)
         #CircleObserver.CircleVisualizer(board)
         ArrowObserver.ArrowMarker(board)
@@ -35,7 +36,6 @@ def initializeBoard(board):
         TuringMachineObserver.TuringMachineCollector(board)
         TuringMachineObserver.TuringMachineExporter(board)
         TuringMachineObserver.TuringMachineVisualizer(board)
-
         """
         RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
         RubineObserver.RubineVisualizer(board)
@@ -76,13 +76,14 @@ def initializeBoard(board):
 
         """
         d = DebugObserver.DebugObserver(board)
+        d.trackAnnotation(ArrowObserver.ArrowHeadAnnotation)
         d.trackAnnotation(DiGraphObserver.DiGraphNodeAnnotation)
         d.trackAnnotation(TestAnimObserver.TestAnnotation)
-        d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
-        d.trackAnnotation(MSAxesObserver.LegendAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LabelMenuAnnotation)
+        #d.trackAnnotation(MSAxesObserver.LegendAnnotation)
         d.trackAnnotation(LineObserver.LineAnnotation)
         d.trackAnnotation(ArrowObserver.ArrowAnnotation)
-        d.trackAnnotation(MSAxesObserver.AxesAnnotation)
+        #d.trackAnnotation(MSAxesObserver.AxesAnnotation)
         d.trackAnnotation(TemplateObserver.TemplateAnnotation)
         d.trackAnnotation(CircleObserver.CircleAnnotation)
         d.trackAnnotation(RaceTrackObserver.RaceTrackAnnotation)
@@ -91,6 +92,6 @@ def initializeBoard(board):
         d.trackAnnotation(TuringMachineObserver.TuringMachineAnnotation)
         d.trackAnnotation(DiGraphObserver.DiGraphAnnotation)
         d.trackAnnotation(TextObserver.TextAnnotation)
-        d.trackAnnotation(BarAnnotation)
+        #d.trackAnnotation(BarAnnotation)
         """
 

@@ -61,7 +61,7 @@ class BCPFeatureSet(FeatureSet):
         FeatureSet.__init__(self)
         self.rubineSet = RubineFeatureSet()
         bcp_logger.warn("Feature f1_01 DISABLED")
-        self.queueList = [Queue() for i in range(len(self))]
+        #self.queueList = [Queue() for i in range(len(self))]
 
 
     def __len__(self):

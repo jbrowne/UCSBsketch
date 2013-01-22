@@ -22,6 +22,7 @@ class Point(AnnotatableObject):
 
         return root
  
+
     def distance(self, point2):
          "Returns the distance from this point to the point in argument 1"
          from Utils import GeomUtils
@@ -48,3 +49,20 @@ class Point(AnnotatableObject):
         return "(" + ("%.1f" % self.X) + "," + ("%.1f" % self.Y) + ")"
         #return "(" + str(self.X) + "," + str(self.Y) + ")"
         #return "(" + str(self.X) + "," + str(self.Y) + "," + str(self.T) + ")"
+
+    #getitem and setitem so implement index interface
+    # e.g.: Point(2,4)[0] == 2
+    def __getitem__(self, key):
+        if key == 0:
+            return self.X
+        elif key == 1:
+            return self.Y
+        else:
+            raise IndexError
+    def __setitem__(self, key, value):
+        if key == 0:
+            self.X = value
+        elif key == 1:
+            self.Y = value
+        else:
+            raise IndexError

@@ -100,8 +100,8 @@ class DebugObserver( BoardObserver ):
             brx = br.X
             bry = br.Y
             
-            gui.drawBox(tl,br,color=color_levels[nestlevel % len(color_levels)])
-            gui.drawText(tl.X, br.Y+scale, size = 12, InText=labeltext)
+            self.getGUI().drawBox(tl,br,color=color_levels[nestlevel % len(color_levels)])
+            self.getGUI().drawText(tl.X, br.Y+scale, size = 12, InText=labeltext)
 
 def _nestingBox(bottomright_list, topleft_list, scale = 0):
     topleft = Point(0,0,0)

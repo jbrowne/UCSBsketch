@@ -74,15 +74,14 @@ def cvimgToStrokes(in_img):
        saveimg(in_img)
    saveimg(in_img, outdir="./photos/", 
            name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
-   #small_img = resizeImage(in_img)
-   small_img = in_img
+   small_img = resizeImage(in_img)
+   #small_img = in_img
    saveimg(small_img)
    temp_img, _ = removeBackground(small_img)
    #temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
    #cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
    #cv.AdaptiveThreshold(temp_img, temp_img, 255, blockSize=39)
    strokelist = blobsToStrokes(temp_img)
-   DEBUG = False
    if DEBUG:
        prettyPrintStrokes(temp_img, strokelist)
    #saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
@@ -112,7 +111,7 @@ def imageToStrokes(filename):
    print "imageToStrokes(..)"
    print "DEPRECATED! Use cvimgToStrokes(loadFile(filename))"
    #in_img = cv.LoadImageM(filename)
-   return cvimgToStrokes(loadfile(filename))
+   return cvimgToStrokes(loadFile(filename))
 
 #***************************************************
 # Random Utility Functions
@@ -1457,6 +1456,7 @@ def adaptiveThreshold(img):
     blockSize = 39 #How wide of a block to consider for Ad. Thresh.
     numBins = 20 #The granularity to bin values for background estimation
 
+    """
     #Get the background value using the most popular histogram bucket
     histogram = getHistogramList(img, numBins = numBins)
     #printHistogramList(histogram)
@@ -1464,6 +1464,7 @@ def adaptiveThreshold(img):
 
     #Wash out the background
     cv.AddS(img, (256 - modeValue), img) 
+    """
 
     cv.AdaptiveThreshold(img, img, 255, 
         adaptive_method=cv.CV_ADAPTIVE_THRESH_GAUSSIAN_C, 
@@ -1650,7 +1651,7 @@ def convertBlackboardImage(gray_img):
    #HACK!
 
    if ISBLACKBOARD:
-      #print "Converting Blackboard image to look like a whiteboard"
+      print "Converting Blackboard image to look like a whiteboard"
       gray_img = invert(gray_img)
       saveimg(gray_img)
    return gray_img
@@ -1686,6 +1687,11 @@ def removeBackground(cv_img):
    gray_img = convertBlackboardImage(gray_img)
    #Create histogram for single channel (0..255 range), into 255 bins
    bg_img = gray_img
+   if DEBUG :
+      print "Post Blackboard Conversion Image:"
+      saveimg(gray_img)
+   #saveimg(adaptiveThreshold(gray_img), title="Niblack")
+   #exit(1)
 
    #Generate the "background image"
    print "Remove foreground"
@@ -1733,7 +1739,7 @@ def removeBackground(cv_img):
 
    #Binarize the amplified ink image
    #cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
-   gray_img = adaptiveThreshold(gray_img)
+   adaptiveThreshold(gray_img)
    if DEBUG:
       print "Ink Isolated"
       saveimg(gray_img)
