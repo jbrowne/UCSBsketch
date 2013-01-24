@@ -15,7 +15,7 @@ from tkMessageBox import *
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.ImageStrokeConverter import imageToStrokes
+from sketchvision.ImageStrokeConverter import imageToStrokes
 from Utils.StrokeStorage import StrokeStorage
 from Utils.GeomUtils import getStrokesIntersection
 
@@ -26,6 +26,7 @@ from Observers import TextObserver
 from Observers import DebugObserver
 from Observers import TuringMachineObserver
 from xml.etree import ElementTree as ET
+from SketchFramework.Board import Board
 
 
 # Constants
@@ -274,7 +275,7 @@ class TkSketchFrame(Frame):
         "Clear all strokes and board observers from the board (logically and visually)"
         self.p_x = self.p_y = None
 
-        self.Board = BoardSingleton(reset = True)
+        self.Board = Board()
         initializeBoard(self.Board)
         self.TMVisualizer = TuringMachineObserver.TuringMachineVisualizer()
         self.CurrentPointList = []

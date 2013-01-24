@@ -1,28 +1,29 @@
 #!/usr/bin/env python
 
-import sketchvision.ImageStrokeConverter as ISC
 from SketchFramework.Point import Point
-import Standalone
-from  gtkStandalone import GTKGui, main as GTKmain
-import threading
-import cv
-import time
-import sys
-import Image
-import pdb
-import gtk
-from functools import partial
-from Utils.CamArea import CamArea
 from Utils import Logger
+from Utils.CamArea import CamArea
+from Utils.ImageArea import ImageArea
+from functools import partial
+from gtkStandalone import GTKGui, main as GTKmain
+import Image
+import Standalone
+import cv
+import gtk
+import pdb
+import sketchvision.ImageStrokeConverter as ISC
+import sys
+import threading
+import time
 
 log = Logger.getLogger("BoardGUI", Logger.DEBUG)
 
 def imageDiff(img1, img2):
     """Return an image of the board containing only the difference between the
     two frames"""
+    
     sanityThresh = img1.rows * img1.cols * 0.20 #No more than XX percent change 
-
-    diffImg = copyFrame(img1)
+    diffImg = cv.CloneMat(img1)
     _, bg_img = ISC.removeBackground(img2)
     retImg = cv.CloneMat(img2)
 
@@ -36,11 +37,14 @@ def imageDiff(img1, img2):
     if cv.CountNonZero(diffImg) > sanityThresh:
         cv.Copy(bg_img, retImg, mask = diffImg)
         return retImg
-    else:   
+    else:
         return bg_img
 
-def captureAndProcessImage(cam, sketchGui):
+def captureAndProcessImage(cam, sketchGui, diffArea):
     cvImage = cv.GetMat(cam.getCvImage())
+    diffImage = cv.CloneMat(cvImage)
+    cv.AbsDiff(diffArea.getCvImage(), cvImage, diffImage)
+    diffArea.setCvMat(diffImage)
     cam.pause()
     sketchGui.setFullscreen(True)
     sketchGui.grab_focus()
@@ -100,11 +104,16 @@ def main(args):
     dims = (800, 600)
     gui = GTKGui(dims = dims)
     cam = CamArea( dims= dims )
+    diffImageArea = ImageArea()
+    lastImage = cv.CreateMat(cam.dimensions[1], cam.dimensions[0], cv.CV_8UC3)
+    cv.Set(lastImage, 0)
+    diffImageArea.setCvMat(lastImage)
+    
     cam.pause()
-    cam.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui) )
+    cam.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui, diffImageArea) )
     cam.registerKeyCallback('P', lambda : cam.resume() )
     cam.registerKeyCallback('p', lambda : cam.pause() )
-    gui.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui) )
+    gui.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui, diffImageArea) )
     gui.registerKeyCallback('f', lambda : cam.pause() )
     gui.registerKeyCallback('c', lambda : displayCalibrationPattern(gui) )
 
@@ -112,6 +121,12 @@ def main(args):
     sketchWindow.add(gui)
     sketchWindow.connect("destroy", gtk.main_quit)
     sketchWindow.show_all()
+    
+    diffWindow = gtk.Window()
+    diffWindow.add(diffImageArea)
+    diffWindow.connect("destroy", gtk.main_quit)
+    diffWindow.show_all()
+    
 
     cameraWindow = gtk.Window()
     cameraWindow.add(cam)

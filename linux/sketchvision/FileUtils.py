@@ -15,9 +15,10 @@ def newFileName(directory):
         fname, ext = path.splitext(path.basename(maxfile))
         try:
             fnumber = int(fname)
-            path.join(str(fnumber) + 
+            path.join(str(fnumber) + ".jpg")
 
         except ValueError as e:
+            pass
             
     else:
         return "0";

@@ -61,57 +61,59 @@ NORMWIDTH = 1280
 #NORMWIDTH = 2592
 #NORMWIDTH = 600
 DEBUGSCALE = 1
+DEBUGIMG = None
 #***************************************************
 # Intended module interface functions 
 #***************************************************
 
 def cvimgToStrokes(in_img):
-   "External interface to take in an OpenCV image object and return a list of the strokes."
-   global DEBUG, CACHE
-   CACHE = {}
-   DEBUG = True
-   if DEBUG:
-       saveimg(in_img)
-   saveimg(in_img, outdir="./photos/", 
-           name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
-   small_img = resizeImage(in_img)
-   #small_img = in_img
-   saveimg(small_img)
-   temp_img, _ = removeBackground(small_img)
-   #temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
-   #cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
-   #cv.AdaptiveThreshold(temp_img, temp_img, 255, blockSize=39)
-   strokelist = blobsToStrokes(temp_img)
-   if DEBUG:
-       prettyPrintStrokes(temp_img, strokelist)
-   #saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
-   return {"strokes": strokelist, "dims" : (small_img.cols, small_img.rows)}
+    "External interface to take in an OpenCV image object and return a list of the strokes."
+    global DEBUG, CACHE
+    CACHE = {}
+    DEBUG = True
+    if DEBUG:
+        saveimg(in_img)
+    #saveimg(in_img, outdir="./photos/", 
+    #        name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
+    small_img = resizeImage(in_img)
+    #small_img = in_img
+    saveimg(small_img)
+    temp_img, _ = removeBackground(small_img)
+    #temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
+    #cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
+    #cv.AdaptiveThreshold(temp_img, temp_img, 255, blockSize=39)
+    strokelist = blobsToStrokes(temp_img)
+    DEBUG = False
+    if DEBUG:
+        prettyPrintStrokes(temp_img, strokelist)
+    #saveimg(in_img, outdir="./photos/", name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
+    return {"strokes": strokelist, "dims" : (small_img.cols, small_img.rows)}
 
 def loadImageBuf(data):
-   """Convert a PIL image buffer to the image expected by cvimgtoStrokes"""
-   pil_img = Image.open(StringIO.StringIO(data))
-   cv_img = cv.CreateImageHeader(pil_img.size, cv.IPL_DEPTH_8U, 3)
-   cv.SetData(cv_img, pil_img.tostring())
-   cv_mat = cv.GetMat(cv_img)
-   #cv.CvtColor(cv_img, cv_img, cv.CV_BGR2RGB)
-   return cv_mat
+    """Convert a PIL image buffer to the image expected by cvimgtoStrokes"""
+    pil_img = Image.open(StringIO.StringIO(data))
+    cv_img = cv.CreateImageHeader(pil_img.size, cv.IPL_DEPTH_8U, 3)
+    cv.SetData(cv_img, pil_img.tostring())
+    cv_mat = cv.GetMat(cv_img)
+    #cv.CvtColor(cv_img, cv_img, cv.CV_BGR2RGB)
+    return cv_mat
     
 def imageBufferToStrokes(data):
-   "External interface to take in a PIL image buffer object and return a list of the strokes."
-   print "imageBufferToStrokes(..)"
-   print "DEPRECATED! Use cvimgToStrokes(loadImageBuf(data))"
-   return cvimgToStrokes(loadImageBuf(data))
+    "External interface to take in a PIL image buffer object and return a list of the strokes."
+    print "imageBufferToStrokes(..)"
+    print "DEPRECATED! Use cvimgToStrokes(loadImageBuf(data))"
+    return cvimgToStrokes(loadImageBuf(data))
     
 def loadFile(filename):
     """Load an image from a filename and return the image object"""
     return cv.LoadImageM(filename)
 
 def imageToStrokes(filename):
-   "External interface to take in a filename for an image and return a list of the strokes."
-   print "imageToStrokes(..)"
-   print "DEPRECATED! Use cvimgToStrokes(loadFile(filename))"
-   #in_img = cv.LoadImageM(filename)
-   return cvimgToStrokes(loadFile(filename))
+    "External interface to take in a filename for an image and return a list of the strokes."
+    print "imageToStrokes(..)"
+    print "DEPRECATED! Use cvimgToStrokes(loadFile(filename))"
+    #in_img = cv.LoadImageM(filename)
+    return cvimgToStrokes(loadFile(filename))
 
 #***************************************************
 # Random Utility Functions
@@ -142,12 +144,12 @@ def interiorAngle(P1, P2, P3):
     return angle * 180 / math.pi
 
 def fname_iter():
-   "Used to generate a list of filenames"
-   imgnum = 0
-   while True:
-      fname = "%06.0d" % (imgnum)
-      imgnum += 1
-      yield fname 
+    "Used to generate a list of filenames"
+    imgnum = 0
+    while True:
+        fname = "%06.0d" % (imgnum)
+        imgnum += 1
+        yield fname 
 
 FNAMEITER = fname_iter()
 
@@ -157,201 +159,201 @@ def GETNORMWIDTH():
     return int(NORMWIDTH)
 
 class Timer (object):
-   "A handler that allows for timing of functionality."
-   def __init__(self, desc = "Timer"):
-      self.start = time.time()
-      self.desc = desc
-      self.laps = 0
-      self.laptime = self.start
-   def lap(self, desc = ""):
-      now = time.time()
-      print "%s - %s: %s ms, %s ms" % (self.desc, desc, 1000 * (now - self.laptime), 1000 * (now - self.start))
-      self.laptime = now
+    "A handler that allows for timing of functionality."
+    def __init__(self, desc = "Timer"):
+        self.start = time.time()
+        self.desc = desc
+        self.laps = 0
+        self.laptime = self.start
+        def lap(self, desc = ""):
+            now = time.time()
+            print "%s - %s: %s ms, %s ms" % (self.desc, desc, 1000 * (now - self.laptime), 1000 * (now - self.start))
+            self.laptime = now
 
 
 def printPoint(pt, img):
-   "Prints the 8-neighborhood around a point in a pretty fashion"
-   global CENTERVAL
-   px, py = pt
-
-   nw = getImgVal(px-1, py+1, img) == CENTERVAL
-   n = getImgVal(px, py+1, img) == CENTERVAL
-   ne = getImgVal(px+1, py+1, img) == CENTERVAL
-
-   w = getImgVal(px-1, py, img) == CENTERVAL
-   pixval = getImgVal(px, py, img) == CENTERVAL
-   e = getImgVal(px+1, py, img) == CENTERVAL
-
-   sw = getImgVal(px-1, py-1, img) == CENTERVAL
-   s = getImgVal(px, py-1, img) == CENTERVAL
-   se = getImgVal(px+1, py-1, img) == CENTERVAL
-
-   chars = (' ', '#')
-   print "--------------------------"
-   for row in [ [nw, n, ne], [w, pixval, e], [sw, s, se] ]:
-      print "\t|",
-      for val in row:
-         print "%s" % (chars[int(val)]),
-      print "|"
-   print "--------------------------"
+    "Prints the 8-neighborhood around a point in a pretty fashion"
+    global CENTERVAL
+    px, py = pt
+    
+    nw = getImgVal(px-1, py+1, img) == CENTERVAL
+    n = getImgVal(px, py+1, img) == CENTERVAL
+    ne = getImgVal(px+1, py+1, img) == CENTERVAL
+    
+    w = getImgVal(px-1, py, img) == CENTERVAL
+    pixval = getImgVal(px, py, img) == CENTERVAL
+    e = getImgVal(px+1, py, img) == CENTERVAL
+    
+    sw = getImgVal(px-1, py-1, img) == CENTERVAL
+    s = getImgVal(px, py-1, img) == CENTERVAL
+    se = getImgVal(px+1, py-1, img) == CENTERVAL
+    
+    chars = (' ', '#')
+    print "--------------------------"
+    for row in [ [nw, n, ne], [w, pixval, e], [sw, s, se] ]:
+        print "\t|",
+        for val in row:
+            print "%s" % (chars[int(val)]),
+        print "|"
+    print "--------------------------"
 
 def thicknessAtPoint(point, img):
-   """Determine the thickness at a point in img. Uses an expanding circle
-   from that pixel until it encounters non-ink.
-   Returns the minimum thickness as twice that radius + 1"""
-   global BGVAL, FILLEDVAL, CENTERVAL, OOBVAL, CACHE
-   #Load the cached value
-   cacheTag = "Thickness%s%s" % (str(point), str(img))
-   thickness = CACHE.get(cacheTag, None)
-   if thickness is None:
-      px, py = point
-      pixval = getImgVal(px, py, img)
-      errorThresh = 0.50 #Allow at most X percent white pixels while expanding
-
-      startRad = None
-      endRad = None
-      if pixval == BGVAL or pixval == OOBVAL:
-         thickness = 0
-      else:
-         rad = 1
-         #Phase 1: Double radius until too much error
-         while rad < img.rows:
-            cPixels = circlePixels(point, rad)
-            numBGpix = 0
-            allowableError = errorThresh * len(cPixels)
-            for p in cPixels:
-               pixval = getImgVal(p[0], p[1], img)
-               if pixval == BGVAL or pixval == OOBVAL:
-                  numBGpix += 1
-                  #if numBGpix > allowableError:
-                      #return 2 * (rad - 1) + 1
-            if startRad == None and numBGpix > 0:
-               endRad = startRad = rad - 1
-            if numBGpix > allowableError:
-               endRad = rad - 1
-               break
-            rad *= 2
-         thickness =(startRad + endRad) 
-      CACHE[cacheTag] = thickness
-
-   return thickness
+    """Determine the thickness at a point in img. Uses an expanding circle
+    from that pixel until it encounters non-ink.
+    Returns the minimum thickness as twice that radius + 1"""
+    global BGVAL, FILLEDVAL, CENTERVAL, OOBVAL, CACHE
+    #Load the cached value
+    cacheTag = "Thickness%s%s" % (str(point), str(img))
+    thickness = CACHE.get(cacheTag, None)
+    if thickness is None:
+        px, py = point
+        pixval = getImgVal(px, py, img)
+        errorThresh = 0.50 #Allow at most X percent white pixels while expanding
+        
+        startRad = None
+        endRad = None
+        if pixval == BGVAL or pixval == OOBVAL:
+            thickness = 0
+        else:
+            rad = 1
+            #Phase 1: Double radius until too much error
+            while rad < img.rows:
+                cPixels = circlePixels(point, rad)
+                numBGpix = 0
+                allowableError = errorThresh * len(cPixels)
+                for p in cPixels:
+                    pixval = getImgVal(p[0], p[1], img)
+                    if pixval == BGVAL or pixval == OOBVAL:
+                        numBGpix += 1
+                        #if numBGpix > allowableError:
+                            #return 2 * (rad - 1) + 1
+                if startRad == None and numBGpix > 0:
+                    endRad = startRad = rad - 1
+                if numBGpix > allowableError:
+                    endRad = rad - 1
+                    break
+                rad *= 2
+            thickness =(startRad + endRad) 
+        CACHE[cacheTag] = thickness
+    
+    return thickness
 
 def circlePixels(center, rad):
-   """Generates a list of pixels that lie on a circle, centered at center,
-   with radius rad. Unordered."""
-   x, y = center
-   rad = int(rad)
-   rad_sqr = rad * rad
-   points = set()
-   if rad == 0:
-      return [center]
-   dy = 0
-   prevDx = rad + 1
-   while dy <= rad:
-      curDx = int(math.sqrt(rad_sqr - dy **2 ) + 0.5)
-      dx = curDx
-      while dx <= prevDx:
-      #points.update( [ (x+dx, y+dy), (x-dx, y+dy), (x+dx, y-dy), (x-dx, y-dy)])
-          points.add( (x+dx, y+dy) )
-          points.add( (x-dx, y+dy) )
-          points.add( (x+dx, y-dy) )
-          points.add( (x-dx, y-dy) )
-          dx += 1
-      prevDx = curDx
-      dy += 1
-   return points
+    """Generates a list of pixels that lie on a circle, centered at center,
+    with radius rad. Unordered."""
+    x, y = center
+    rad = int(rad)
+    rad_sqr = rad * rad
+    points = set()
+    if rad == 0:
+       return [center]
+    dy = 0
+    prevDx = rad + 1
+    while dy <= rad:
+        curDx = int(math.sqrt(rad_sqr - dy **2 ) + 0.5)
+        dx = curDx
+        while dx <= prevDx:
+        #points.update( [ (x+dx, y+dy), (x-dx, y+dy), (x+dx, y-dy), (x-dx, y-dy)])
+            points.add( (x+dx, y+dy) )
+            points.add( (x-dx, y+dy) )
+            points.add( (x+dx, y-dy) )
+            points.add( (x-dx, y-dy) )
+            dx += 1
+        prevDx = curDx
+        dy += 1
+    return points
 
 
       
 
 
 def linePixels(pt1, pt2):
-   """Generates a list of pixels on a line drawn between pt1 and pt2"""
-   left, right = sorted([pt1, pt2], key = lambda pt: pt[0])
-
-   deltax = right[0] - left[0]
-   deltay = right[1] - left[1]
-
-   if deltax != 0:
-      slope = deltay / float(deltax)
-      y = left[1]
-      error = 0.0
-      for x in xrange(int(left[0]), int(right[0]) + 1):
-         if error > -0.5 and error < 0.5:
-            yield (x,y)
-         while error >= 0.5:
-            y += 1
-            error -= 1.0
-            yield (x,y)
-         while error <= -0.5:
-            y -= 1
-            error += 1.0
-            yield (x,y)
-         error += slope
-   else:
-      bottom, top = sorted([pt1, pt2], key = lambda pt: pt[1])
-      for y in xrange(int(bottom[1]), int(top[1]) + 1):
-         yield (left[0], y)
+    """Generates a list of pixels on a line drawn between pt1 and pt2"""
+    left, right = sorted([pt1, pt2], key = lambda pt: pt[0])
+    
+    deltax = right[0] - left[0]
+    deltay = right[1] - left[1]
+    
+    if deltax != 0:
+        slope = deltay / float(deltax)
+        y = left[1]
+        error = 0.0
+        for x in xrange(int(left[0]), int(right[0]) + 1):
+            if error > -0.5 and error < 0.5:
+                yield (x,y)
+            while error >= 0.5:
+                y += 1
+                error -= 1.0
+                yield (x,y)
+            while error <= -0.5:
+                y -= 1
+                error += 1.0
+                yield (x,y)
+            error += slope
+    else:
+        bottom, top = sorted([pt1, pt2], key = lambda pt: pt[1])
+        for y in xrange(int(bottom[1]), int(top[1]) + 1):
+            yield (left[0], y)
 
 
 def drawLine(pt1, pt2, color, img):
-   """Draw a line from pt1 to pt2 in image img"""
-   h = img.rows
-   w = img.cols
-   for x,y in linePixels(pt1, pt2):
-       if y >= 0 and y < h and x >= 0 and x < w:
-          setImgVal(x,y,color,img)
+    """Draw a line from pt1 to pt2 in image img"""
+    h = img.rows
+    w = img.cols
+    for x,y in linePixels(pt1, pt2):
+        if y >= 0 and y < h and x >= 0 and x < w:
+            setImgVal(x,y,color,img)
 
 
 def pointsOverlap(pt1, pt2, img, pt1Thickness = None, pt2Thickness = None, checkSeparation=True):
-   """Checks to see if two points cover each other with their thickness and are not separatred by white"""
-   global CENTERVAL
-   assert (pt1Thickness != None and pt2Thickness != None) or img != None, "Error, cannot determine overlap without thickness!"
-   okSeparation = 0 #How many pixels can be invalid in the separation check
-   distSqr = pointsDistSquared(pt1, pt2) 
-
-   if pt1Thickness != None and pt2Thickness != None:
-      pt1ThicknessSqr = ((pt1Thickness - 1)/2.0) ** 2
-      pt2ThicknessSqr = ((pt2Thickness - 1) /2.0) ** 2
-   else:
-      pt1ThicknessSqr = ((thicknessAtPoint(pt1, img) -1) / 2.0) ** 2
-      pt2ThicknessSqr = ((thicknessAtPoint(pt2, img) -1) / 2.0) ** 2
-      
-   if distSqr > pt2ThicknessSqr and distSqr > pt1ThicknessSqr: #If neither thickness covers the other point
-      return False
-
-   if checkSeparation:
-       separation = 0
-       for x,y in linePixels(pt1, pt2):
-          if getImgVal(x,y,img) != CENTERVAL:
-             if separation < okSeparation - 1:
-                separation += 1
-             else:
-                return False
-             
-   return True
+    """Checks to see if two points cover each other with their thickness and are not separatred by white"""
+    global CENTERVAL
+    assert (pt1Thickness != None and pt2Thickness != None) or img != None, "Error, cannot determine overlap without thickness!"
+    okSeparation = 0 #How many pixels can be invalid in the separation check
+    distSqr = pointsDistSquared(pt1, pt2) 
+    
+    if pt1Thickness != None and pt2Thickness != None:
+        pt1ThicknessSqr = ((pt1Thickness - 1)/2.0) ** 2
+        pt2ThicknessSqr = ((pt2Thickness - 1) /2.0) ** 2
+    else:
+        pt1ThicknessSqr = ((thicknessAtPoint(pt1, img) -1) / 2.0) ** 2
+        pt2ThicknessSqr = ((thicknessAtPoint(pt2, img) -1) / 2.0) ** 2
+       
+    if distSqr > pt2ThicknessSqr and distSqr > pt1ThicknessSqr: #If neither thickness covers the other point
+        return False
+    
+    if checkSeparation:
+        separation = 0
+        for x,y in linePixels(pt1, pt2):
+            if getImgVal(x,y,img) != CENTERVAL:
+                if separation < okSeparation - 1:
+                    separation += 1
+                else:
+                    return False
+              
+    return True
 
 
 def getEightNeighbors(pt, shuffle = False):
-   """Given a point, return a list of its eight neighboring pixels, possibly shuffled. No bounds checking!"""
-   x,y = pt
-   n = (x , y + 1)
-   s = (x , y - 1)
-   e = (x + 1 , y)
-   w = (x - 1 , y)
-   ne = (x + 1 , y + 1)
-   se = (x + 1 , y - 1)
-   nw = (x - 1 , y + 1)
-   sw = (x - 1 , y - 1)
-   retList = [ne, n, nw, w, sw, s, se, e]
-   if shuffle:
-      random.shuffle(retList)
-   return retList
+    """Given a point, return a list of its eight neighboring pixels, possibly shuffled. No bounds checking!"""
+    x,y = pt
+    n = (x , y + 1)
+    s = (x , y - 1)
+    e = (x + 1 , y)
+    w = (x - 1 , y)
+    ne = (x + 1 , y + 1)
+    se = (x + 1 , y - 1)
+    nw = (x - 1 , y + 1)
+    sw = (x - 1 , y - 1)
+    retList = [ne, n, nw, w, sw, s, se, e]
+    if shuffle:
+        random.shuffle(retList)
+    return retList
 def pointsDistSquared (pt1, pt2):
-   x1, y1 = pt1
-   x2, y2 = pt2
+    x1, y1 = pt1
+    x2, y2 = pt2
 
-   return (x1 - x2) ** 2 + (y1 - y2) ** 2
+    return (x1 - x2) ** 2 + (y1 - y2) ** 2
 
 #***************************************************
 # Bitmap thinning functions
@@ -386,7 +388,7 @@ def _squareIntersections(graphDict, rawImg):
             if DEBUG:
                 for db_pt in circlePixels(cp, (cpThickness -1)/ 2.0):
                     if db_pt[0] >= 0 and db_pt[0] < DEBUGIMG.cols and db_pt[1] >= 0 and db_pt[1] < DEBUGIMG.rows:
-                       setImgVal(db_pt[0], db_pt[1], 128, DEBUGIMG)
+                        setImgVal(db_pt[0], db_pt[1], 128, DEBUGIMG)
 
             #print "CrossPoint %s, thickness %s" % (str(cp), cpThickness/ 2.0)
             #Remove points from the edges such that they do not enter the "crossing region"
@@ -441,7 +443,7 @@ def _squareIntersections(graphDict, rawImg):
 
                 #print " Intersections: %s\n * New median point %s" % (allIntersects, str(newCrossPoint))
                 #newCrossPoint = (int(sum(allCrossPointsX) / len(allCrossPointsX)), \
-                                 #int(sum(allCrossPointsY) / len(allCrossPointsY)) )
+                                  #int(sum(allCrossPointsY) / len(allCrossPointsY)) )
             else:
                 #print " Intersections empty, reverting to old CP"
                 newCrossPoint = cp
@@ -1309,16 +1311,15 @@ def pointDistanceFromLine(point, lineseg):
 
     assert ep1[0] != ep2[0] or ep1[1] != ep2[1], "pointDistanceFromLine called with 0-length line segment"
     if ep1[0] == ep2[0]: #Vertical line segment
-        return math.abs(point[0] - ep1[0])
+        return math.fabs(point[0] - ep1[0])
     elif ep1[1] == ep2[1]:
-        return math.abs(point[1] - ep1[1])
+        return math.fabs(point[1] - ep1[1])
     else:
         inv_slope = - (ep1[0] - ep2[0]) / float(ep1[1] - ep2[1]) #Perpendicular slope!
         point2 = ( point[0] + 10, point[1] + (inv_slope * 10) )
         distancePoint = getLinesIntersection(lineseg, (point, point2))
 
         return math.sqrt(pointsDistSquared(point, distancePoint) )
-
 
 
 def erodeBlobsPoints (pointSet, img, minFill = 1, maxFill = 9 ):
@@ -1645,10 +1646,12 @@ def convertBlackboardImage(gray_img):
       #print "Blackboard seen: more light than dark"
       ISBLACKBOARD = True 
 
+   """
    #HACK!
    print "WARNING: Short circuiting blackboard evaluation"
    ISBLACKBOARD = False
    #HACK!
+   """
 
    if ISBLACKBOARD:
       print "Converting Blackboard image to look like a whiteboard"
@@ -1686,10 +1689,8 @@ def removeBackground(cv_img):
 
    gray_img = convertBlackboardImage(gray_img)
    #Create histogram for single channel (0..255 range), into 255 bins
+   saveimg(gray_img)
    bg_img = gray_img
-   if DEBUG :
-      print "Post Blackboard Conversion Image:"
-      saveimg(gray_img)
    #saveimg(adaptiveThreshold(gray_img), title="Niblack")
    #exit(1)
 
@@ -1738,8 +1739,8 @@ def removeBackground(cv_img):
 
 
    #Binarize the amplified ink image
-   #cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
-   adaptiveThreshold(gray_img)
+   cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
+   #adaptiveThreshold(gray_img)
    if DEBUG:
       print "Ink Isolated"
       saveimg(gray_img)
@@ -1757,7 +1758,7 @@ def floodFill(image, seedPt, thresholds = (0, 255), color=0):
     x,y = seedPt
     seedVal = image[y,x]
     loDiff = seedVal - thresholds[0]
-    hiDiff = thresholds[1] - hidiff
+    hiDiff = thresholds[1] - seedVal
     print "Filling %s-%s with %s" % (seedVal - loDiff, seedVal + hiDiff, color)
     cv.FloodFill(image, seedPt, 
                  color, lo_diff=loDiff , up_diff=hiDiff, 

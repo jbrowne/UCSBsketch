@@ -1,7 +1,7 @@
-import sys
-import math
 from SketchFramework.Annotation import Annotation, AnnotatableObject
 from xml.etree import ElementTree as ET
+import math
+import sys
 
 class Point(AnnotatableObject):   
     "Point defined by X, Y, T.  X,Y Cartesian Coords, T as Time"
