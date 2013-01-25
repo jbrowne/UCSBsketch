@@ -165,6 +165,7 @@ class CamArea (ImageArea):
         cvImage = captureImage(self.capture)
         if len(self.warpCorners) == 4:
             cvImage = warpFrame(cvImage, self.warpCorners, self.targetDisplayCorners)
+            cvImage, _ = ISC.removeBackground(cvImage)
         self.cvImage = cvImage
         displayImg = resizeImage(self.cvImage, self.imageScale)
         self.setCvMat(displayImg)
