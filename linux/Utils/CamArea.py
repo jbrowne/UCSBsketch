@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-
-# example helloworld2.py
+import sys
+if __name__ == "__main__":
+    sys.path.append("./")
+    print sys.path
 
 from Utils import Logger
 from Utils.ImageArea import ImageArea
@@ -10,11 +12,6 @@ import gobject
 import gtk
 import pdb
 import pygtk
-import sys
-    
-if __name__ == "__main__":
-    sys.path.append("./")
-    print sys.path
 pygtk.require('2.0')
 
 log = Logger.getLogger("CamArea", Logger.DEBUG)
@@ -46,11 +43,13 @@ class CamArea (ImageArea):
         self.imageScale = 0.5
 
         #Camera Data
+        self.currentCamera = 0
         self.dimensions = dims
         self.warpCorners = []  #DEFAULT_CORNERS
         self.targetDisplayCorners = CamArea.WINDOWCORNERS
-        self.capture, self.captureDims = initializeCapture(dims)
-        self.setDisplayDims(dims)
+        self.capture, self.captureDims =  \
+                initializeCapture(self.currentCamera, dims)
+        self.setDisplayDims(self.captureDims)
 
         #Event hooks
         gobject.idle_add(self.idleUpdateImage)
@@ -68,6 +67,15 @@ class CamArea (ImageArea):
                        )
         self.callBacks = {}
     
+    def switchCamera(self, camNumber):
+        """Switch the camera used to capture"""
+        log.debug("Trying to use camera %s" % (camNumber,))
+        self.currentCamera = camNumber 
+        self.warpCorners = []  #DEFAULT_CORNERS
+        self.targetDisplayCorners = CamArea.WINDOWCORNERS
+        self.capture, self.captureDims =  \
+                initializeCapture(self.currentCamera, self.dimensions)
+        self.setDisplayDims(self.captureDims)
     def onMouseDown(self, widget, e):
         """Respond to a mouse being pressed"""
         return
@@ -148,7 +156,12 @@ class CamArea (ImageArea):
             exit(0)
         elif key == 'c':
             log.debug("Corners: %s" % (str(self.findCalibrationChessboard())))
-
+        elif key == '<':
+            log.debug("Previous Camera")
+            self.switchCamera(self.currentCamera-1)
+        elif key == '>':
+            log.debug("Next Camera")
+            self.switchCamera(self.currentCamera+1)
         #Go through all the registered callbacks
         for func in self.callBacks.get(key, []):
             func()
@@ -256,8 +269,8 @@ def warpFrame(frame, corners, targetCorners):
     else:
         return frame
 
-def initializeCapture(dims=(1280, 1024,)):
-    capture = cv.CaptureFromCAM(-1)
+def initializeCapture(camera = 0, dims=(1280, 1024,)):
+    capture = cv.CaptureFromCAM(camera)
     w, h = dims
     cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT, h) 
     cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH, w)

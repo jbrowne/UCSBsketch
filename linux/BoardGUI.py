@@ -7,7 +7,7 @@ from Utils.ImageArea import ImageArea
 from functools import partial
 from gtkStandalone import GTKGui, main as GTKmain
 import Image
-import Standalone
+#import Standalone
 import cv
 import gtk
 import pdb
