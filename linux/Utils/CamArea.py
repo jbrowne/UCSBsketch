@@ -18,7 +18,7 @@ log = Logger.getLogger("CamArea", Logger.DEBUG)
     
 MAXCAPSIZE = (2592, 1944)
 HD1080 = (1920, 1080)
-HD720 = (720, 1280)
+HD720 = (1280, 720)
 DEFAULT_CORNERS = [
                     (777.6, 239.76000000000002),
                     (2080, 533),
@@ -26,11 +26,11 @@ DEFAULT_CORNERS = [
                     (625.32, 1441.8000000000002),
                   ]
 class CamArea (ImageArea):
-    WINDOWCORNERS = None
+    RAWIMAGECORNERS = None
     CHESSBOARDCORNERS = None
-    def __init__(self, dims=HD720):
+    def __init__(self, dims=MAXCAPSIZE, displayDims = HD720):
         # Create a new window
-        CamArea.WINDOWCORNERS = [(0,0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1])]
+        CamArea.RAWIMAGECORNERS = [(0,0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1])]
         CamArea.CHESSBOARDCORNERS = [(5*dims[0]/16.0, 5*dims[1]/16.0), 
                                      (11*dims[0]/16.0, 5*dims[1]/16.0),
                                      (11*dims[0]/16.0, 11*dims[1]/16.0),
@@ -41,15 +41,18 @@ class CamArea (ImageArea):
         #GUI Data
         self.shouldUpdate = True
         self.imageScale = 0.5
+        self.prevImage = None
 
         #Camera Data
         self.currentCamera = 0
         self.dimensions = dims
         self.warpCorners = []  #DEFAULT_CORNERS
-        self.targetDisplayCorners = CamArea.WINDOWCORNERS
+        self.targetWarpCorners = CamArea.RAWIMAGECORNERS
         self.capture, self.captureDims =  \
                 initializeCapture(self.currentCamera, dims)
-        self.setDisplayDims(self.captureDims)
+        self.displayDims = None
+        self.imageScale = None
+        self.setDisplayDims(displayDims)
 
         #Event hooks
         gobject.idle_add(self.idleUpdateImage)
@@ -66,16 +69,33 @@ class CamArea (ImageArea):
                        | gtk.gdk.POINTER_MOTION_MASK 
                        )
         self.callBacks = {}
+        
+    def idleUpdateImage(self):
+        """An idle process to update the image data, and
+        the cvImage field"""
+        if len(self.warpCorners) == 4:
+            cvImage = captureImage(self.capture)
+            cvImage = warpFrame(cvImage, self.warpCorners, self.targetWarpCorners)
+        else:
+            cvImage = captureImage(self.capture)
+        self.prevImage = cvImage
+        
+        #Do the displaying
+        displayImg = resizeImage(self.prevImage, scale = self.imageScale)
+        self.setCvMat(displayImg)
+        
+        return self.shouldUpdate
     
     def switchCamera(self, camNumber):
         """Switch the camera used to capture"""
         log.debug("Trying to use camera %s" % (camNumber,))
         self.currentCamera = camNumber 
         self.warpCorners = []  #DEFAULT_CORNERS
-        self.targetDisplayCorners = CamArea.WINDOWCORNERS
+        self.targetWarpCorners = CamArea.RAWIMAGECORNERS
         self.capture, self.captureDims =  \
                 initializeCapture(self.currentCamera, self.dimensions)
-        self.setDisplayDims(self.captureDims)
+        self.setDisplayDims(self.displayDims)
+
     def onMouseDown(self, widget, e):
         """Respond to a mouse being pressed"""
         return
@@ -85,8 +105,8 @@ class CamArea (ImageArea):
     
     def findCalibrationChessboard(self):
         patternSize = (7, 7)  #Internal corners of 8x8 chessboard
-        img = cv.CreateMat(self.cvImage.rows, self.cvImage.cols, cv.CV_8UC1)
-        cv.CvtColor(self.cvImage, img, cv.CV_RGB2GRAY)
+        img = cv.CreateMat(self.prevImage.rows, self.prevImage.cols, cv.CV_8UC1)
+        cv.CvtColor(self.prevImage, img, cv.CV_RGB2GRAY)
         cv.AddWeighted(img, -1.0, img, 0, 255, img)
         ISC.saveimg(img)
         #cv.AdaptiveThreshold(img, img, 255, blockSize=39)
@@ -97,7 +117,7 @@ class CamArea (ImageArea):
                                         flags=cv.CV_CALIB_CB_ADAPTIVE_THRESH | 
                                                cv.CV_CALIB_CB_NORMALIZE_IMAGE)
         if len(corners) == 49:
-            self.targetDisplayCorners = CamArea.CHESSBOARDCORNERS
+            self.targetWarpCorners = CamArea.CHESSBOARDCORNERS
             self.warpCorners = [corners[0], corners[6], corners[48], corners[42]]
         return corners
         
@@ -120,7 +140,7 @@ class CamArea (ImageArea):
                                     (-xSpan, -ySpan),
                                     (xSpan, -ySpan)):
                         pt = (x + dx, y + dy)
-                        value = sum(self.cvImage[pt[1], pt[0]])
+                        value = sum(self.prevImage[pt[1], pt[0]])
                         #log.debug("Value: %s at %s" % (value, pt))
                         if curMaxVal < value:
                             curMaxVal = value
@@ -134,7 +154,7 @@ class CamArea (ImageArea):
 
     def onMouseUp(self, widget, e):
         """Respond to the mouse being released"""
-        self.targetDisplayCorners = CamArea.WINDOWCORNERS #Make sure that we're aligning to manually selected corners
+        self.targetWarpCorners = CamArea.RAWIMAGECORNERS #Make sure that we're aligning to manually selected corners
         if len(self.warpCorners) >= 4:
             #self.warpCorners = getNewCorners(self.warpCorners)
             log.debug("Reset Corners")
@@ -171,27 +191,7 @@ class CamArea (ImageArea):
         a certain keyVal is pressed"""
         self.callBacks.setdefault(keyVal, []).append(function)
 
-    def idleUpdateImage(self):
-        """An idle process to update the image data, and
-        the cvImage field"""
-        #if self.flags() & gtk.HAS_FOCUS:
-        if len(self.warpCorners) == 4:
-            cvImage = captureImage(self.capture)
-            cvImage = cleanEdges(cvImage)
-            cvImage = warpFrame(cvImage, self.warpCorners, self.targetDisplayCorners)
 
-#            ISC.DEBUG = True
-#            bwBackground, _ = ISC.removeBackground(cvImage)
-#            cv.CvtColor(bwBackground, cvImage, cv.CV_GRAY2RGB)
-#            ISC.DEBUG = False
-        else:
-            cvImage = captureImage(self.capture)
-        if (self.cvImage != None):
-            cv.AddWeighted(cvImage, 0.3, self.cvImage, 0.7, 0.5, cvImage)
-        self.cvImage = cvImage
-        displayImg = resizeImage(self.cvImage, self.imageScale)
-        self.setCvMat(displayImg)
-        return self.shouldUpdate
 
     def pause(self):
         log.debug("Paused...")
@@ -212,34 +212,13 @@ class CamArea (ImageArea):
                                                 self.imageScale * curDims[1]))
 
 
-        
+    def getRawImage(self):
+        """Get the full-size image from this cam"""
+        return self.prevImage
         
 #~~~~~~~~~~~~~~~~~~~~~~~`
 #Helper Functions for CamArea
 #~~~~~~~~~~~~~~~~~~~~~~~`
-
-def max_allChannel(image):
-    """Return a grayscale image with values equal to the MAX
-    over all 3 channels """
-    retImage = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    ch1 = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    ch2 = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    ch3 = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    cv.Split(image, ch1, ch2, ch3, None)
-    cv.Max(ch1, ch2, retImage)
-    cv.Max(ch3, retImage, retImage)
-    return retImage
-
-def cleanEdges(image):
-    """Emphasize the edges around ink strokes"""
-    erodedImage = cv.CloneMat(image)
-    cv.Erode(image, erodedImage)
-    edgeMask = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    cv.Canny(max_allChannel(image), edgeMask, 50, 100)
-    cv.Threshold(edgeMask, edgeMask, 1, 255, cv.CV_THRESH_BINARY_INV)
-    cv.Copy(image, erodedImage, edgeMask)
-    return erodedImage
-
 def findChessboard(img, patternSize):
     """Take an 8bit image and return corners found for
     a chessboard pattern with (w,h) number of internal corners"""
@@ -277,8 +256,15 @@ def getNewCorners(corners):
 
 
 
-def resizeImage(img, scale):
-    retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
+def resizeImage(img, scale=None, dims=None):
+    """Return a resized copy of the image for either relative
+    scale, or that matches the dimensions given"""
+    if scale is not None:
+        retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
+    elif dims is not None:
+        retImg = cv.CreateMat(dims[0], dims[1], img.type)
+    else:
+        retImg = cv.CloneMat(img)
     cv.Resize(img, retImg)
     return retImg
 

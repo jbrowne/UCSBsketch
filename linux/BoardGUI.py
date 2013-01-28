@@ -4,17 +4,12 @@ from SketchFramework.Point import Point
 from Utils import Logger
 from Utils.CamArea import CamArea
 from Utils.ImageArea import ImageArea
-from functools import partial
-from gtkStandalone import GTKGui, main as GTKmain
-import Image
-#import Standalone
+from gtkStandalone import GTKGui
 import cv
 import gtk
 import pdb
 import sketchvision.ImageStrokeConverter as ISC
 import sys
-import threading
-import time
 
 log = Logger.getLogger("BoardGUI", Logger.DEBUG)
 
@@ -40,11 +35,8 @@ def imageDiff(img1, img2):
     else:
         return bg_img
 
-def captureAndProcessImage(cam, sketchGui, diffArea):
-    cvImage = cv.GetMat(cam.getCvImage())
-    diffImage = cv.CloneMat(cvImage)
-    cv.AbsDiff(diffArea.getCvImage(), cvImage, diffImage)
-    diffArea.setCvMat(diffImage)
+def captureAndProcessImage(cam, sketchGui):
+    cvImage = cam.getRawImage()
     cam.pause()
     sketchGui.setFullscreen(True)
     sketchGui.grab_focus()
@@ -101,19 +93,19 @@ def displayCalibrationPattern(gui, points = None):
         
     
 def main(args):
-    dims = (800, 600)
-    gui = GTKGui(dims = dims)
-    cam = CamArea( dims= dims )
-    diffImageArea = ImageArea()
-    lastImage = cv.CreateMat(cam.dimensions[1], cam.dimensions[0], cv.CV_8UC3)
-    cv.Set(lastImage, 0)
-    diffImageArea.setCvMat(lastImage)
+    dims = (2592, 1944)
+    gui = GTKGui(dims = (1600, 1050))
+    cam = CamArea( dims=dims)
+#    diffImageArea = ImageArea()
+#    lastImage = cv.CreateMat(cam.dimensions[1], cam.dimensions[0], cv.CV_8UC3)
+#    cv.Set(lastImage, 0)
+#    diffImageArea.setCvMat(lastImage)
     
     cam.pause()
-    cam.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui, diffImageArea) )
+    cam.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui) )
     cam.registerKeyCallback('P', lambda : cam.resume() )
     cam.registerKeyCallback('p', lambda : cam.pause() )
-    gui.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui, diffImageArea) )
+    gui.registerKeyCallback('v', lambda : captureAndProcessImage(cam, gui) )
     gui.registerKeyCallback('f', lambda : cam.pause() )
     gui.registerKeyCallback('c', lambda : displayCalibrationPattern(gui) )
 
@@ -122,10 +114,10 @@ def main(args):
     sketchWindow.connect("destroy", gtk.main_quit)
     sketchWindow.show_all()
     
-    diffWindow = gtk.Window()
-    diffWindow.add(diffImageArea)
-    diffWindow.connect("destroy", gtk.main_quit)
-    diffWindow.show_all()
+#    diffWindow = gtk.Window()
+#    diffWindow.add(diffImageArea)
+#    diffWindow.connect("destroy", gtk.main_quit)
+#    diffWindow.show_all()
     
 
     cameraWindow = gtk.Window()
