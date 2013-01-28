@@ -175,10 +175,19 @@ class CamArea (ImageArea):
         """An idle process to update the image data, and
         the cvImage field"""
         #if self.flags() & gtk.HAS_FOCUS:
-        cvImage = captureImage(self.capture)
         if len(self.warpCorners) == 4:
+            cvImage = captureImage(self.capture)
+            cvImage = cleanEdges(cvImage)
             cvImage = warpFrame(cvImage, self.warpCorners, self.targetDisplayCorners)
-            cvImage, _ = ISC.removeBackground(cvImage)
+
+#            ISC.DEBUG = True
+#            bwBackground, _ = ISC.removeBackground(cvImage)
+#            cv.CvtColor(bwBackground, cvImage, cv.CV_GRAY2RGB)
+#            ISC.DEBUG = False
+        else:
+            cvImage = captureImage(self.capture)
+        if (self.cvImage != None):
+            cv.AddWeighted(cvImage, 0.3, self.cvImage, 0.7, 0.5, cvImage)
         self.cvImage = cvImage
         displayImg = resizeImage(self.cvImage, self.imageScale)
         self.setCvMat(displayImg)
@@ -208,6 +217,28 @@ class CamArea (ImageArea):
 #~~~~~~~~~~~~~~~~~~~~~~~`
 #Helper Functions for CamArea
 #~~~~~~~~~~~~~~~~~~~~~~~`
+
+def max_allChannel(image):
+    """Return a grayscale image with values equal to the MAX
+    over all 3 channels """
+    retImage = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
+    ch1 = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
+    ch2 = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
+    ch3 = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
+    cv.Split(image, ch1, ch2, ch3, None)
+    cv.Max(ch1, ch2, retImage)
+    cv.Max(ch3, retImage, retImage)
+    return retImage
+
+def cleanEdges(image):
+    """Emphasize the edges around ink strokes"""
+    erodedImage = cv.CloneMat(image)
+    cv.Erode(image, erodedImage)
+    edgeMask = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
+    cv.Canny(max_allChannel(image), edgeMask, 50, 100)
+    cv.Threshold(edgeMask, edgeMask, 1, 255, cv.CV_THRESH_BINARY_INV)
+    cv.Copy(image, erodedImage, edgeMask)
+    return erodedImage
 
 def findChessboard(img, patternSize):
     """Take an 8bit image and return corners found for
@@ -294,7 +325,7 @@ def captureImage(capture):
 def main():
     camWindow = gtk.Window()
 
-    cam = CamArea((800, 600))
+    cam = CamArea( (1600, 1050,) )
     camWindow.add(cam)
 
     camWindow.connect("destroy", gtk.main_quit)

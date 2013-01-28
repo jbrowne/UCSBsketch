@@ -17,6 +17,7 @@ Todo:
 
 """
 import cv
+import os
 import Image
 import pickle
 import random
@@ -27,7 +28,7 @@ import StringIO
 import datetime
 from Utils import Logger
 
-log = Logger.getLogger("ISC", Logger.DEBUG)
+log = Logger.getLogger("ISC", Logger.WARN)
 
 #Random, but consistent
 random.seed("sketchvision")
@@ -1566,7 +1567,7 @@ def isForeGroundGone(img):
     
     #Get the histogram normalized to 1000 total
     hist = getHistogramList(img)
-    printHistogramList(hist, granularity = 10)
+#    printHistogramList(hist, granularity = 10)
     histNorm = 1000
     #Where is it safe to assume that the rest is foreground?
     foreGroundThresh = 80
@@ -1891,7 +1892,8 @@ def show(cv_img):
 def saveimg(cv_img, name = "", outdir = "./temp/", title=""):
     "save a cv Image"
     global FNAMEITER
-
+    
+    outdir = os.path.abspath(outdir) + "/"
     if name == "":
          outfname = outdir + FNAMEITER.next() + ".jpg"
     else:

@@ -87,7 +87,7 @@ def displayCalibrationPattern(gui, points = None):
     log.debug("Drawing calibration pattern %s" % (points))
     boxes = []
     scale = min(w,h) / 4.0
-    box = ((scale, scale), (3 * scale, 3 * scale))
+#    box = ((scale, scale), (3 * scale, 3 * scale))
     box = (points[2], points[1])
 
     fillWithCheckerBoard( box, 2, boxes)
