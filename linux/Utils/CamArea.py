@@ -12,6 +12,7 @@ import gobject
 import gtk
 import pdb
 import pygtk
+from Utils.ForegroundFilter import ForegroundFilter
 pygtk.require('2.0')
 
 log = Logger.getLogger("CamArea", Logger.DEBUG)
@@ -28,7 +29,7 @@ DEFAULT_CORNERS = [
 class CamArea (ImageArea):
     RAWIMAGECORNERS = None
     CHESSBOARDCORNERS = None
-    def __init__(self, dims=MAXCAPSIZE, displayDims = HD720):
+    def __init__(self, dims=MAXCAPSIZE, displayDims = (1366, 1024)):
         # Create a new window
         CamArea.RAWIMAGECORNERS = [(0,0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1])]
         CamArea.CHESSBOARDCORNERS = [(5*dims[0]/16.0, 5*dims[1]/16.0), 
@@ -42,6 +43,7 @@ class CamArea (ImageArea):
         self.shouldUpdate = True
         self.imageScale = 0.5
         self.prevImage = None
+        self.isCalibrating = True
 
         #Camera Data
         self.currentCamera = 0
@@ -53,6 +55,7 @@ class CamArea (ImageArea):
         self.displayDims = None
         self.imageScale = None
         self.setDisplayDims(displayDims)
+        self.foregroundFilter = ForegroundFilter()
 
         #Event hooks
         gobject.idle_add(self.idleUpdateImage)
@@ -78,6 +81,11 @@ class CamArea (ImageArea):
             cvImage = warpFrame(cvImage, self.warpCorners, self.targetWarpCorners)
         else:
             cvImage = captureImage(self.capture)
+            
+        if not self.isCalibrating:
+            self.foregroundFilter.updateBackground(cvImage)
+            cvImage = self.foregroundFilter.getBackgroundImage()
+        
         self.prevImage = cvImage
         
         #Do the displaying
@@ -119,36 +127,37 @@ class CamArea (ImageArea):
         if len(corners) == 49:
             self.targetWarpCorners = CamArea.CHESSBOARDCORNERS
             self.warpCorners = [corners[0], corners[6], corners[48], corners[42]]
+            self.isCalibrating = False
         return corners
         
-    def findCalibrationCorner(self, x, y, window=10):
-        """find the most likely pixel-precise calibration corner in the 
-        neighborhood of (x,y), range is the number of pixels radius to check"""
-        #print ""
-        def asciiVal(val):
-            retlist = (" ", ".", "-", "!", "x", "#")
-            idx = int(val / 42)
-            return retlist[idx]
-
-        curMaxPt = (x, y)
-        curMaxVal = -1
-        for ySpan in range(1, window):
-            for xSpan in range(1, window):
-                try:
-                    for dx, dy in ((xSpan, ySpan),
-                                    (-xSpan, ySpan),
-                                    (-xSpan, -ySpan),
-                                    (xSpan, -ySpan)):
-                        pt = (x + dx, y + dy)
-                        value = sum(self.prevImage[pt[1], pt[0]])
-                        #log.debug("Value: %s at %s" % (value, pt))
-                        if curMaxVal < value:
-                            curMaxVal = value
-                            curMaxPt = (x + dx, y + dy)
-                            #log.debug("Max Val update %s at %s" % (curMaxVal, curMaxPt))
-                except Exception as e:
-                    print e
-        return curMaxPt
+#    def findCalibrationCorner(self, x, y, window=10):
+#        """find the most likely pixel-precise calibration corner in the 
+#        neighborhood of (x,y), range is the number of pixels radius to check"""
+#        #print ""
+#        def asciiVal(val):
+#            retlist = (" ", ".", "-", "!", "x", "#")
+#            idx = int(val / 42)
+#            return retlist[idx]
+#
+#        curMaxPt = (x, y)
+#        curMaxVal = -1
+#        for ySpan in range(1, window):
+#            for xSpan in range(1, window):
+#                try:
+#                    for dx, dy in ((xSpan, ySpan),
+#                                    (-xSpan, ySpan),
+#                                    (-xSpan, -ySpan),
+#                                    (xSpan, -ySpan)):
+#                        pt = (x + dx, y + dy)
+#                        value = sum(self.prevImage[pt[1], pt[0]])
+#                        #log.debug("Value: %s at %s" % (value, pt))
+#                        if curMaxVal < value:
+#                            curMaxVal = value
+#                            curMaxPt = (x + dx, y + dy)
+#                            #log.debug("Max Val update %s at %s" % (curMaxVal, curMaxPt))
+#                except Exception as e:
+#                    print e
+#        return curMaxPt
 
        
 
@@ -159,6 +168,8 @@ class CamArea (ImageArea):
             #self.warpCorners = getNewCorners(self.warpCorners)
             log.debug("Reset Corners")
             self.warpCorners = []
+            self.foregroundFilter.reset()
+            self.isCalibrating = True
         else:
 #            x, y = self.findCalibrationCorner(e.x / self.imageScale,
 #                                             e.y / self.imageScale,
@@ -166,6 +177,8 @@ class CamArea (ImageArea):
             (x, y) = (e.x / self.imageScale, e.y / self.imageScale)
             self.warpCorners.append((x, y))
             if len(self.warpCorners) == 4:
+                self.foregroundFilter.reset()
+                self.isCalibrating = False
                 self.resume()
             log.debug("Corner %s, %s" % (x, y))
 
@@ -211,10 +224,10 @@ class CamArea (ImageArea):
         log.debug("Scaling image to %s x %s" % (self.imageScale * curDims[0],
                                                 self.imageScale * curDims[1]))
 
-
     def getRawImage(self):
         """Get the full-size image from this cam"""
         return self.prevImage
+
         
 #~~~~~~~~~~~~~~~~~~~~~~~`
 #Helper Functions for CamArea
@@ -311,7 +324,7 @@ def captureImage(capture):
 def main():
     camWindow = gtk.Window()
 
-    cam = CamArea( (1600, 1050,) )
+    cam = CamArea()
     camWindow.add(cam)
 
     camWindow.connect("destroy", gtk.main_quit)
