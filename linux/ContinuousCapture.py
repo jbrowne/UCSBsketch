@@ -11,48 +11,63 @@ HD720 = (1280, 720)
 class ForegroundFilter(object):
     def __init__(self):
         #Complete model of board contents
-        self.bgImage = None
+        self._bgImage = None
+        self._lastFrames = []
     def setBackground(self, image):
-        self.bgImage = cv.CloneMat(image)
+        self._bgImage = cv.CloneMat(image)
+        self._lastFrames = []
         
     def updateBackground(self, newImage):
         """Given a new image (possibly containing occluding objects)
         update the model of the background board"""
-#        self.bgImage = processImage(self.bgImage, newImage)
-    
+        if len(self._lastFrames) >= 10:
+            self._lastFrames.pop(0)
+        self._lastFrames.append(self.filterForeground(newImage))
+        
+        blendFrame = None
+        prevFrame = None
+        frameDiffSum = None
+#        blendRatio = 1 / float(len(self._lastFrames))
+        for frame in self._lastFrames:
+            if prevFrame is None:
+                prevFrame = frame
+                frameDiffSum = cv.CloneMat(frame)
+                blendFrame = cv.CloneMat(frame)
+                cv.Set(frameDiffSum, (0,0,0))
+                continue
+            cv.AddWeighted(frame, 0.5, blendFrame, 0.5, 0.0, blendFrame)
+            diffImage = cv.CloneMat(prevFrame)
+            cv.AbsDiff(prevFrame, frame, diffImage)
+#            cv.AddWeighted(diffImage, blendRatio, frameDiffSum, 1.0, 0.0, frameDiffSum)
+            cv.Max(diffImage, frameDiffSum, frameDiffSum)
+        frameDiffMask = max_allChannel(frameDiffSum)
+        cv.Threshold(frameDiffMask, frameDiffMask, 10, 255, cv.CV_THRESH_BINARY_INV)
+        cv.Copy(blendFrame, self._bgImage, mask=frameDiffMask)
+
     def filterForeground(self, newImage):
-        retImage = cv.CloneMat(self.bgImage)
-        diffImage = cv.CloneMat(self.bgImage)
-        cv.AbsDiff(self.bgImage, newImage, diffImage)
+        retImage = cv.CloneMat(self._bgImage)
+        diffImage = cv.CloneMat(self._bgImage)
+        cv.AbsDiff(self._bgImage, newImage, diffImage)
         diffImage = max_allChannel(diffImage)
-#        cv.Smooth(diffImage, diffImage, smoothtype=cv.CV_MEDIAN)
-#        cv.ShowImage("RawDifference", diffImage)
         
         diffImageEroded = cv.CloneMat(diffImage)
-#        cv.Smooth(diffImage, diffImageEroded)
-
         cv.Erode(diffImageEroded, diffImageEroded, iterations = 5)
         cv.Dilate(diffImageEroded, diffImageEroded, iterations = 5)
         
         #Get the parts that were completely erased due to the opening
-#        cv.ShowImage("Eroded Difference", diffImageEroded)
         cv.AbsDiff(diffImage, diffImageEroded, diffImageEroded)
         cv.Dilate(diffImageEroded, diffImageEroded, iterations = 5)
-#        cv.ShowImage("Separated Difference", diffImageEroded)
         cv.Threshold(diffImageEroded, diffImageEroded, 24, 255, cv.CV_THRESH_BINARY)
         cv.Dilate(diffImageEroded, diffImageEroded, iterations=3)
-
-#        cv.Erode(diffImageEroded, diffImageEroded)
-    #    cv.AdaptiveThreshold(diffImageEroded, diffImageEroded, 255)
         cv.Copy(newImage, retImage, diffImageEroded)
         return retImage
     
     def getBackgroundImage(self):
-        return cv.CloneMat(self.bgImage)
+        return cv.CloneMat(self._bgImage)
         
 
 def main():
-    warpCorners = [(434, 240), (900, 52), (893, 636), (362, 631)]
+    warpCorners = [(337, 219), (929, 27), (957, 688), (240, 667)]
     fgFilter = ForegroundFilter()
     capture, dimensions = initializeCapture(dims = HD720)
     windowCorners = [ (0,0), (dimensions[0], 0), (dimensions[0], dimensions[1]), (0, dimensions[1])]
@@ -67,7 +82,9 @@ def main():
         if len(warpCorners) == 4:
             image = warpFrame(image, warpCorners, windowCorners)
    
-        displayImage = fgFilter.filterForeground(image)
+        fgFilter.updateBackground(image)
+#        displayImage = fgFilter.filterForeground(image)
+        displayImage = fgFilter.getBackgroundImage()
         isSettled, historyImage = diffSettled(historyImage, displayImage)
 
         cv.ShowImage("Output", displayImage)

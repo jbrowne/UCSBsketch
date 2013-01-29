@@ -4,8 +4,8 @@ from SketchFramework.Point import Point
 from Utils import Logger
 from Utils.CamArea import CamArea
 from Utils.ImageArea import ImageArea
+from cv2 import cv
 from gtkStandalone import GTKGui
-import cv
 import gtk
 import pdb
 import sketchvision.ImageStrokeConverter as ISC
