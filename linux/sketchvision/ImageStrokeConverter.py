@@ -28,7 +28,7 @@ import StringIO
 import datetime
 from Utils import Logger
 
-log = Logger.getLogger("ISC", Logger.WARN)
+log = Logger.getLogger("ISC", Logger.DEBUG)
 
 #Random, but consistent
 random.seed("sketchvision")

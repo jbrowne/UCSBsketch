@@ -23,7 +23,7 @@ class ForegroundFilter(object):
         
         if len(self._lastFrames) >= 5:
             self._lastFrames.pop(0)
-        self._lastFrames.append(self.filterForeground(newImage))
+        self._lastFrames.append(processImage(self._bgImage, newImage))
         
         blendFrame = None
         prevFrame = None
@@ -42,25 +42,15 @@ class ForegroundFilter(object):
 #            cv.AddWeighted(diffImage, blendRatio, frameDiffSum, 1.0, 0.0, frameDiffSum)
             cv.Max(diffImage, frameDiffSum, frameDiffSum)
         frameDiffMask = max_allChannel(frameDiffSum)
-        cv.Threshold(frameDiffMask, frameDiffMask, 10, 255, cv.CV_THRESH_BINARY_INV)
+        cv.Threshold(frameDiffMask, frameDiffMask, 20, 255, cv.CV_THRESH_BINARY_INV)
         cv.Copy(blendFrame, self._bgImage, mask=frameDiffMask)
 
     def filterForeground(self, newImage):
-        retImage = cv.CloneMat(self._bgImage)
         diffImage = cv.CloneMat(self._bgImage)
-        cv.AbsDiff(self._bgImage, newImage, diffImage)
-        diffImage = max_allChannel(diffImage)
-        
-        diffImageEroded = cv.CloneMat(diffImage)
-        cv.Erode(diffImageEroded, diffImageEroded, iterations = 5)
-        cv.Dilate(diffImageEroded, diffImageEroded, iterations = 5)
-        
-        #Get the parts that were completely erased due to the opening
-        cv.AbsDiff(diffImage, diffImageEroded, diffImageEroded)
-        cv.Dilate(diffImageEroded, diffImageEroded, iterations = 5)
-        cv.Threshold(diffImageEroded, diffImageEroded, 24, 255, cv.CV_THRESH_BINARY)
-        cv.Dilate(diffImageEroded, diffImageEroded, iterations=3)
-        cv.Copy(newImage, retImage, diffImageEroded)
+        retImage = cv.CloneMat(newImage)
+        cv.AbsDiff(newImage, self._bgImage, diffImage)
+#        cv.CvtColor(diffImage, diffImage, cv.CV_RGB2GRAY)
+        cv.AddWeighted(retImage, 1.0, diffImage, 0.5, 0.0, retImage)
         return retImage
     
     def getBackgroundImage(self):
@@ -69,6 +59,41 @@ class ForegroundFilter(object):
         else:
             return None
         
+
+def showResized(name, image, scale):
+    image = resizeImage(image, scale)
+    cv.ShowImage(name, image)
+
+def resizeImage(img, scale=None, dims=None):
+    """Return a resized copy of the image for either relative
+    scale, or that matches the dimensions given"""
+    if scale is not None:
+        retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
+    elif dims is not None:
+        retImg = cv.CreateMat(dims[0], dims[1], img.type)
+    else:
+        retImg = cv.CloneMat(img)
+    cv.Resize(img, retImg)
+    return retImg    
+    
+def processImage(bgImage, newImage):
+    retImage = cv.CloneMat(bgImage)
+    diffImage = cv.CloneMat(bgImage)
+    cv.AbsDiff(bgImage, newImage, diffImage)
+    diffImage = max_allChannel(diffImage)
+    
+    diffImageEroded = cv.CloneMat(diffImage)
+    cv.Erode(diffImageEroded, diffImageEroded, iterations = 5)
+    cv.Dilate(diffImageEroded, diffImageEroded, iterations = 5)
+    
+    #Get the parts that were completely erased due to the opening
+    cv.AbsDiff(diffImage, diffImageEroded, diffImageEroded)
+    cv.Dilate(diffImageEroded, diffImageEroded, iterations = 5)
+    cv.Threshold(diffImageEroded, diffImageEroded, 24, 255, cv.CV_THRESH_BINARY)
+    cv.Dilate(diffImageEroded, diffImageEroded, iterations=3)
+    cv.Copy(newImage, retImage, diffImageEroded)
+    return retImage
+    
 def max_allChannel(image):
     """Return a grayscale image with values equal to the MAX
     over all 3 channels """

@@ -52,7 +52,7 @@ class CamArea (ImageArea):
         self.targetWarpCorners = CamArea.RAWIMAGECORNERS
         self.capture, self.captureDims =  \
                 initializeCapture(self.currentCamera, dims)
-        self.displayDims = None
+        self.displayDims = displayDims
         self.imageScale = None
         self.setDisplayDims(displayDims)
         self.foregroundFilter = ForegroundFilter()
@@ -71,26 +71,31 @@ class CamArea (ImageArea):
                        | gtk.gdk.VISIBILITY_NOTIFY_MASK
                        | gtk.gdk.POINTER_MOTION_MASK 
                        )
+        self.debugVideoWriter = None 
         self.callBacks = {}
         
     def idleUpdateImage(self):
         """An idle process to update the image data, and
         the cvImage field"""
+        cvImage = self.prevImage = captureImage(self.capture)
         if len(self.warpCorners) == 4:
-            cvImage = captureImage(self.capture)
-            cvImage = warpFrame(cvImage, self.warpCorners, self.targetWarpCorners)
-        else:
-            cvImage = captureImage(self.capture)
+            cvImage = warpFrame(self.prevImage, self.warpCorners, self.targetWarpCorners)
             
         if not self.isCalibrating:
             self.foregroundFilter.updateBackground(cvImage)
             cvImage = self.foregroundFilter.getBackgroundImage()
-        
-        self.prevImage = cvImage
+#            cvImage = self.foregroundFilter.filterForeground(cvImage)
         
         #Do the displaying
-        displayImg = resizeImage(self.prevImage, scale = self.imageScale)
-        self.setCvMat(displayImg)
+        self.displayImage = resizeImage(cvImage, scale = self.imageScale)
+        self.setCvMat(self.displayImage)
+        if self.debugVideoWriter is None:
+            self.debugVideoWriter = cv.CreateVideoWriter("Debug.avi", 
+                                                         cv.CV_FOURCC('D', 'I', 'V', 'X'), 
+                                  
+                      1, cv.GetSize(self.displayImage))
+        cv.WriteFrame(self.debugVideoWriter, cv.GetImage(self.displayImage))
+
         
         return self.shouldUpdate
     
@@ -115,10 +120,8 @@ class CamArea (ImageArea):
         patternSize = (7, 7)  #Internal corners of 8x8 chessboard
         img = cv.CreateMat(self.prevImage.rows, self.prevImage.cols, cv.CV_8UC1)
         cv.CvtColor(self.prevImage, img, cv.CV_RGB2GRAY)
-        cv.AddWeighted(img, -1.0, img, 0, 255, img)
         ISC.saveimg(img)
-        #cv.AdaptiveThreshold(img, img, 255, blockSize=39)
-        #ISC.saveimg(img)
+
         
         _, corners = cv.FindChessboardCorners(img,
                                         patternSize,
@@ -126,40 +129,17 @@ class CamArea (ImageArea):
                                                cv.CV_CALIB_CB_NORMALIZE_IMAGE)
         if len(corners) == 49:
             self.targetWarpCorners = CamArea.CHESSBOARDCORNERS
-            self.warpCorners = [corners[0], corners[6], corners[48], corners[42]]
-            self.isCalibrating = False
-        return corners
-        
-#    def findCalibrationCorner(self, x, y, window=10):
-#        """find the most likely pixel-precise calibration corner in the 
-#        neighborhood of (x,y), range is the number of pixels radius to check"""
-#        #print ""
-#        def asciiVal(val):
-#            retlist = (" ", ".", "-", "!", "x", "#")
-#            idx = int(val / 42)
-#            return retlist[idx]
-#
-#        curMaxPt = (x, y)
-#        curMaxVal = -1
-#        for ySpan in range(1, window):
-#            for xSpan in range(1, window):
-#                try:
-#                    for dx, dy in ((xSpan, ySpan),
-#                                    (-xSpan, ySpan),
-#                                    (-xSpan, -ySpan),
-#                                    (xSpan, -ySpan)):
-#                        pt = (x + dx, y + dy)
-#                        value = sum(self.prevImage[pt[1], pt[0]])
-#                        #log.debug("Value: %s at %s" % (value, pt))
-#                        if curMaxVal < value:
-#                            curMaxVal = value
-#                            curMaxPt = (x + dx, y + dy)
-#                            #log.debug("Max Val update %s at %s" % (curMaxVal, curMaxPt))
-#                except Exception as e:
-#                    print e
-#        return curMaxPt
+            self.warpCorners = [corners[42], corners[0], corners[6], corners[48], ]
+#            self.isCalibrating = False
 
-       
+        debugImg = cv.CreateMat(img.rows, img.cols, cv.CV_8UC3)
+        cv.CvtColor(img, debugImg, cv.CV_GRAY2RGB)
+        for pt in corners:
+            pt = (int(pt[0]), int(pt[1]))
+            cv.Circle(debugImg, pt, 4, (255,0,0))
+        ISC.saveimg(debugImg)     
+               
+        return corners
 
     def onMouseUp(self, widget, e):
         """Respond to the mouse being released"""
@@ -169,7 +149,6 @@ class CamArea (ImageArea):
             log.debug("Reset Corners")
             self.warpCorners = []
             self.foregroundFilter.reset()
-            self.isCalibrating = True
         else:
 #            x, y = self.findCalibrationCorner(e.x / self.imageScale,
 #                                             e.y / self.imageScale,
@@ -178,7 +157,6 @@ class CamArea (ImageArea):
             self.warpCorners.append((x, y))
             if len(self.warpCorners) == 4:
                 self.foregroundFilter.reset()
-                self.isCalibrating = False
                 self.resume()
             log.debug("Corner %s, %s" % (x, y))
 
@@ -225,50 +203,18 @@ class CamArea (ImageArea):
                                                 self.imageScale * curDims[1]))
 
     def getRawImage(self):
-        """Get the full-size image from this cam"""
+        """Get the full-size, unaltered image from this cam"""
         return self.prevImage
+    
+    def getDisplayImage(self):
+        """Get the image that is displayed on the view right now"""
+        return self.foregroundFilter.getBackgroundImage()
+    
 
         
 #~~~~~~~~~~~~~~~~~~~~~~~`
 #Helper Functions for CamArea
 #~~~~~~~~~~~~~~~~~~~~~~~`
-def findChessboard(img, patternSize):
-    """Take an 8bit image and return corners found for
-    a chessboard pattern with (w,h) number of internal corners"""
-    corners = cv.FindChessboardCorners(img,
-                                    patternSize,
-                                    flags=cv.CV_CALIB_CB_NORMALIZE_IMAGE)
-    return corners
-
-def getNewCorners(corners):
-    nw, ne, se, sw = corners
-    print "1: %s\t2: %s\n\n3: %s\t4: %s" % (nw, ne, sw, se)
-    print "0: Reset"
-    try:
-        choice = int(raw_input("Edit Corner No.> "))
-        if choice == 0:
-            return []
-        else:
-            if choice == 1:
-                idx = 0
-            elif choice == 2:
-                idx = 1
-            elif choice == 3:
-                idx = 3
-            elif choice == 4:
-                idx = 2
-            print corners[idx]
-            newCorn = tuple([int(num) for num in raw_input("New corner> ").split()])
-            corners[idx] = newCorn
-
-            print "\n".join([str(c) for c in corners])
-            return corners
-    except Exception as e:
-        print "Input error %s" % (e)
-        return corners
-
-
-
 def resizeImage(img, scale=None, dims=None):
     """Return a resized copy of the image for either relative
     scale, or that matches the dimensions given"""
@@ -317,16 +263,16 @@ def captureImage(capture):
     cvMat = cv.GetMat(cvImg)
     return cvMat
 
-
-
-
-
 def main():
     camWindow = gtk.Window()
 
     cam = CamArea()
     camWindow.add(cam)
 
+    def toggleCalibrating(camArea):
+        camArea.isCalibrating = not camArea.isCalibrating
+        
+    cam.registerKeyCallback('C', lambda: toggleCalibrating(cam))
     camWindow.connect("destroy", gtk.main_quit)
 
     camWindow.show_all()

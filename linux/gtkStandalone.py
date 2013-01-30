@@ -32,7 +32,7 @@ WIDTH, HEIGHT = 1024, 768
 
 log = Logger.getLogger("GTK-GUI", Logger.WARN)
 def processImage(image, strokeQueue, scaleDims):
-    """This function will spawn a process to extract strokes
+    """This function will extract strokes
     from an image file. It will add the extracted strokes from
     the image to strokeQueue, scaled according to scaleDims"""
     pruneLen = 10

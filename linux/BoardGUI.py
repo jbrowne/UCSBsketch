@@ -36,11 +36,13 @@ def imageDiff(img1, img2):
         return bg_img
 
 def captureAndProcessImage(cam, sketchGui):
-    cvImage = cam.getRawImage()
+    cam.isCalibrating = False
+    cvImage = cam.getDisplayImage()
     cam.pause()
     sketchGui.setFullscreen(True)
     sketchGui.grab_focus()
     sketchGui.loadStrokesFromImage(image=cvImage)
+#    cam.resume()
 
 def fillWithCheckerBoard(box, thisLvl, ptList):
     tl, br = box
