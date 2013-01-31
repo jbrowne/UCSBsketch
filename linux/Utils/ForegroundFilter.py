@@ -4,46 +4,54 @@ class ForegroundFilter(object):
     def __init__(self):
         #Complete model of board contents
         self._bgImage = None
-        self._lastFrames = []
+        self._processedFramesHist = None
+        self._bgImagesHist = None
+        self.initialize()
         
-    def reset(self):
+    def initialize(self):
         self._bgImage = None
-        self._lastFrames = []
-        
+        self._processedFramesHist = []
+        self._bgImagesHist = []
+ 
     def setBackground(self, image):
         self._bgImage = cv.CloneMat(image)
-        self._lastFrames = []
+        self._processedFramesHist = [cv.CloneMat(image)]
+        self._bgImagesHist = [cv.CloneMat(image)]
         
     def updateBackground(self, newImage):
         """Given a new image (possibly containing occluding objects)
         update the model of the background board"""
         if self._bgImage is None:
-            self._bgImage = cv.CloneMat(newImage)
+            self.setBackground(newImage)
             return
+        historyLength = 5
+        consistencyThresh = 10
+        #Watch for the processed frames to settle,
+        # and only update the background image
+        # if a majority of the last N frames agree
+        if len(self._processedFramesHist) >= historyLength:
+            self._processedFramesHist.pop(0)
+        processedFrame = processImage(self._bgImage, newImage)
+        showResized("Live processed frame", processedFrame, 0.4)
+        self._processedFramesHist.append(processedFrame)
         
-        if len(self._lastFrames) >= 5:
-            self._lastFrames.pop(0)
-        self._lastFrames.append(processImage(self._bgImage, newImage))
-        
-        blendFrame = None
         prevFrame = None
         frameDiffSum = None
-#        blendRatio = 1 / float(len(self._lastFrames))
-        for frame in self._lastFrames:
+        for frame in self._processedFramesHist:
             if prevFrame is None:
                 prevFrame = frame
                 frameDiffSum = cv.CloneMat(frame)
-                blendFrame = cv.CloneMat(frame)
                 cv.Set(frameDiffSum, (0,0,0))
                 continue
-#            cv.AddWeighted(frame, 0.5, blendFrame, 0.5, 0.0, blendFrame)
             diffImage = cv.CloneMat(prevFrame)
             cv.AbsDiff(prevFrame, frame, diffImage)
-#            cv.AddWeighted(diffImage, blendRatio, frameDiffSum, 1.0, 0.0, frameDiffSum)
+#            cv.AddWeighted(diffImage, 0.5, frameDiffSum, 0.5, 0.0, frameDiffSum)
             cv.Max(diffImage, frameDiffSum, frameDiffSum)
+        #Generate a mask of where the processed frames have been consistent for a while
         frameDiffMask = max_allChannel(frameDiffSum)
-        cv.Threshold(frameDiffMask, frameDiffMask, 20, 255, cv.CV_THRESH_BINARY_INV)
-        cv.Copy(blendFrame, self._bgImage, mask=frameDiffMask)
+        cv.Threshold(frameDiffMask, frameDiffMask, consistencyThresh, 255, cv.CV_THRESH_BINARY_INV)
+        #Copy from the most recent processed frame to the background image
+        cv.Copy(processedFrame, self._bgImage, mask=frameDiffMask)
 
     def filterForeground(self, newImage):
         diffImage = cv.CloneMat(self._bgImage)
@@ -58,7 +66,7 @@ class ForegroundFilter(object):
             return cv.CloneMat(self._bgImage)
         else:
             return None
-        
+              
 
 def showResized(name, image, scale):
     image = resizeImage(image, scale)

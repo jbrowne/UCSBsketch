@@ -12,7 +12,8 @@ import gobject
 import gtk
 import pdb
 import pygtk
-from Utils.ForegroundFilter import ForegroundFilter
+#from Utils.ForegroundFilter import ForegroundFilter
+from ContinuousCapture import BoardChangeWatcher
 pygtk.require('2.0')
 
 log = Logger.getLogger("CamArea", Logger.DEBUG)
@@ -55,7 +56,7 @@ class CamArea (ImageArea):
         self.displayDims = displayDims
         self.imageScale = None
         self.setDisplayDims(displayDims)
-        self.foregroundFilter = ForegroundFilter()
+        self.boardCapture = BoardChangeWatcher()
 
         #Event hooks
         gobject.idle_add(self.idleUpdateImage)
@@ -82,9 +83,8 @@ class CamArea (ImageArea):
             cvImage = warpFrame(self.prevImage, self.warpCorners, self.targetWarpCorners)
             
         if not self.isCalibrating:
-            self.foregroundFilter.updateBackground(cvImage)
-            cvImage = self.foregroundFilter.getBackgroundImage()
-#            cvImage = self.foregroundFilter.filterForeground(cvImage)
+            self.boardCapture.updateBoardImage(cvImage)
+            cvImage = self.boardCapture._fgFilter.getBackgroundImage()
         
         #Do the displaying
         self.displayImage = resizeImage(cvImage, scale = self.imageScale)
@@ -148,7 +148,7 @@ class CamArea (ImageArea):
             #self.warpCorners = getNewCorners(self.warpCorners)
             log.debug("Reset Corners")
             self.warpCorners = []
-            self.foregroundFilter.reset()
+            self.boardCapture.reset()
         else:
 #            x, y = self.findCalibrationCorner(e.x / self.imageScale,
 #                                             e.y / self.imageScale,
@@ -156,7 +156,7 @@ class CamArea (ImageArea):
             (x, y) = (e.x / self.imageScale, e.y / self.imageScale)
             self.warpCorners.append((x, y))
             if len(self.warpCorners) == 4:
-                self.foregroundFilter.reset()
+                self.boardCapture.reset()
                 self.resume()
             log.debug("Corner %s, %s" % (x, y))
 
@@ -208,7 +208,7 @@ class CamArea (ImageArea):
     
     def getDisplayImage(self):
         """Get the image that is displayed on the view right now"""
-        return self.foregroundFilter.getBackgroundImage()
+        return self.displayImage
     
 
         
