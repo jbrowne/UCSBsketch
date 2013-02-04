@@ -32,7 +32,7 @@ class ForegroundFilter(object):
         if len(self._processedFramesHist) >= historyLength:
             self._processedFramesHist.pop(0)
         processedFrame = processImage(self._bgImage, newImage)
-        showResized("Live processed frame", processedFrame, 0.4)
+#        showResized("Live processed frame", processedFrame, 0.4)
         self._processedFramesHist.append(processedFrame)
         
         prevFrame = None

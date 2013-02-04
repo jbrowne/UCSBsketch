@@ -60,23 +60,23 @@ class TuringMachineAnnotation(Annotation):
             #edgeEl.tag = "edge"
             #root.append(edgeEl)
             edgeEl = ET.SubElement(root, "edge")
-            edgeEl.attrib['id'] = str(e.id)
+            edgeEl.attrib['ident'] = str(e.ident)
 
             for  l in labelset:
                 e_label = ET.SubElement(mapEl, "m")
-                e_label.attrib['e'] = str(e.id)
-                e_label.attrib['l'] = str(l.id)
+                e_label.attrib['e'] = str(e.ident)
+                e_label.attrib['l'] = str(l.ident)
 
         for l, edgeset in self.labels2edge_map.items():
             #labelEl = l.xml()
             #labelEl.tag = "label"
             #root.append(labelEl)
             labelEl = ET.SubElement(root, "label")
-            labelEl.attrib['id'] = str(l.id)
+            labelEl.attrib['ident'] = str(l.ident)
 
         leadEdge = self.leading_edge['edge']
         if leadEdge is not None:
-            eid = leadEdge.id
+            eid = leadEdge.ident
         else:
             eid = -1
         root.attrib['leading_edge'] = str(eid)
@@ -85,7 +85,7 @@ class TuringMachineAnnotation(Annotation):
         #graphEl.tag = "state_graph"
         #root.append(graphEl)
         graphEl = ET.SubElement(root, "state_graph")
-        graphEl.attrib['id'] = str(self.state_graph_anno.id)
+        graphEl.attrib['ident'] = str(self.state_graph_anno.ident)
 
         return root
 

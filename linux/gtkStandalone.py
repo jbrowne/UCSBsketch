@@ -120,6 +120,11 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def onKeyPress(self, widget, event, data=None):
         key = chr(event.keyval % 256)
+        #Run the registered callbacks
+        for func in self.keyCallbacks.get(key, ()):
+            func()
+        
+        #Run the hard-coded key events
         if key == 'r':
             self.resetBoard()
         elif key == 'i':
@@ -146,9 +151,6 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         elif key == 'q':
             exit(0)
 
-        #Run the registered callbacks
-        for func in self.keyCallbacks.get(key, ()):
-            func()
 
     def resetBackBuffer(self):
         """Reset the back painting buffer, for example when the screen
@@ -433,8 +435,8 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def addStroke(self, stroke):
         """Add as stroke to the board and our local bookkeeping"""
-        self.strokeList.append(stroke)
-        self.boardProcThread.addStroke(stroke, callback = self.boardChanged)
+        self.strokeQueue.put(stroke)
+#        self.boardProcThread.addStroke(stroke, callback = self.boardChanged)
 
     def eraseStroke(self, stroke):
         """Remove a stroke from the board and our local lists"""

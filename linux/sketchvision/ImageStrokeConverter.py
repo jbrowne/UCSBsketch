@@ -16,17 +16,19 @@ Todo:
 * Make it more object oriented
 
 """
-import cv
-import os
+from SketchFramework.Stroke import Stroke
+from Utils import Logger
 import Image
+import StringIO
+import cv
+import datetime
+import math
+import os
+import pdb
 import pickle
 import random
-import math
-import pdb
+import sys
 import time
-import StringIO
-import datetime
-from Utils import Logger
 
 log = Logger.getLogger("ISC", Logger.DEBUG)
 
@@ -739,6 +741,7 @@ def pointsToStrokes(pointSet, rawImg):
     graph = pointsToGraph(pointSet, rawImg)
     log.debug( "Converting graph to strokes" )
     retStrokes = graphToStrokes(graph, rawImg)
+    log.debug("Generated %d strokes" % (len(retStrokes)))
     return retStrokes
 
 def pointsToGraph(pointSet, rawImg):
@@ -999,9 +1002,9 @@ def graphToStrokes(graph, rawImg):
     for kpDict in keyPointsList:
         #Straightforward, blob with single edge (no intersections)
         if len(kpDict['edges']) == 1:
-            stroke = Stroke()
-            for pt in kpDict['edges'][0]:
-                stroke.addPoint(pt)
+            stroke = Stroke(points = kpDict['edges'][0])
+#            for pt in kpDict['edges'][0]:
+#                stroke.addPoint(pt)
             retStrokes.append(stroke)
         #Complicated, match up edges at intersections to shrink number of lines
         elif len(kpDict['edges']) > 1:
@@ -1050,9 +1053,9 @@ def graphToStrokes(graph, rawImg):
             #end for cp in kpDict[...]
 
             for edge in edgeList:
-                stroke = Stroke()
-                for pt in edge:
-                    stroke.addPoint(pt)
+                stroke = Stroke(points=edge)
+#                for pt in edge:
+#                    stroke.addPoint(pt)
                 retStrokes.append(stroke)
         #end elif len(kpDict ... )
                 
@@ -1380,28 +1383,7 @@ def isFilledVal(value):
 
 
 
-#***************************************************
-#  Stroke Class
-#***************************************************
 
-
-
-class Stroke(object):
-    """A stroke consisting of a list of points"""
-    def __init__(self):
-        self.points = []
-        self.thickness = 0
-        self.center = (-1, -1)
-        self.topleft = (-1, -1)
-        self.bottomright = (-1, -1)
-    def addPoint(self,point, thickness = 1):
-        """Add a point to the end of the stroke"""
-        x,y = point
-        self.points.append( (x, y) )
-        
-    def getPoints(self):
-        """Return a list of points"""
-        return self.points
 
 #***************************************************
 #  Image Processing
@@ -1943,7 +1925,7 @@ def debugTester(args):
     exit(0)
 
 if __name__ == "__main__":
-    import sys
+    sys.path.append("../")
     main(sys.argv)
     #test()
 

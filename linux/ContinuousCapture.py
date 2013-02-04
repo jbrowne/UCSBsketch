@@ -1,141 +1,107 @@
 #!/usr/bin/env python
-from Utils import ForegroundFilter as ff
-from cv2 import cv
-from sketchvision import ImageStrokeConverter as ISC
-from Utils.ForegroundFilter import max_allChannel
-from Utils.ForegroundFilter import ForegroundFilter
 from ImageShow import show
+from SketchFramework.Point import Point
+from SketchFramework.Stroke import Stroke
+from Utils import ForegroundFilter as ff
+from Utils.BoardChangeWatcher import BoardChangeWatcher
+from Utils.ForegroundFilter import ForegroundFilter
+from Utils.ForegroundFilter import max_allChannel
+from cv2 import cv
+from gtkStandalone import GTKGui
+from sketchvision import ImageStrokeConverter as ISC
+import gtk
+import multiprocessing
+import random
+import threading
+import time
 MAXCAPSIZE = (2592, 1944)
 HD1080 = (1920, 1080)
 HD720 = (1280, 720)
 
-
-class BoardChangeWatcher(object):
+#class CaptureProcess(threading.Thread):
+class CaptureProcess(multiprocessing.Process):
     """This class watches a whiteboard, and bundles up
     changes of the board's contents as discreet "diff" events"""
-    def __init__(self):
-        self._fgFilter = ForegroundFilter()
-        self._boardDiffHist = []
-        self._lastCaptureImage = None
-    
-    def reset(self):
-        self._fgFilter = ForegroundFilter()
-        self._boardDiffHist = []
-        self._lastCaptureImage = None
+    def __init__(self, capture, warpCorners, sketchGui):
+#        threading.Thread.__init__(self)
+        multiprocessing.Process.__init__(self)
+        self.daemon = True
+        self.capture = capture
+        self.board = sketchGui
+        self.boardWatcher = BoardChangeWatcher()
+        self.warpCorners = warpCorners
+        w = cv.GetCaptureProperty(self.capture, cv.CV_CAP_PROP_FRAME_WIDTH)
+        h = cv.GetCaptureProperty(self.capture, cv.CV_CAP_PROP_FRAME_HEIGHT)
+        dimensions = (w, h,)
+        self.targetCorners = [ (0,0), (dimensions[0], 0), (dimensions[0], dimensions[1]), (0, dimensions[1])]
         
-    def setBoardImage(self, image):
-        print "Setting board image"
-        self._lastCaptureImage = cv.CloneMat(image)
-        self._fgFilter.setBackground(image)
-        self._boardDiffHist = []
-    
-    def updateBoardImage(self, image):
-        if self._lastCaptureImage is None:
-            self.setBoardImage(image)
-            return
-        
-        self._fgFilter.updateBackground(image)
-        #Now that we've updated the background a little bit, analyze the difference from the
-        #    previous backgrounds for consistency
-        #    background images for consistency
-        #Track the new strokes that are added
-        captureDiffMask = cv.CloneMat(self._fgFilter.getBackgroundImage())
-        cv.AbsDiff(captureDiffMask, self._lastCaptureImage, captureDiffMask)
-        captureDiffMask = max_allChannel(captureDiffMask)
-        cv.Threshold(captureDiffMask, captureDiffMask, 50, 255, cv.CV_THRESH_BINARY)
-        if len(self._boardDiffHist) > 5:
-            self._boardDiffHist.pop(0)
-        self._boardDiffHist.append(captureDiffMask)
-        
-        prev = None
-        cumulativeDiff = None
-        thisDiff = None
-        for frame in self._boardDiffHist:
-            if prev is None:
-                prev = frame
-                cumulativeDiff = cv.CreateMat(prev.rows, prev.cols, prev.type)
-                cv.Set(cumulativeDiff, (0,0,0))
-                thisDiff = cv.CreateMat(prev.rows, prev.cols, prev.type)
-            else:
-                cv.AbsDiff(prev, frame, thisDiff)
-                cv.Max(thisDiff, cumulativeDiff, cumulativeDiff)
-        #Now that we have the max sequential difference between frames,
-        #    smooth out the edge artifacts due to noise
-        cv.Smooth(cumulativeDiff, cumulativeDiff, smoothtype=cv.CV_MEDIAN)
-        #The difference percentage is in terms of the size of the changed component from the background
-        percentDiff = cv.CountNonZero(cumulativeDiff) / float(max(cv.CountNonZero(captureDiffMask), 1))
-        if percentDiff < 0.02 and percentDiff > 0.001:
-            self.isCaptureReady = True
-        else:
-            self.isCaptureReady = False
-
-    def captureBoardDifferences(self):
-        """Returns a tuple of binary images: (darkerDiff, lighterDiff)
-        where the non-zero mask in darkerDiff is the board contents that 
-        is darker than the last capture, and lighterDiff is the contents
-        that is lighter. 
-        Should check isCaptureReady field before using the results"""
-        differenceThresh = 25
-        darkerDiff = cv.CreateMat(self._lastCaptureImage.rows, self._lastCaptureImage.cols, cv.CV_8UC1)
-        lighterDiff = cv.CloneMat(darkerDiff)
-
-        curBackground = self._fgFilter.getBackgroundImage()
-        subtractedImage = cv.CloneMat(curBackground)
-        
-        cv.Sub(self._lastCaptureImage, curBackground, subtractedImage)
-#        darkerDiff = max_allChannel(subtractedImage)
-        cv.Threshold(max_allChannel(subtractedImage), darkerDiff, differenceThresh, 255, cv.CV_THRESH_TOZERO)
-        cv.Smooth(darkerDiff, darkerDiff, smoothtype=cv.CV_MEDIAN)
-
-        cv.Sub(curBackground, self._lastCaptureImage, subtractedImage)
-#        lighterDiff = max_allChannel(subtractedImage)
-        cv.Threshold(max_allChannel(subtractedImage), lighterDiff, differenceThresh, 255, cv.CV_THRESH_TOZERO)            
-        cv.Smooth(lighterDiff, lighterDiff, smoothtype=cv.CV_MEDIAN)
-        
-        #Check to see if the "darker" or "lighter" differences are from edge 
-        #    digitization artifacts (the board is lighter around dark marks) 
-#        validDiffCheckImage = cv.CloneMat(darkerDiff)
-#        cv.Erode(validDiffCheckImage, validDiffCheckImage, iterations=3)
-#        validity = cv.CountNonZero(validDiffCheckImage)
-#        print " Darker Validity: %s" % (validity)
-#        if not validity > 0:
-#            print " Not counting 'Darker'"
-#            cv.Set(darkerDiff, 0)
-#
-#        validDiffCheckImage = cv.CloneMat(lighterDiff)
-#        cv.Erode(validDiffCheckImage, validDiffCheckImage, iterations=3)
-#        validity = cv.CountNonZero(validDiffCheckImage)
-#        print " Lighter Validity: %s" % (validity)
-#        if not validity > 0:
-#            print " Not counting 'Lighter'"
-#            cv.Set(lighterDiff,0)
-        
-        retImage = cv.CreateMat(darkerDiff.rows, darkerDiff.cols, cv.CV_8UC1)
-        cv.Set(retImage, 128)
-        cv.Sub(retImage, darkerDiff, retImage)
-        cv.Add(retImage, lighterDiff, retImage)
-        showResized("BoardDiffs", retImage, 0.3)
-        showResized("Darker", darkerDiff, 0.25)
-        showResized("Lighter", lighterDiff, 0.25)       
-        return (darkerDiff, lighterDiff)
-        
-        
-        
+    def run(self):
+        """Initialize the basic board model first, then continually
+        update the image and add new ink to the board"""
+        #Initialize stuff
+#        import pydevd
+#        pydevd.settrace(stdoutToServer=True, stderrToServer=True, suspend=False)
+        rawImage = cv.GetMat(cv.QueryFrame(self.capture))
+        ISC.saveimg(rawImage)
+        warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
+        ISC.saveimg(warpImage)
+        self.boardWatcher.setBoardImage(warpImage)
+        strokeList = ISC.cvimgToStrokes(warpImage)['strokes']
+        for stk in strokeList:
+            self.board.addStroke(stk)
+        while True:
+            time.sleep(0.25)
+            rawImage = cv.GetMat(cv.QueryFrame(self.capture))
+            warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
+            self.boardWatcher.updateBoardImage(warpImage)
+            if self.boardWatcher.isCaptureReady:
+                ISC.saveimg(warpImage)
+                ISC.saveimg(self.boardWatcher._fgFilter.getBackgroundImage())
+                (newInk, newErase) = self.boardWatcher.captureBoardDifferences()
+                cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
+                ISC.saveimg(newInk)
+                ISC.saveimg(newErase)
+                self.boardWatcher.setBoardImage(self.boardWatcher._fgFilter.getBackgroundImage()) # TODO: Build this into the class
+                strokeList = ISC.cvimgToStrokes(newInk)['strokes']
+                print "Adding %s strokes to board from image." % (len(strokeList))
+                for stk in strokeList:
+                    self.board.addStroke(stk)
 
 def main():
-    displayScale = 0.4
-    warpCorners = [(1177.5, 722.5), (2245.0, 135.0), (2380.0, 1577.5), (1070.0, 1537.5)]
-#    fgFilter = ff.ForegroundFilter()
+    dScale = 0.4 #consistent display scaling
+    warpCorners = [(800.0, 892.5), (2017.5, 370.0), (2232.5, 1822.5), (557.5, 1790.0)]
     boardCapture = BoardChangeWatcher()
     capture, dimensions = initializeCapture(dims = MAXCAPSIZE)
     windowCorners = [ (0,0), (dimensions[0], 0), (dimensions[0], dimensions[1]), (0, dimensions[1])]
-    baseImage = cv.CloneMat(captureImage(capture))
-    boardCapture.setBoardImage(baseImage)
-#    fgFilter.setBackground(baseImage)
-    cv.NamedWindow("Output")
-    cv.SetMouseCallback("Output", lambda e, x, y, f, p: onMouseDown(warpCorners, e, x/displayScale, y/displayScale, f, p))
-    i = 0
-#    diffHistory = []
+    cv.NamedWindow("Calibrate")
+    cv.SetMouseCallback("Calibrate", lambda e, x, y, f, p: onMouseDown(warpCorners, e, x/dScale, y/dScale, f, p))
+
+    while len(warpCorners) != 4:
+        image = captureImage(capture)
+        showResized("Calibrate", image, dScale)
+        key = cv.WaitKey(50)
+        if key != -1:
+            key = chr(key % 256)
+        if key == 'q':
+            print "Quitting"
+            return
+    cv.DestroyAllWindows()
+    
+    print "Calibrated: %s" % (warpCorners)
+
+    sketchSurface = GTKGui(dims = (1600, 900))
+    sketchWindow = gtk.Window()
+    sketchWindow.add(sketchSurface)
+    sketchWindow.connect("destroy", gtk.main_quit)
+    sketchWindow.show_all()
+    capProc = CaptureProcess(capture, warpCorners, sketchSurface)
+    capProc.start()
+    sketchSurface.registerKeyCallback('q', lambda: capProc.stop())
+    sketchWindow.grab_focus()
+    gtk.main()
+    capProc.join()
+    return
+    
     while True:
         image = captureImage(capture)
         if len(warpCorners) == 4:
@@ -144,7 +110,7 @@ def main():
 #        fgFilter.updateBackground(image)
         boardCapture.updateBoardImage(image)
         displayImage = boardCapture._fgFilter.getBackgroundImage()
-        displayImage = resizeImage(displayImage, scale=displayScale)
+        displayImage = resizeImage(displayImage, scale=dScale)
         cv.ShowImage("Output", displayImage)
 
 #        prevBGImage = boardCapture._fgFilter.getBackgroundImage()
@@ -170,23 +136,18 @@ def main():
 #            lastCaptureImage = cv.CloneMat(fgFilter.getBackgroundImage())
 #            fgFilter.setBackground(lastCaptureImage)
 #            diffHistory = []            
-##        showResized("LastDiff", captureDiff, displayScale)
+##        showResized("LastDiff", captureDiff, dScale)
         key = cv.WaitKey(50)
         if key != -1:
             key = chr(key % 256)
         if key == 'r':
             boardCapture.setBoardImage(image)
-#            fgFilter.setBackground(image)
-#            key = 'c'
-#        if key == 'c':
-#            lastCaptureImage = cv.CloneMat(fgFilter.getBackgroundImage())
-#            fgFilter.setBackground(lastCaptureImage)
-#            diffHistory = []
+        if key == 'c':
+            boardCapture.reset()
+            boardCapture.setBoardImage(image)
         if key == 'q':
             print "Quitting"
             break
-        i+=1
-        
     cv.DestroyAllWindows()
     
 

@@ -124,22 +124,22 @@ class DiGraphAnnotation(Annotation):
 
         for node_anno in self.node_set:
             nodeEl = ET.SubElement(root, "node")
-            nodeEl.attrib['id'] = str(node_anno.id)
+            nodeEl.attrib['ident'] = str(node_anno.ident)
 
         for edge_anno in self.edge_set:
             edgeEl = ET.SubElement(root, "edge")
-            edgeEl.attrib['id'] = str(edge_anno.id)
+            edgeEl.attrib['ident'] = str(edge_anno.ident)
 
         for from_node, connList in self.connectMap.items():
             for connEdge, to_node in connList:
                 connEl = ET.SubElement(root, "conn")
                 fid = tid = eid = -1
                 if from_node is not None:
-                    fid = from_node.id
+                    fid = from_node.ident
                 if to_node is not None:
-                    tid = to_node.id
+                    tid = to_node.ident
                 if connEdge is not None:
-                    eid = connEdge.id
+                    eid = connEdge.ident
 
                 connEl.attrib['from'] = str(fid)
                 connEl.attrib['to'] = str(tid)

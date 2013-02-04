@@ -74,8 +74,8 @@ class ArrowAnnotation( Annotation ):
         "Returns an element tree object for the XML serialization of this annotation"
         root = Annotation.xml(self)
 
-        root.attrib['headstroke'] = str(self.headstroke.id)
-        root.attrib['tailstroke'] = str(self.tailstroke.id)
+        root.attrib['headstroke'] = str(self.headstroke.ident)
+        root.attrib['tailstroke'] = str(self.tailstroke.ident)
         root.attrib['direction'] = str(self.direction)
 
         tail  = ET.SubElement(root, "tail")
