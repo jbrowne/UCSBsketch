@@ -1553,7 +1553,7 @@ def isForeGroundGone(img):
     histNorm = 1000
     #Where is it safe to assume that the rest is foreground?
     foreGroundThresh = 80
-    #How far apartmust the background be from the foreground?
+    #How far apart must the background be from the foreground?
     smudgeFactor = 35
 
     total = 0
@@ -1601,6 +1601,18 @@ def isForeGroundGone(img):
         else:
             log.debug( "Not enough Ink remaining with value under %s (%s)" %                     
                           (i, remainingSum) )
+            noForeground = True
+    
+    #DEBUG STUFF
+    if not noForeground:
+        tempMat = cv.CloneMat(img)
+        edges = cv.CreateMat(img.rows, img.cols, cv.CV_8UC1)
+        cv.Canny(img, edges, 50,100)
+        saveimg(edges)
+        edgeAmount = cv.CountNonZero(edges)
+        log.debug("Edge info left: %d" % (edgeAmount))
+        if edgeAmount == 0:
+            log.debug("Short circuiting background removal")
             noForeground = True
 
     return noForeground

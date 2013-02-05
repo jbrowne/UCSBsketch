@@ -11,6 +11,7 @@ from gtkStandalone import GTKGui
 from sketchvision import ImageStrokeConverter as ISC
 import gtk
 import multiprocessing
+import numpy
 import random
 import threading
 import time
@@ -41,17 +42,19 @@ class CaptureProcess(multiprocessing.Process):
         #Initialize stuff
 #        import pydevd
 #        pydevd.settrace(stdoutToServer=True, stderrToServer=True, suspend=False)
-        rawImage = cv.GetMat(cv.QueryFrame(self.capture))
+        iplImage = cv.QueryFrame(self.capture)
+        rawImage = cv.GetMat(iplImage)        
         ISC.saveimg(rawImage)
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
         ISC.saveimg(warpImage)
         self.boardWatcher.setBoardImage(warpImage)
-        strokeList = ISC.cvimgToStrokes(warpImage)['strokes']
+        strokeList = ISC.cvimgToStrokes(flipMat(warpImage))['strokes']
         for stk in strokeList:
             self.board.addStroke(stk)
         while True:
             time.sleep(0.25)
-            rawImage = cv.GetMat(cv.QueryFrame(self.capture))
+            iplImage = cv.QueryFrame(self.capture)
+            rawImage = cv.GetMat(iplImage)
             warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
             self.boardWatcher.updateBoardImage(warpImage)
             if self.boardWatcher.isCaptureReady:
@@ -62,14 +65,14 @@ class CaptureProcess(multiprocessing.Process):
                 ISC.saveimg(newInk)
                 ISC.saveimg(newErase)
                 self.boardWatcher.setBoardImage(self.boardWatcher._fgFilter.getBackgroundImage()) # TODO: Build this into the class
-                strokeList = ISC.cvimgToStrokes(newInk)['strokes']
+                strokeList = ISC.cvimgToStrokes(flipMat(newInk))['strokes']
                 print "Adding %s strokes to board from image." % (len(strokeList))
                 for stk in strokeList:
                     self.board.addStroke(stk)
 
 def main():
     dScale = 0.4 #consistent display scaling
-    warpCorners = [(800.0, 892.5), (2017.5, 370.0), (2232.5, 1822.5), (557.5, 1790.0)]
+    warpCorners = [(697.5, 725.0), (2120.0, 405.0), (2387.5, 1805.0), (405.0, 1750.0)]
     boardCapture = BoardChangeWatcher()
     capture, dimensions = initializeCapture(dims = MAXCAPSIZE)
     windowCorners = [ (0,0), (dimensions[0], 0), (dimensions[0], dimensions[1]), (0, dimensions[1])]
@@ -95,61 +98,11 @@ def main():
     sketchWindow.connect("destroy", gtk.main_quit)
     sketchWindow.show_all()
     capProc = CaptureProcess(capture, warpCorners, sketchSurface)
-    capProc.start()
-    sketchSurface.registerKeyCallback('q', lambda: capProc.stop())
+    sketchSurface.registerKeyCallback('v', lambda: capProc.start())
     sketchWindow.grab_focus()
     gtk.main()
-    capProc.join()
-    return
-    
-    while True:
-        image = captureImage(capture)
-        if len(warpCorners) == 4:
-            image = warpFrame(image, warpCorners, windowCorners)
-   
-#        fgFilter.updateBackground(image)
-        boardCapture.updateBoardImage(image)
-        displayImage = boardCapture._fgFilter.getBackgroundImage()
-        displayImage = resizeImage(displayImage, scale=dScale)
-        cv.ShowImage("Output", displayImage)
-
-#        prevBGImage = boardCapture._fgFilter.getBackgroundImage()
-        (darkerDiff, lighterDiff) = boardCapture.captureBoardDifferences()
-        if boardCapture.isCaptureReady:
-            ISC.saveimg(boardCapture._lastCaptureImage)
-            cv.AddWeighted(darkerDiff, -1, darkerDiff, 0.0, 255, darkerDiff)
-            cv.AddWeighted(lighterDiff, -1, lighterDiff, 0.0, 255, lighterDiff)
-            ISC.saveimg(darkerDiff)
-            ISC.saveimg(lighterDiff)
-            boardCapture.setBoardImage(boardCapture._fgFilter.getBackgroundImage())
-#        #Track the new strokes that are added
-#        captureDiff = cv.CloneMat(fgFilter.getBackgroundImage())
-#        cv.AbsDiff(captureDiff, lastCaptureImage, captureDiff)
-#        captureDiff = max_allChannel(captureDiff)
-#        cv.Threshold(captureDiff, captureDiff, 50, 255, cv.CV_THRESH_BINARY)
-#
-#        
-#        #Initiate a new capture when the changes settle
-#        captureChanges = trackChanges(captureDiff, diffHistory)
-#        if captureChanges < 0.02 and captureChanges > 0.001:
-#            print "CAPTURE"
-#            lastCaptureImage = cv.CloneMat(fgFilter.getBackgroundImage())
-#            fgFilter.setBackground(lastCaptureImage)
-#            diffHistory = []            
-##        showResized("LastDiff", captureDiff, dScale)
-        key = cv.WaitKey(50)
-        if key != -1:
-            key = chr(key % 256)
-        if key == 'r':
-            boardCapture.setBoardImage(image)
-        if key == 'c':
-            boardCapture.reset()
-            boardCapture.setBoardImage(image)
-        if key == 'q':
-            print "Quitting"
-            break
-    cv.DestroyAllWindows()
-    
+    print "gtkMain exits"
+    capProc.join() 
 
 def trackChanges(image, history):
     if len(history) > 5:
@@ -211,6 +164,24 @@ def captureImage(capture):
     cvMat = cv.GetMat(cvImg)
     return cvMat
 
+def flipMat(image):
+    """Flip an image vertically (top -> bottom)"""
+    retImage = cv.CreateMat(image.rows, image.cols, image.type)
+    height = image.rows
+    transMatrix = cv.CreateMatHeader(2, 3, cv.CV_32FC1)
+    narr = numpy.array([[1,0,0],[0,-1,height]], numpy.float32)
+    cv.SetData(transMatrix, narr, cv.CV_AUTOSTEP)
+    cv.WarpAffine(image, retImage, transMatrix)
+    return retImage
+    
+    
+def printMat(image):
+    for row in range(image.rows):
+        print "[", 
+        for col in range(image.cols):
+            print cv.mGet(image, row, col), 
+        print "]"
+    print ""
 def resizeImage(img, scale=None, dims=None):
     """Return a resized copy of the image for either relative
     scale, or that matches the dimensions given"""
