@@ -83,7 +83,9 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         #Cairo drawing data
         self.renderBuffer = None
         self.context = None 
-        self.resetBackBuffer()
+        self.opQueue.put(lambda : time.sleep(0.1)) # So we don't reset too early
+        self.opQueue.put(lambda : self.resetBackBuffer())
+
 
 
         #Event hooks
@@ -149,7 +151,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         elif key == 'f':
             self.setFullscreen(not self._isFullscreen)
         elif key == 'q':
-            exit(0)
+            gtk.main_quit()
 
 
     def resetBackBuffer(self):
@@ -164,26 +166,29 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         
     def setFullscreen(self, makeFull):
         """Set the application fullscreen according to makeFull(boolean)"""
-        win = gtk.window_list_toplevels()[0]
+        windows = gtk.window_list_toplevels()
+#        for (i, win) in enumerate(windows):
+#            print i, win.name, "Has focus: %s" % (win.has_toplevel_focus())
+#        win = windows[0]
         self._pixbuf = None
         if makeFull:
             self.screenImage = None
             self._isFullscreen = True
-            print ""
             log.debug("Fullscreen")
-            win.fullscreen()
-            self.opQueue.put(lambda : self._updateScreenImage())
+            for win in windows:
+                if self in win.children():
+                    win.fullscreen()
+            self.opQueue.put(lambda : time.sleep(0.1)) # So we don't reset too early
             self.opQueue.put(lambda : self.resetBackBuffer())
-            #self.resetBackBuffer()
-            #self.boardChanged()
         else:
             self.screenImage = None
             self._isFullscreen = False
             log.debug("UNFullscreen")
-            win.unfullscreen()
+            for win in windows:
+                if self in win.children():
+                    win.unfullscreen()
+            self.opQueue.put(lambda : time.sleep(0.1))
             self.opQueue.put(lambda : self.resetBackBuffer())
-            #self.resetBackBuffer()
-            #self.boardChanged()
 
     def resetBoard(self):
         self.opQueue = Queue.Queue()
