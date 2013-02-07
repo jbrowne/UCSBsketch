@@ -71,7 +71,7 @@ DEBUGIMG = None
 # Intended module interface functions 
 #***************************************************
 
-def cvimgToStrokes(in_img):
+def cvimgToStrokes(in_img, targetWidth = None):
     "External interface to take in an OpenCV image object and return a list of the strokes."
     global DEBUG, CACHE
     CACHE = {}
@@ -80,7 +80,7 @@ def cvimgToStrokes(in_img):
         saveimg(in_img)
     saveimg(in_img, outdir="./photos/", 
             name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
-    small_img = resizeImage(in_img)
+    small_img = resizeImage(in_img, targetWidth=targetWidth)
     #small_img = in_img
     saveimg(small_img)
     temp_img, _ = removeBackground(small_img)
@@ -1536,7 +1536,6 @@ def getHistogramList(img, normFactor = 1000, numBins = 256):
 
 def isForeGroundGone(img):
     "Figure out whether the strokes of an image have been smoothed away or still remain"
-    debug = False
     #Define a region that we want to look at, so we don't try to 
     #smudge out border artifacts and mess up the ink
     borderThresh = 0.15 #How much of the border to ignore in figuring whether the foreground is gone
@@ -1546,6 +1545,19 @@ def isForeGroundGone(img):
     bottom = int( (1 - 2 * borderThresh) * img.rows)
     activeROI = ( left, top, right, bottom)
     img = cv.GetSubRect(img, activeROI)
+    
+    #Check for edge information
+    edges = cv.CreateMat(img.rows, img.cols, cv.CV_8UC1)
+    cv.Canny(img, edges, 50,100)
+    edgeAmount = cv.CountNonZero(edges)
+    cv.PutText(edges, "Edges", (20, edges.rows - 20), cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1), 255)
+    log.debug("Saving Edges")
+    saveimg(edges)
+    log.debug("Edge info left: %d" % (edgeAmount))
+    if edgeAmount == 0:
+        log.debug("Short circuiting background removal")
+        noForeground = True
+        return True
     
     #Get the histogram normalized to 1000 total
     hist = getHistogramList(img)
@@ -1569,25 +1581,18 @@ def isForeGroundGone(img):
         total += hist[i]
         i -= 1
 
-    #log.debug( "foreGroundThresh %s reached at %s" % (total, i) )
-
     if total < targetTotal: 
         #Not enough background above what we assume is foreground ink
         return False
-
     #We have gotten past the peak of background
     #Come down the "peak"
     while i >= 0 and hist[i] >= 1.0:
         i -= 1
     lastNum = i
-    #log.debug( "last num > 1 reached at %s" % (i) )
-
     #Follow the tail of the peak to the first empty bucket
     while i >= 0 and hist[i] > 0.0:
         i -= 1
     firstZero = i
-    #log.debug( "first zero reached at %s" % (i) )
-
     #If the range of remaining dark values are within a
     #reasonable range of the background peak, just
     #ignore them
@@ -1602,19 +1607,6 @@ def isForeGroundGone(img):
             log.debug( "Not enough Ink remaining with value under %s (%s)" %                     
                           (i, remainingSum) )
             noForeground = True
-    
-    #DEBUG STUFF
-    if not noForeground:
-        tempMat = cv.CloneMat(img)
-        edges = cv.CreateMat(img.rows, img.cols, cv.CV_8UC1)
-        cv.Canny(img, edges, 50,100)
-        saveimg(edges)
-        edgeAmount = cv.CountNonZero(edges)
-        log.debug("Edge info left: %d" % (edgeAmount))
-        if edgeAmount == 0:
-            log.debug("Short circuiting background removal")
-            noForeground = True
-
     return noForeground
         
 

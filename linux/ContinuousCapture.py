@@ -8,7 +8,6 @@ from Utils.BoardChangeWatcher import BoardChangeWatcher
 from Utils.ForegroundFilter import ForegroundFilter
 from Utils.ForegroundFilter import max_allChannel
 from Utils.ImageArea import ImageArea
-from Whiteboard_Backup.Utils.CamArea import findChessboard
 from cv2 import cv
 from gtkStandalone import GTKGui
 from multiprocessing import Event
@@ -42,6 +41,8 @@ class BoardWatchProcess(multiprocessing.Process):
         self.board = sketchGui
         self.boardWatcher = BoardChangeWatcher()
         self.warpCorners = warpCorners
+        self.keepGoing = Event()
+        self.keepGoing.set()
         if targetCorners is None:
             self.targetCorners = [ (0,0), (dimensions[0], 0), (dimensions[0], dimensions[1]), (0, dimensions[1])]
         else:
@@ -51,21 +52,31 @@ class BoardWatchProcess(multiprocessing.Process):
         """Initialize the basic board model first, then continually
         update the image and add new ink to the board"""
         #Initialize stuff
-        import pydevd
-        pydevd.settrace(stdoutToServer=True, stderrToServer=True, suspend=False)
-        print "Querying raw image"
-        imageSize, imageData = self.imageQueue.get()
+        try:
+            import pydevd
+            pydevd.settrace(stdoutToServer=True, stderrToServer=True, suspend=False)
+        except:
+            pass
+        while self.keepGoing.is_set():
+            try:
+                imageSize, imageData = self.imageQueue.get(True, 2)
+            except EmptyException:
+                pass
         rawImage = cv.CreateMatHeader(imageSize[1], imageSize[0], cv.CV_8UC3)
         cv.SetData(rawImage, imageData, cv.CV_AUTOSTEP)
-        print "Raw image queried"
         ISC.saveimg(rawImage)
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
         ISC.saveimg(warpImage)
         self.boardWatcher.setBoardImage(warpImage)
-        strokeList = ISC.cvimgToStrokes(flipMat(warpImage))['strokes']
+
+        ISC.DEBUG = True
+        boardWidth = self.board.getDimensions()[0]
+        strokeList = ISC.cvimgToStrokes(flipMat(warpImage), targetWidth = boardWidth)['strokes']
+        ISC.DEBUG = False
+
         for stk in strokeList:
             self.board.addStroke(stk)
-        while True:
+        while self.keepGoing.is_set():
 #            time.sleep(0.25)
             imageSize, imageData = self.imageQueue.get()
             rawImage = cv.CreateMatHeader(imageSize[1], imageSize[0], cv.CV_8UC3)
@@ -80,11 +91,13 @@ class BoardWatchProcess(multiprocessing.Process):
                 ISC.saveimg(newInk)
                 ISC.saveimg(newErase)
                 self.boardWatcher.setBoardImage(self.boardWatcher._fgFilter.getBackgroundImage()) # TODO: Build this into the class
-                strokeList = ISC.cvimgToStrokes(flipMat(newInk))['strokes']
-                print "Adding %s strokes to board from image." % (len(strokeList))
+                strokeList = ISC.cvimgToStrokes(flipMat(newInk), targetWidth = boardWidth)['strokes']
                 for stk in strokeList:
                     self.board.addStroke(stk)
+        print "Board watcher stopping"
                     
+    def stop(self):
+        self.keepGoing.clear()
 
 class CaptureProcess(Process):
     """A process that fills a queue with images as captured from 
@@ -111,9 +124,16 @@ class CaptureProcess(Process):
             
         
 class CalibrationArea(ImageArea):
+    CHESSBOARDCORNERS = None 
     def __init__(self, capture, dimensions, sketchSurface):
         """Constructor: capture is initialized, with dimensions (w, h), and 
         sketchSurface is ready to have strokes added to it"""
+        dims = dimensions
+        CalibrationArea.CHESSBOARDCORNERS = [(5*dims[0]/16.0, 5*dims[1]/16.0),
+                         (11*dims[0]/16.0, 5*dims[1]/16.0),
+                         (11*dims[0]/16.0, 11*dims[1]/16.0),
+                         (5*dims[0]/16.0, 11*dims[1]/16.0),]    
+        
         ImageArea.__init__(self)
         self.lock = Lock()
         #Associate the video capture and the sketching surface
@@ -130,10 +150,9 @@ class CalibrationArea(ImageArea):
         
         #GUI configuration stuff
         self.dScale = 0.4
+        self.warpCorners = []
         gobject.idle_add(self.idleUpdate)
         self.set_property("can-focus", True)  #So we can capture keyboard events
-#        self.connect("button_press_event", self.onMouseDown)
-#        self.connect("button_release_event", self.onMouseUp)
         self.connect("key_press_event", self.onKeyPress)
         self.set_events(gtk.gdk.BUTTON_RELEASE_MASK
                        | gtk.gdk.BUTTON_PRESS_MASK
@@ -145,29 +164,33 @@ class CalibrationArea(ImageArea):
     def onKeyPress(self, widget, event, data=None):
         """Respond to a key being pressed"""
         dims = self.dimensions
-        targetCorners = [(5*dims[0]/16.0, 5*dims[1]/16.0),
-                         (11*dims[0]/16.0, 5*dims[1]/16.0),
-                         (11*dims[0]/16.0, 11*dims[1]/16.0),
-                         (5*dims[0]/16.0, 11*dims[1]/16.0),]
+
         key = chr(event.keyval % 256)
         if key == 'q':
             self.get_toplevel().destroy()
         elif key == 'c':
             warpCorners = findCalibrationChessboard(self.rawImage)
             if len(warpCorners) == 4:
-#                self.captureProc.stop()
-#                time.sleep(1)
-                self.get_toplevel().destroy()
-                #TODO: Implement BoardWatchProcess to listen to image queue
-                capProc = BoardWatchProcess(self.imageQueue, self.dimensions, warpCorners, self.sketchSurface, targetCorners=targetCorners)
+                self.warpCorners = warpCorners
+#                self.get_toplevel().destroy()
+
+                capProc = BoardWatchProcess(self.imageQueue, self.dimensions, 
+                                            warpCorners, self.sketchSurface, 
+                                            targetCorners=CalibrationArea.CHESSBOARDCORNERS)
                 self.sketchSurface.registerKeyCallback('v', lambda: capProc.start())
+                self.sketchSurface.registerKeyCallback('r', lambda: capProc.stop())
+                
 
     def idleUpdate(self):
         try:
             imageSize, imageData = self.imageQueue.get_nowait()
             self.rawImage = cv.CreateMatHeader(imageSize[1], imageSize[0], cv.CV_8UC3)
             cv.SetData(self.rawImage, imageData, cv.CV_AUTOSTEP)
-            self.setCvMat(resizeImage(self.rawImage, self.dScale))
+            if len(self.warpCorners) == 4:
+                dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.CHESSBOARDCORNERS)
+            else:
+                dispImage = self.rawImage
+            self.setCvMat(resizeImage(dispImage, self.dScale))
         except EmptyException as e:
             pass
         return True
@@ -257,7 +280,11 @@ def findCalibrationChessboard(image):
                                     flags=cv.CV_CALIB_CB_ADAPTIVE_THRESH | 
                                            cv.CV_CALIB_CB_NORMALIZE_IMAGE)
     if len(corners) == 49:
-        (tl, tr, br, bl) = (corners[42], corners[0], corners[6], corners[48])
+        #Figure out the correct corner mapping
+        points = sorted([corners[42], corners[0], corners[6], corners[48]], key = lambda pt: pt[0] + pt[1])
+        if points[1][0] < points[2][0]:
+            points[1], points[2] = points[2], points[1] #swap tr/bl as needed
+        (tl, tr, bl, br) = points
         warpCorners = [tl, tr, br, bl]
     else:
         warpCorners = []
@@ -327,11 +354,9 @@ def captureImage(capture):
     """Capture a new image from capture, then set it as the data
     of gtkImage.
     Returns cv Image of the capture"""
-    print "Capturing image"
     cvImg = cv.QueryFrame(capture)
     #cv.CvtColor(cvImg, cvImg, cv.CV_BGR2RGB)
     cvMat = cv.CloneMat(cv.GetMat(cvImg))
-    print "Image Captured"
     return cvMat
 
 def flipMat(image):
