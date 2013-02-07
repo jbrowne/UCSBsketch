@@ -57,11 +57,14 @@ class BoardWatchProcess(multiprocessing.Process):
             pydevd.settrace(stdoutToServer=True, stderrToServer=True, suspend=False)
         except:
             pass
-        while self.keepGoing.is_set():
+        imageData = None
+        while self.keepGoing.is_set() and imageData is None:
             try:
-                imageSize, imageData = self.imageQueue.get(True, 2)
+                imageSize, imageData = self.imageQueue.get(True, 1)
             except EmptyException:
                 pass
+        if not self.keepGoing.is_set():
+            return
         rawImage = cv.CreateMatHeader(imageSize[1], imageSize[0], cv.CV_8UC3)
         cv.SetData(rawImage, imageData, cv.CV_AUTOSTEP)
         ISC.saveimg(rawImage)
@@ -172,7 +175,7 @@ class CalibrationArea(ImageArea):
             warpCorners = findCalibrationChessboard(self.rawImage)
             if len(warpCorners) == 4:
                 self.warpCorners = warpCorners
-#                self.get_toplevel().destroy()
+                self.get_toplevel().destroy()
 
                 capProc = BoardWatchProcess(self.imageQueue, self.dimensions, 
                                             warpCorners, self.sketchSurface, 
