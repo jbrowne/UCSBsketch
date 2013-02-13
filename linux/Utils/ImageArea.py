@@ -36,10 +36,7 @@ class ImageArea (gtk.EventBox):
         self.gtkImage.set_from_pixbuf(img_pixbuf)
         self.cvImage = cvMat
 
-def resizeImage(img, scale):
-    retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
-    cv.Resize(img, retImg)
-    return retImg
+
 
 
 def main():

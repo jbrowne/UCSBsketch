@@ -1,19 +1,23 @@
 #!/usr/bin/env python
-import sys
-if __name__ == "__main__":
-    sys.path.append("./")
-    print sys.path
-
+from ContinuousCapture import BoardChangeWatcher
 from Utils import Logger
 from Utils.ImageArea import ImageArea
+from Utils.ImageUtils import captureImage
+from Utils.ImageUtils import initializeCapture
+from Utils.ImageUtils import resizeImage
+from Utils.ImageUtils import warpFrame
 from sketchvision import ImageStrokeConverter as ISC
 import cv
 import gobject
 import gtk
 import pdb
 import pygtk
+import sys
+if __name__ == "__main__":
+    sys.path.append("./")
+    print sys.path
+
 #from Utils.ForegroundFilter import ForegroundFilter
-from ContinuousCapture import BoardChangeWatcher
 pygtk.require('2.0')
 
 log = Logger.getLogger("CamArea", Logger.DEBUG)
@@ -214,54 +218,8 @@ class CamArea (ImageArea):
         
 #~~~~~~~~~~~~~~~~~~~~~~~`
 #Helper Functions for CamArea
-#~~~~~~~~~~~~~~~~~~~~~~~`
-def resizeImage(img, scale=None, dims=None):
-    """Return a resized copy of the image for either relative
-    scale, or that matches the dimensions given"""
-    if scale is not None:
-        retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
-    elif dims is not None:
-        retImg = cv.CreateMat(dims[0], dims[1], img.type)
-    else:
-        retImg = cv.CloneMat(img)
-    cv.Resize(img, retImg)
-    return retImg
 
-def warpFrame(frame, corners, targetCorners):
-    """Transforms the frame such that the four corners (nw, ne, se, sw)
-    match the targetCorners
-    """
-    outImg = cv.CreateMat(frame.rows, frame.cols, frame.type)
-    if len(corners) == 4:
-        #w,h = outImg.cols, outImg.rows #frame.cols, frame.rows
-        warpMat = cv.CreateMat(3, 3, cv.CV_32FC1)  #Perspective warp matrix
-        cv.GetPerspectiveTransform(corners,
-            targetCorners,
-            warpMat)
-        #outImg = cv.CloneMat(frame)
-        cv.WarpPerspective(frame, outImg, warpMat,
-            (cv.CV_INTER_CUBIC | cv.CV_WARP_FILL_OUTLIERS), 255)
-        return outImg
-    else:
-        return frame
 
-def initializeCapture(camera = 0, dims=(1280, 1024,)):
-    capture = cv.CaptureFromCAM(camera)
-    w, h = dims
-    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT, h) 
-    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH, w)
-    reth = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT))
-    retw = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH))
-    return capture, (retw, reth,)
-
-def captureImage(capture):
-    """Capture a new image from capture, then set it as the data
-    of gtkImage.
-    Returns cv Image of the capture"""
-    cvImg = cv.QueryFrame(capture)
-    #cv.CvtColor(cvImg, cvImg, cv.CV_BGR2RGB)
-    cvMat = cv.GetMat(cvImg)
-    return cvMat
 
 def main():
     camWindow = gtk.Window()

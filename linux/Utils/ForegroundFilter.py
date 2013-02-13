@@ -1,4 +1,21 @@
+from Utils.ImageUtils import captureImage
+from Utils.ImageUtils import initializeCapture
+from Utils.ImageUtils import max_allChannel
+from Utils.ImageUtils import showResized
+from Utils.ImageUtils import warpFrame
+from sketchvision.ImageStrokeConverter import saveimg
 import cv
+import os
+import threading
+import time
+
+CAPSIZE00 = (2592, 1944)
+CAPSIZE01 = (2048,1536)
+CAPSIZE02 = (1600,1200)
+CAPSIZE02 = (1280, 960)
+CAPSIZE03 = (960, 720)
+CAPSIZE04 = (800, 600)
+PROJECTORSIZE = (1024, 768)
 
 class ForegroundFilter(object):
     def __init__(self):
@@ -8,15 +25,18 @@ class ForegroundFilter(object):
         self._bgImagesHist = None
         self.initialize()
         
+        
     def initialize(self):
         self._bgImage = None
         self._processedFramesHist = []
         self._bgImagesHist = []
  
+ 
     def setBackground(self, image):
         self._bgImage = cv.CloneMat(image)
         self._processedFramesHist = [cv.CloneMat(image)]
         self._bgImagesHist = [cv.CloneMat(image)]
+        
         
     def updateBackground(self, newImage):
         """Given a new image (possibly containing occluding objects)
@@ -34,7 +54,7 @@ class ForegroundFilter(object):
         processedFrame = processImage(self._bgImage, newImage)
 #        showResized("Live processed frame", processedFrame, 0.4)
         self._processedFramesHist.append(processedFrame)
-        
+
         prevFrame = None
         frameDiffSum = None
         for frame in self._processedFramesHist:
@@ -53,6 +73,7 @@ class ForegroundFilter(object):
         #Copy from the most recent processed frame to the background image
         cv.Copy(processedFrame, self._bgImage, mask=frameDiffMask)
 
+
     def filterForeground(self, newImage):
         diffImage = cv.CloneMat(self._bgImage)
         retImage = cv.CloneMat(newImage)
@@ -68,48 +89,73 @@ class ForegroundFilter(object):
             return None
               
 
-def showResized(name, image, scale):
-    image = resizeImage(image, scale)
-    cv.ShowImage(name, image)
 
-def resizeImage(img, scale=None, dims=None):
-    """Return a resized copy of the image for either relative
-    scale, or that matches the dimensions given"""
-    if scale is not None:
-        retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
-    elif dims is not None:
-        retImg = cv.CreateMat(dims[0], dims[1], img.type)
-    else:
-        retImg = cv.CloneMat(img)
-    cv.Resize(img, retImg)
-    return retImg    
     
 def processImage(bgImage, newImage):
+    erodeIterations = max(bgImage.cols/256, bgImage.rows/256, 1)
+    smoothKernel = max(bgImage.cols / 50, bgImage.rows / 50, 1)
+    if smoothKernel % 2 == 0:
+        smoothKernel += 1
+
     retImage = cv.CloneMat(bgImage)
     diffImage = cv.CloneMat(bgImage)
     cv.AbsDiff(bgImage, newImage, diffImage)
     diffImage = max_allChannel(diffImage)
-    
+
+    #Get the diff without "small" components (e.g. writing)
     diffImageEroded = cv.CloneMat(diffImage)
-    cv.Erode(diffImageEroded, diffImageEroded, iterations = 5)
-    cv.Dilate(diffImageEroded, diffImageEroded, iterations = 5)
+    cv.Erode(diffImageEroded, diffImageEroded, iterations = erodeIterations)
+    cv.Dilate(diffImageEroded, diffImageEroded, iterations = erodeIterations)
+#    showResized("Difference Without Writing", diffImageEroded, 0.4)
+
+    #Figure out if the thin change is due to something big covering
+    # the writing, i.e. a large region of high difference surrounding it
+    smoothDiff = cv.CloneMat(diffImage)
+    cv.Smooth(smoothDiff, smoothDiff, smoothtype=cv.CV_MEDIAN, param1=smoothKernel, param2=smoothKernel)
+    largeBlobMask = cv.CreateMat(diffImage.rows, diffImage.cols, diffImage.type)
+    cv.AbsDiff(smoothDiff, diffImageEroded, largeBlobMask)
     
+    cv.Threshold(largeBlobMask, largeBlobMask, 20, 255, cv.CV_THRESH_BINARY_INV)
+    cv.Erode(largeBlobMask, largeBlobMask, iterations=4)
+
     #Get the parts that were completely erased due to the opening
     cv.AbsDiff(diffImage, diffImageEroded, diffImageEroded)
-    cv.Dilate(diffImageEroded, diffImageEroded, iterations = 5)
-    cv.Threshold(diffImageEroded, diffImageEroded, 24, 255, cv.CV_THRESH_BINARY)
-    cv.Dilate(diffImageEroded, diffImageEroded, iterations=3)
+    cv.Threshold(diffImageEroded, diffImageEroded, 20, 255, cv.CV_THRESH_BINARY)
+    cv.Dilate(diffImageEroded, diffImageEroded, iterations=2)
+    cv.And(diffImageEroded, largeBlobMask, diffImageEroded)
+
     cv.Copy(newImage, retImage, diffImageEroded)
+
     return retImage
+
+
+def main():
+    capture, dims = initializeCapture(dims=CAPSIZE01)    
+    warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
+    targetCorners = [(5*dims[0]/16.0, 5*dims[1]/16.0),
+                         (11*dims[0]/16.0, 5*dims[1]/16.0),
+                         (11*dims[0]/16.0, 11*dims[1]/16.0),
+                         (5*dims[0]/16.0, 11*dims[1]/16.0),] 
     
-def max_allChannel(image):
-    """Return a grayscale image with values equal to the MAX
-    over all 3 channels """
-    retImage = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    ch1 = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    ch2 = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    ch3 = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    cv.Split(image, ch1, ch2, ch3, None)
-    cv.Max(ch1, ch2, retImage)
-    cv.Max(ch3, retImage, retImage)
-    return retImage
+    fgFilter = ForegroundFilter()
+    while True:
+        image = captureImage(capture)
+        image = warpFrame(image, warpCorners, targetCorners)
+        
+        fgFilter.updateBackground(image)
+        dispImage = fgFilter.getBackgroundImage()
+        
+        showResized("Foreground Filter", dispImage, 0.5)
+        key = cv.WaitKey(10)
+        if key != -1:
+            key = chr(key%256)
+            if key == 'q':
+                break
+            if key == 'r':
+                fgFilter.setBackground(image)
+    cv.DestroyAllWindows()
+                
+        
+    
+if __name__ == "__main__":
+    main()
