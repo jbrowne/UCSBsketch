@@ -60,12 +60,13 @@ class BoardWatchProcess(multiprocessing.Process):
             self.targetCorners = [ (0,0), (dimensions[0], 0), (dimensions[0], dimensions[1]), (0, dimensions[1])]
         else:
             self.targetCorners = targetCorners
+        print "Board Watcher Calibrated"
         
     def run(self):
         """Initialize the basic board model first, then continually
         update the image and add new ink to the board"""
         #Initialize stuff
-        print "BoardWatcher pid: %s" % (self.pid,)
+        print "Board Watcher Started: pid %s" % (self.pid,)
         try:
             import pydevd
             pydevd.settrace(stdoutToServer=True, stderrToServer=True, suspend=False)
@@ -142,6 +143,7 @@ class CaptureProcess(Process):
         
 class CalibrationArea(ImageArea):
     CHESSBOARDCORNERS = None 
+    RAWBOARDCORNERS = None 
     def __init__(self, capture, dimensions, sketchSurface):
         """Constructor: capture is initialized, with dimensions (w, h), and 
         sketchSurface is ready to have strokes added to it"""
@@ -149,7 +151,8 @@ class CalibrationArea(ImageArea):
         CalibrationArea.CHESSBOARDCORNERS = [(5*dims[0]/16.0, 5*dims[1]/16.0),
                          (11*dims[0]/16.0, 5*dims[1]/16.0),
                          (11*dims[0]/16.0, 11*dims[1]/16.0),
-                         (5*dims[0]/16.0, 11*dims[1]/16.0),]    
+                         (5*dims[0]/16.0, 11*dims[1]/16.0),]   
+        CalibrationArea.RAWBOARDCORNERS = [ (0,0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1])] 
         
         ImageArea.__init__(self)
         self.lock = Lock()
@@ -172,6 +175,7 @@ class CalibrationArea(ImageArea):
         gobject.idle_add(self.idleUpdate)
         self.set_property("can-focus", True)  #So we can capture keyboard events
         self.connect("key_press_event", self.onKeyPress)
+        self.connect("button_release_event", self.onMouseUp)        
         self.set_events(gtk.gdk.BUTTON_RELEASE_MASK
                        | gtk.gdk.BUTTON_PRESS_MASK
                        | gtk.gdk.KEY_PRESS_MASK
@@ -185,19 +189,35 @@ class CalibrationArea(ImageArea):
         if key == 'q':
             self.get_toplevel().destroy()
         elif key == 'c':
-            warpCorners = findCalibrationChessboard(self.rawImage)
-            #warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
-            if len(warpCorners) == 4:
-                print "Warp Corners: %s" % (warpCorners)
-                self.warpCorners = warpCorners
-                self.get_toplevel().destroy()
-
+            if len(self.warpCorners) == 4:
                 capProc = BoardWatchProcess(self.imageQueue, self.dimensions, 
-                                            warpCorners, self.sketchSurface, 
-                                            targetCorners=CalibrationArea.CHESSBOARDCORNERS)
+                                            self.warpCorners, self.sketchSurface,
+                                            targetCorners = CalibrationArea.RAWBOARDCORNERS)
                 self.sketchSurface.registerKeyCallback('v', lambda: capProc.start())
                 self.disable()
+                self.get_toplevel().destroy()                
+            else:
+                warpCorners = findCalibrationChessboard(self.rawImage)
+                if len(warpCorners) == 4:
+                    print "Warp Corners: %s" % (warpCorners)
+                    self.warpCorners = warpCorners
+                    capProc = BoardWatchProcess(self.imageQueue, self.dimensions, 
+                                                warpCorners, self.sketchSurface, 
+                                                targetCorners=CalibrationArea.CHESSBOARDCORNERS)
+                    self.sketchSurface.registerKeyCallback('v', lambda: capProc.start())
+                self.disable()
+                self.get_toplevel().destroy()
 
+
+    def onMouseUp(self, widget, e):
+        """Respond to the mouse being released"""
+        if len(self.warpCorners) >= 4:
+            self.warpCorners = []
+        else:
+            (x, y) = (e.x / self.dScale, e.y / self.dScale)
+            self.warpCorners.append((x, y))
+           
+            
     def disable(self):
         self.keepGoing = False
         
@@ -207,13 +227,16 @@ class CalibrationArea(ImageArea):
         
     def idleUpdate(self):
         try:
-            self.rawImage = deserializeImage(self.imageQueue.get_nowait())
+            serializedImage = self.imageQueue.get_nowait()
+            self.rawImage = deserializeImage(serializedImage)
+
             if len(self.warpCorners) == 4:
-                dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.CHESSBOARDCORNERS)
+#                dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.CHESSBOARDCORNERS)
+                dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.RAWBOARDCORNERS)
             else:
                 dispImage = self.rawImage
             self.setCvMat(resizeImage(dispImage, self.dScale))
-        except EmptyException as e:
+        except EmptyException:
             pass
         return self.keepGoing
 

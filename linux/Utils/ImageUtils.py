@@ -105,7 +105,7 @@ def captureImage(capture):
     cvImg = cv.QueryFrame(capture)
     #cv.CvtColor(cvImg, cvImg, cv.CV_BGR2RGB)
     cvMat = cv.GetMat(cvImg)
-    return cvMat
+    return cv.CloneMat(cvMat)
 
         
 ######################################

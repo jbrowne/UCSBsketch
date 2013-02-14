@@ -80,7 +80,8 @@ class BoardChangeWatcher(object):
         prev = None
         cumulativeDiff = None
         thisDiff = None
-        for frame in self._boardDiffHist[::max(1,len(self._boardDiffHist)/2)]:
+#        for frame in self._boardDiffHist[::max(1,len(self._boardDiffHist)/2)]:
+        for frame in self._boardDiffHist:
             if prev is None:
                 prev = frame
                 cumulativeDiff = cv.CreateMat(prev.rows, prev.cols, prev.type)
@@ -93,7 +94,7 @@ class BoardChangeWatcher(object):
         #    smooth out the edge artifacts due to noise
         cv.Smooth(cumulativeDiff, cumulativeDiff, smoothtype=cv.CV_MEDIAN)
         #The difference percentage is in terms of the size of the changed component from the background
-        showResized("Cumulative Diff", cumulativeDiff, 0.5)
+#        showResized("Cumulative Diff", cumulativeDiff, 0.5)
         percentDiff = cv.CountNonZero(cumulativeDiff) / float(max(cv.CountNonZero(captureDiffMask), 1))
         if percentDiff < 0.02: 
             if self._isBoardUpdated:
@@ -143,7 +144,7 @@ def main(args):
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
-    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE01)    
+    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE02)    
     
     warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
     targetCorners = [(5*dims[0]/16.0, 5*dims[1]/16.0),

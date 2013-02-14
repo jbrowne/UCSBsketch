@@ -55,7 +55,6 @@ class ForegroundFilter(object):
         if len(self._processedFramesHist) >= historyLength:
             self._processedFramesHist.pop(0)
         processedFrame = processImage(self._bgImage, newImage)
-#        showResized("Live processed frame", processedFrame, 0.4)
         self._processedFramesHist.append(processedFrame)
 
         prevFrame = None
@@ -70,10 +69,10 @@ class ForegroundFilter(object):
             cv.AbsDiff(prevFrame, frame, diffImage)
 #            cv.AddWeighted(diffImage, 0.5, frameDiffSum, 0.5, 0.0, frameDiffSum)
             cv.Max(diffImage, frameDiffSum, frameDiffSum)
-        #Generate a mask of where the processed frames have been consistent for a while
+        # Generate a mask of where the processed frames have been consistent for a while
         frameDiffMask = max_allChannel(frameDiffSum)
         cv.Threshold(frameDiffMask, frameDiffMask, consistencyThresh, 255, cv.CV_THRESH_BINARY_INV)
-        #Copy from the most recent processed frame to the background image
+        # Copy from the most recent processed frame to the background image
         cv.Copy(processedFrame, self._bgImage, mask=frameDiffMask)
 
 
@@ -109,7 +108,6 @@ def processImage(bgImage, newImage):
     diffImageEroded = cv.CloneMat(diffImage)
     cv.Erode(diffImageEroded, diffImageEroded, iterations = erodeIterations)
     cv.Dilate(diffImageEroded, diffImageEroded, iterations = erodeIterations)
-#    showResized("Difference Without Writing", diffImageEroded, 0.4)
 
     #Figure out if the thin change is due to something big covering
     # the writing, i.e. a large region of high difference surrounding it
@@ -125,6 +123,10 @@ def processImage(bgImage, newImage):
     cv.AbsDiff(diffImage, diffImageEroded, diffImageEroded)
     cv.Threshold(diffImageEroded, diffImageEroded, 20, 255, cv.CV_THRESH_BINARY)
     cv.Dilate(diffImageEroded, diffImageEroded, iterations=2)
+
+#    showResized("Interesting Differences", diffImageEroded, 0.4)
+#    showResized("Differences to ignore", largeBlobMask, 0.4)
+    
     cv.And(diffImageEroded, largeBlobMask, diffImageEroded)
 
     cv.Copy(newImage, retImage, diffImageEroded)
@@ -138,9 +140,9 @@ def main(args):
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
-    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE01)    
+    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE02)    
     warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
-    targetCorners = [(5*dims[0]/16.0, 5*dims[1]/16.0),
+    targetCorners_Chess = [(5*dims[0]/16.0, 5*dims[1]/16.0),
                          (11*dims[0]/16.0, 5*dims[1]/16.0),
                          (11*dims[0]/16.0, 11*dims[1]/16.0),
                          (5*dims[0]/16.0, 11*dims[1]/16.0),] 
@@ -148,7 +150,7 @@ def main(args):
     fgFilter = ForegroundFilter()
     while True:
         image = captureImage(capture)
-        image = warpFrame(image, warpCorners, targetCorners)
+#        image = warpFrame(image, warpCorners, targetCorners_Chess)
         
         fgFilter.updateBackground(image)
         dispImage = fgFilter.getBackgroundImage()
