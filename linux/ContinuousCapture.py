@@ -13,6 +13,7 @@ from Utils.ImageUtils import flipMat
 from Utils.ImageUtils import initializeCapture
 from Utils.ImageUtils import resizeImage
 from Utils.ImageUtils import warpFrame
+from Utils.ImageUtils import findCalibrationChessboard
 from cv2 import cv
 from gtkStandalone import GTKGui
 from multiprocessing import Event
@@ -184,8 +185,8 @@ class CalibrationArea(ImageArea):
         if key == 'q':
             self.get_toplevel().destroy()
         elif key == 'c':
-#            warpCorners = findCalibrationChessboard(self.rawImage)
-            warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
+            warpCorners = findCalibrationChessboard(self.rawImage)
+            #warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
             if len(warpCorners) == 4:
                 print "Warp Corners: %s" % (warpCorners)
                 self.warpCorners = warpCorners
@@ -307,9 +308,13 @@ def deserializeImage(serializedImage):
 
 
 
-def main():
-    print "Main process pid: %s" % (os.getpid())
-    capture, dims = initializeCapture(dims = CAPSIZE01)
+def main(args):
+    if len(args) > 1:
+        camNum = int(args[1])
+        print "Using cam %s" % (camNum,)
+    else:
+        camNum = 0
+    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE01)    
 
     sketchSurface = GTKGui(dims = PROJECTORSIZE)
     sketchWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
@@ -329,4 +334,4 @@ def main():
     print "gtkMain exits"
     
 if __name__ == "__main__":
-    main()
+    main(sys.argv)

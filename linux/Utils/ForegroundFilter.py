@@ -1,3 +1,6 @@
+if __name__ == "__main__":
+    import sys
+    sys.path.append("./")
 from Utils.ImageUtils import captureImage
 from Utils.ImageUtils import initializeCapture
 from Utils.ImageUtils import max_allChannel
@@ -129,8 +132,13 @@ def processImage(bgImage, newImage):
     return retImage
 
 
-def main():
-    capture, dims = initializeCapture(dims=CAPSIZE01)    
+def main(args):
+    if len(args) > 1:
+        camNum = int(args[1])
+        print "Using cam %s" % (camNum,)
+    else:
+        camNum = 0
+    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE01)    
     warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
     targetCorners = [(5*dims[0]/16.0, 5*dims[1]/16.0),
                          (11*dims[0]/16.0, 5*dims[1]/16.0),
@@ -158,4 +166,4 @@ def main():
         
     
 if __name__ == "__main__":
-    main()
+    main(sys.argv)
