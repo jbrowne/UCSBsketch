@@ -102,7 +102,7 @@ class Board(object):
     def xml(self, width, height):
         root = ET.Element("Board")
 
-        root.attrib["id"] = str(self._id)
+        root.attrib["ident"] = str(self._id)
         root.attrib["width"] = str(width)
         root.attrib["height"] = str(height)
         strokes_el = ET.SubElement(root, "Strokes")
@@ -119,7 +119,7 @@ class Board(object):
         
     def AddStroke( self, newStroke ):
         "Input: Stroke newStroke.  Adds a Stroke to the board and calls any Stroke Observers as needed"
-        logger.debug( "Adding Stroke: %d", newStroke.id )
+        logger.debug( "Adding Stroke: %d", newStroke.ident )
         
         self.Strokes.append( newStroke )
         newStroke.setBoard(self)
@@ -130,7 +130,7 @@ class Board(object):
 
     def RemoveStroke( self, oldStroke ):
         "Input: Stroke oldStroke.  Removes a Stroke from the board and calls any Stroke Observers as needed"
-        logger.debug( "Removing stroke %s" % (oldStroke.id) )
+        logger.debug( "Removing stroke %s" % (oldStroke.ident) )
         
 
         self._removed_strokes[oldStroke] = True
@@ -287,7 +287,7 @@ class Board(object):
         # remove the annotation from the strokes. 
         # do this second, since observers may need to check the old strokes' properties
         for stroke in anno.Strokes:
-            # logger.debug("RemoveAnnotation: stroke.Annotations = %s, id=%d", stroke.Annotations, stroke.id )
+            # logger.debug("RemoveAnnotation: stroke.Annotations = %s, ident=%d", stroke.Annotations, stroke.ident )
             # logger.debug("RemoveAnnotation: anno.__class__ = %s", anno.__class__ )
             try:
                 stroke.Annotations[anno.__class__].remove(anno)

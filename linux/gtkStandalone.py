@@ -32,7 +32,7 @@ WIDTH, HEIGHT = 1024, 768
 
 log = Logger.getLogger("GTK-GUI", Logger.WARN)
 def processImage(image, strokeQueue, scaleDims):
-    """This function will spawn a process to extract strokes
+    """This function will extract strokes
     from an image file. It will add the extracted strokes from
     the image to strokeQueue, scaled according to scaleDims"""
     pruneLen = 10
@@ -83,7 +83,9 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         #Cairo drawing data
         self.renderBuffer = None
         self.context = None 
-        self.resetBackBuffer()
+        self.opQueue.put(lambda : time.sleep(0.1)) # So we don't reset too early
+        self.opQueue.put(lambda : self.resetBackBuffer())
+
 
 
         #Event hooks
@@ -120,6 +122,11 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def onKeyPress(self, widget, event, data=None):
         key = chr(event.keyval % 256)
+        #Run the registered callbacks
+        for func in self.keyCallbacks.get(key, ()):
+            func()
+        
+        #Run the hard-coded key events
         if key == 'r':
             self.resetBoard()
         elif key == 'i':
@@ -144,11 +151,8 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         elif key == 'f':
             self.setFullscreen(not self._isFullscreen)
         elif key == 'q':
-            exit(0)
+            gtk.main_quit()
 
-        #Run the registered callbacks
-        for func in self.keyCallbacks.get(key, ()):
-            func()
 
     def resetBackBuffer(self):
         """Reset the back painting buffer, for example when the screen
@@ -162,26 +166,29 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         
     def setFullscreen(self, makeFull):
         """Set the application fullscreen according to makeFull(boolean)"""
-        win = gtk.window_list_toplevels()[0]
+        windows = gtk.window_list_toplevels()
+#        for (i, win) in enumerate(windows):
+#            print i, win.name, "Has focus: %s" % (win.has_toplevel_focus())
+#        win = windows[0]
         self._pixbuf = None
         if makeFull:
             self.screenImage = None
             self._isFullscreen = True
-            print ""
             log.debug("Fullscreen")
-            win.fullscreen()
-            self.opQueue.put(lambda : self._updateScreenImage())
+            for win in windows:
+                if self in win.children():
+                    win.fullscreen()
+            self.opQueue.put(lambda : time.sleep(0.1)) # So we don't reset too early
             self.opQueue.put(lambda : self.resetBackBuffer())
-            #self.resetBackBuffer()
-            #self.boardChanged()
         else:
             self.screenImage = None
             self._isFullscreen = False
             log.debug("UNFullscreen")
-            win.unfullscreen()
+            for win in windows:
+                if self in win.children():
+                    win.unfullscreen()
+            self.opQueue.put(lambda : time.sleep(0.1))
             self.opQueue.put(lambda : self.resetBackBuffer())
-            #self.resetBackBuffer()
-            #self.boardChanged()
 
     def resetBoard(self):
         self.opQueue = Queue.Queue()
@@ -433,8 +440,8 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def addStroke(self, stroke):
         """Add as stroke to the board and our local bookkeeping"""
-        self.strokeList.append(stroke)
-        self.boardProcThread.addStroke(stroke, callback = self.boardChanged)
+        self.strokeQueue.put(stroke)
+#        self.boardProcThread.addStroke(stroke, callback = self.boardChanged)
 
     def eraseStroke(self, stroke):
         """Remove a stroke from the board and our local lists"""
