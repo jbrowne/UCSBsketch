@@ -49,9 +49,9 @@ def processImage(image, strokeQueue, scaleDims):
     scale_y = height / float(h)
     log.debug( "Got %s Strokes" % (len(strokes)) )
     for s in strokes:
-        if len(s.points) > pruneLen:
+        if len(s.Points) > pruneLen:
             pointList = []
-            for x,y in s.points:
+            for x,y in s.Points:
                 newPoint = Point(scale_x * x, height - (scale_y *y))
                 pointList.append(newPoint)
             newStroke = Stroke(pointList)
