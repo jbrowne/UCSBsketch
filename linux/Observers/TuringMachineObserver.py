@@ -1,20 +1,21 @@
 
-import pdb
-
-from Utils import Logger
-from Utils import GeomUtils
-from Utils import Debugging as D
-
+from Observers import DiGraphObserver
+from Observers import ObserverBase
+from Observers import TextObserver
+from Observers.TextObserver import TextAnnotation
+from SketchFramework.Annotation import Annotation, AnnotatableObject
+from SketchFramework.Board import BoardObserver
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver
-from SketchFramework.Annotation import Annotation, AnnotatableObject
-
-from Observers import DiGraphObserver
-from Observers import TextObserver
-from Observers import ObserverBase
-
+from Utils import Debugging as D
+from Utils import GeomUtils
+from Utils import Logger
 from xml.etree import ElementTree as ET
+import pdb
+
+
+
+
 
 
 
@@ -96,7 +97,9 @@ class TuringMachineAnnotation(Annotation):
         else:
             self.tape_string = ""
         self.tape_idx = 0
-        
+    
+    def getTapeString(self):
+        return "".join(self.tape_string)
 
     def setTapeTextAnno(self, anno):
         self.tape_text_anno = anno
@@ -120,6 +123,7 @@ class TuringMachineAnnotation(Annotation):
         for l in self.labels2edge_map.keys():
             strokeSet.update(l.Strokes)
         return strokeSet
+    
     def dotify(self):
         "Returns a string of the turing machine in DOT format"
         nodelist = list(self.state_graph_anno.node_set)
@@ -163,11 +167,6 @@ class TuringMachineAnnotation(Annotation):
         self.leading_edge = {'edge': initEdge,'label': None}
         self.active_state = initState
             
-            
-        
-
-    def step(self, dt):
-        self.simulateStep()
 
     def simulateStep(self):
         "Edge label: <read condition> <write character> <move direction 0L, 1R>"
@@ -185,7 +184,7 @@ class TuringMachineAnnotation(Annotation):
                 edge_label = edge_label_anno.text
                 if edge_label is not None and len(edge_label) == 3:
                     read_cond, write_back, move_dir = edge_label
-                    bin_list = ['1', '0']
+                    bin_list = ['0','1','L', 'R']
                     if read_cond == cur_tape_val \
                     and move_dir in bin_list \
                     and to_node != None:
@@ -210,9 +209,9 @@ class TuringMachineAnnotation(Annotation):
             else:
                 self.tape_string[self.tape_idx] = write_back
                     
-            if move_dir == '0':
+            if move_dir in ('L', '0'):
                 self.tape_idx -= 1
-            elif move_dir == '1':
+            elif move_dir in ('R', '1'):
                 self.tape_idx += 1
             else:
                 tm_logger.warn("Trying to move in non-left/right direction '%s'. Staying put." % (move_dir))
