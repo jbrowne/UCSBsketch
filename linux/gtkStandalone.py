@@ -2,31 +2,32 @@
 
 # example helloworld2.py
 
-from SketchFramework.SketchGUI import _SketchGUI
-from SketchFramework.Point import Point
-from SketchFramework.Curve import CubicCurve
-from SketchFramework.Stroke import Stroke
+from Observers.TuringMachineObserver import TuringMachineAnnotation
 from SketchFramework.Board import Board
-
+from SketchFramework.Curve import CubicCurve
+from SketchFramework.Point import Point
+from SketchFramework.SketchGUI import _SketchGUI
+from SketchFramework.Stroke import Stroke
 from Utils import Logger
 from Utils.GeomUtils import *
 from Utils.StrokeStorage import StrokeStorage
-from sketchvision import ImageStrokeConverter
-
-import Config
 from functools import partial
-
-import threading
-import Queue
 from multiprocessing import Queue as ProcQueue, Process
-import gobject
+from sketchvision import ImageStrokeConverter
+import Config
+import Queue
 import cairo
+import gobject
+import gtk
+import math
 import pangocairo
 import pdb
 import pygtk
-import math
+import threading
+
+
+
 pygtk.require('2.0')
-import gtk
 WIDTH, HEIGHT = 1024, 768
 
 
@@ -64,17 +65,17 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.resize(*dims)# BREAKS when X forwarding
 
         #Semantic board data
-        self.board = Board(gui = self)
-        self.strokeList = []
-        Config.initializeBoard(self.board)
-        self.boardProcThread = BoardThread(self.board)
+        self.board = None # set by resetBoard()
+        self.boardProcThread = None # set by resetBoard()
 
         #GUI data variables
+        self.currentPoints = None # set by resetBoard()
+        self.strokeList = None # set by resetBoard()
+        self.opQueue = None # set by resetBoard()
+
         self.isMouseDown1 = False
         self.isMouseDown3 = False
         self.keyCallbacks = {}
-        self.currentPoints = []
-        self.opQueue = Queue.Queue()
         self.strokeQueue = ProcQueue()
         self.strokeLoader = StrokeStorage()
         self.screenImage = None
@@ -83,8 +84,6 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         #Cairo drawing data
         self.renderBuffer = None
         self.context = None 
-        self.opQueue.put(lambda : time.sleep(0.1)) # So we don't reset too early
-        self.opQueue.put(lambda : self.resetBackBuffer())
 
 
 
@@ -104,7 +103,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                         gtk.gdk.POINTER_MOTION_MASK )
 
         #Enable the board processing
-        self.boardProcThread.start()
+        self.resetBoard()
 
 
     def getDimensions(self):
@@ -152,8 +151,31 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
             self.setFullscreen(not self._isFullscreen)
         elif key == 'q':
             gtk.main_quit()
+        elif key in ('1','0','-','`',' '):
+            self.controlTuringMachines(key)
+            self.boardChanged()
 
 
+    def controlTuringMachines(self, key):
+        """Keyboard bindings specifically hard-coded for controlling 
+        any present Turing Machine annotations"""
+        tmAnnos = self.board.FindAnnotations(anno_type = TuringMachineAnnotation)
+        if key in ['1', '0', '-']:
+            for anno in tmAnnos:
+                tapeString = anno.getTapeString()
+                tapeString+= key
+                anno.setTapeString(tapeString)
+        elif key == '`':
+            fp = open("TuringMachines.dot", "a")
+            for anno in tmAnnos:
+                print >> fp, anno.dotify()
+                anno.setTapeString("")
+                anno.restartSimulation()
+            fp.close()
+        elif key == ' ':
+            for anno in tmAnnos:
+                anno.simulateStep()
+            
     def resetBackBuffer(self):
         """Reset the back painting buffer, for example when the screen
         size changes"""
@@ -193,10 +215,13 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
     def resetBoard(self):
         self.opQueue = Queue.Queue()
         self.board = Board(gui = self)
+        self.strokeList = []
+        self.currentPoints = []
         Config.initializeBoard(self.board)
         self.boardProcThread = BoardThread(self.board)
         self.boardProcThread.start()
-        self.draw()
+        self.opQueue.put(lambda : time.sleep(0.1)) # So we don't reset too early
+        self.opQueue.put(lambda : self.resetBackBuffer())
 
     def boardChanged(self):
         self.draw()
