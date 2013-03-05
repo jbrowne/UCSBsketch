@@ -69,7 +69,7 @@ class Stroke(AnnotatableObject):
     def xml(self):
         root = ET.Element("Stroke")
 
-        root.attrib['ident'] = str(self.ident)
+        root.attrib['id'] = str(self.ident)
         root.attrib['length'] = str(self.length())
 
         pts_el = ET.SubElement(root, "Points")

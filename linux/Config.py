@@ -31,7 +31,7 @@ def initializeBoard(board):
         TextObserver.TextCollector(board)
         #TextObserver.TextVisualizer(board)
         DiGraphObserver.DiGraphMarker(board)
-#        DiGraphObserver.DiGraphVisualizer(board)
+        DiGraphObserver.DiGraphVisualizer(board)
         DiGraphObserver.DiGraphExporter(board)
         TuringMachineObserver.TuringMachineCollector(board)
         TuringMachineObserver.TuringMachineExporter(board)

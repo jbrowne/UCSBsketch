@@ -124,11 +124,11 @@ class DiGraphAnnotation(Annotation):
 
         for node_anno in self.node_set:
             nodeEl = ET.SubElement(root, "node")
-            nodeEl.attrib['ident'] = str(node_anno.ident)
+            nodeEl.attrib['id'] = str(node_anno.ident)
 
         for edge_anno in self.edge_set:
             edgeEl = ET.SubElement(root, "edge")
-            edgeEl.attrib['ident'] = str(edge_anno.ident)
+            edgeEl.attrib['id'] = str(edge_anno.ident)
 
         for from_node, connList in self.connectMap.items():
             for connEdge, to_node in connList:
@@ -155,6 +155,7 @@ class DiGraphAnnotation(Annotation):
     def updateConnectMap(self):
         "walk the set of edges and nodes, build a map of which nodes point to which edges and nodes"
         self.connectMap = {}
+        #A generator that produces permutations
         def all_pair(x,y):
             for a in x:
                 for b in y:
@@ -164,9 +165,9 @@ class DiGraphAnnotation(Annotation):
             tip_list = [ n for n in self.node_set if self.tipToNode(e,n) ]
             # insert all tip_list -> tail_list for e
             if len(tail_list) == 0:
-               tail_list.append(None)
+                tail_list.append(None)
             if len(tip_list) == 0:
-               tip_list.append(None)
+                tip_list.append(None)
             for (tail_node,tip_node) in all_pair( tail_list, tip_list ):
                 if tail_node not in self.connectMap:
                     self.connectMap[tail_node] = []
@@ -186,11 +187,10 @@ class DiGraphAnnotation(Annotation):
             lineSeg2 = ( arrow_anno.tailstroke.Points[lineDist], arrow_anno.tailstroke.Points[0] )
             
         if GeomUtils.pointDist( arrow_anno.tip,  circle_anno.center ) < circle_anno.radius* DiGraphAnnotation.MATCHING_DISTANCE:
-            if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius):
+            if GeomUtils.linePointsTowards( lineSeg[0], lineSeg[1], circle_anno.center, circle_anno.radius * DiGraphAnnotation.POINTSTO_DISTANCE):
                 return True
-            if GeomUtils.linePointsTowards( lineSeg2[0], lineSeg2[1], circle_anno.center, circle_anno.radius):
+            if GeomUtils.linePointsTowards( lineSeg2[0], lineSeg2[1], circle_anno.center, circle_anno.radius * DiGraphAnnotation.POINTSTO_DISTANCE):
                 return True
-
         return False
 
     def tailToNode( self, arrow_anno, circle_anno ):

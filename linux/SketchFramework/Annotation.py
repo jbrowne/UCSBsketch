@@ -8,7 +8,7 @@ class Annotation(object):
     "Base Annotation Class, it is a container for data placed on sets of strokes."
     COUNT = 0
     def __init__(self):
-        self.id = Annotation.COUNT
+        self.ident = Annotation.COUNT
         Annotation.COUNT += 1
 
         self.Strokes = [] # list of strokes that this annotates
@@ -33,11 +33,11 @@ class Annotation(object):
         "Returns an element tree object for the XML serialization of this annotation"
         root = ET.Element("Annotation")
         root.attrib['name'] = self.classname()
-        root.attrib['id'] = str(self.id)
+        root.attrib['id'] = str(self.ident)
         stks = ET.SubElement(root, "strokes")
         for s in self.Strokes:
             stroke = ET.SubElement(stks, "s")
-            stroke.attrib['id'] = str(s.id)
+            stroke.attrib['id'] = str(s.ident)
 
         return root
 

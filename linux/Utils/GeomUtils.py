@@ -95,15 +95,15 @@ True
 
 """
 
-import math
-import sys
-import pdb
-import time
-
-from Utils import Logger
+from SketchFramework.Curve import CubicCurve
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
-from SketchFramework.Curve import CubicCurve
+from Utils import Logger
+import math
+import pdb
+import sys
+import time
+
 
 logger = Logger.getLogger('GeomUtils', Logger.DEBUG )
 
@@ -280,9 +280,9 @@ def interiorAngle(P1, P2, P3):
     a_len = pointDistanceSquared(X1, Y1, X2, Y2)
     b_len = pointDistanceSquared(X2, Y2, X3, Y3)
     c_len = pointDistanceSquared(X1, Y1, X3, Y3)
-    a = sqrt(a_len)
-    b = sqrt(b_len)
-    c = sqrt(c_len)
+    a = math.sqrt(a_len)
+    b = math.sqrt(b_len)
+    c = math.sqrt(c_len)
     #make more explicit
     try:
         angle = a_len + b_len - c_len
@@ -1192,6 +1192,15 @@ def lineLength(inStroke):
 
 def linePointsTowards(linept1, linept2, target, radius):
     "Tests whether a line points toward a target or not"
+    
+    #Make sure the line points the right direction in the first place
+    pt1dist = pointDistanceSquared(linept1.X, linept1.Y, target.X, target.Y)
+    pt2dist = pointDistanceSquared(linept2.X, linept2.Y, target.X, target.Y)
+    if pt1dist < pt2dist:
+            return False 
+    
+    #Generate some line perpendicular to the input line, passing through the target pt
+    # It doesn't have to be long, since intersection finding treats it as infinite len.
     retValue = False
     slope = lineSlope(linept1, linept2)
     dir_mult = 1
@@ -1207,16 +1216,14 @@ def linePointsTowards(linept1, linept2, target, radius):
         else:
             perp_slope = -1 / float(slope)
         pt2 = Point(target.X + 10, target.Y + (10 * perp_slope))
-    line1 = (linept1, linept2)
-    line2 = (target, pt2)
-    tangentPoint = getLinesIntersection(line1, line2, infinite1 = True, infinite2 = True)
-
+    inputLine = (linept1, linept2) # input line
+    perpLine = (target, pt2) # perpendicular line through target
+    
+    tangentPoint = getLinesIntersection(inputLine, perpLine, infinite1 = True, infinite2 = True)
 
     if tangentPoint != None:
-        line1dist = pointDistanceSquared(linept1.X, linept1.Y, tangentPoint.X, tangentPoint.Y)
-        line2dist = pointDistanceSquared(linept2.X, linept2.Y, tangentPoint.X, tangentPoint.Y)
         distSqr =  pointDistanceSquared(target.X, target.Y, tangentPoint.X, tangentPoint.Y)
-        if distSqr < radius ** 2 and line2dist < line1dist: #Points close enough and the right direction
+        if distSqr < radius ** 2: #Points close enough and the right direction
             retValue = True
 
     return retValue

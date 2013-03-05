@@ -14,9 +14,12 @@ from Utils.StrokeStorage import StrokeStorage
 from functools import partial
 from multiprocessing import Queue as ProcQueue, Process
 from sketchvision import ImageStrokeConverter
+from sketchvision.ImageStrokeConverter import saveimg
+from xml.etree import ElementTree
 import Config
 import Queue
 import cairo
+import cv
 import gobject
 import gtk
 import math
@@ -222,6 +225,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.boardProcThread.start()
         self.opQueue.put(lambda : time.sleep(0.1)) # So we don't reset too early
         self.opQueue.put(lambda : self.resetBackBuffer())
+        self.opQueue.put(lambda : self.boardChanged())
 
     def boardChanged(self):
         self.draw()
@@ -249,6 +253,8 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def saveStrokes(self):
         self.strokeLoader.saveStrokes(self.strokeList)
+        with self.board.Lock:
+            print ElementTree.tostring(self.board.xml(1280, 720))
 
 
     def drawCircle(self, *args, **kargs):
@@ -523,23 +529,34 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         liveContext.set_source_surface(bufferToPaint)
         liveContext.paint()
 
-
-    def _updateScreenImage(self):
-        """Update the image of the screen we're dealing with"""
-        log.debug("Update Screenshot")
-        #if not self._isFullscreen:
+    def getScreenShot(self):
         width, height = self.window.get_size()
         #if self._pixbuf is None:
         log.debug("  pixbuf size: %sx%s" % (width, height))
         _pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8,
                                 width, height)
-        self.screenImage = _pixbuf.get_from_drawable(self.window, 
+        screenImage = _pixbuf.get_from_drawable(self.window, 
                                         self.window.get_colormap(), 
                                         0, 0, 0, 0, width, height)
+        retImage = cv.CreateImageHeader( (screenImage.get_width(), screenImage.get_height()), cv.IPL_DEPTH_8U, 3)
+        cv.SetData(retImage, screenImage.get_pixels())
+        retImage = cv.GetMat(retImage)
+        return retImage
+
+    def _updateScreenImage(self):
+        """Update the image of the screen we're dealing with"""
+        width, height = self.window.get_size()        
+        log.debug("Update Screenshot")
+        _pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8,
+                                width, height)
+        self.screenImage = _pixbuf.get_from_drawable(self.window, 
+                                        self.window.get_colormap(), 
+                                        0, 0, 0, 0, width, height)        
         self.screenImage.save('screenshot.png', 'png')
+        
+        saveimg(self.getScreenShot())
 
         
-
     def b2c(self, pt):
         """Converts bottom-left origin Board coordinates to raw canvas coords
         and back"""

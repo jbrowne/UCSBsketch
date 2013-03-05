@@ -284,9 +284,9 @@ class SketchResponseThread(threading.Thread):
         try:
             for stk in stks:
                 pointList = []
-                for x,y in stk.points:
-                   #scale = WIDTH / float(GETNORMWIDTH())
-                   pointList.append( Point(x, height - y) )
+                for x,y in stk.Points:
+                    #scale = WIDTH / float(GETNORMWIDTH())
+                    pointList.append( Point(x, height - y) )
                 newBoard.AddStroke(Stroke(pointList))
 
             retXML = newBoard.xml(width, height)
@@ -343,12 +343,12 @@ class SketchResponseThread(threading.Thread):
 
 class VisionServer(object):
     def __init__(self):
-       # Private data members
-       self._serverThread = None
-       self._recv_q = None
-       self._send_q = None
-       self._netDispatchThread = None
-       self._setupNetworkDispatcher()
+        # Private data members
+        self._serverThread = None
+        self._recv_q = None
+        self._send_q = None
+        self._netDispatchThread = None
+        self._setupNetworkDispatcher()
 
 
     def _setupNetworkDispatcher(self):

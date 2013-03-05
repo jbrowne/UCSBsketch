@@ -31,6 +31,7 @@ import random
 import sys
 import threading
 import time
+from gtkStandalone import GTKGui
 #4:3 Capture sizes
 CAPSIZE00 = (2592, 1944)
 CAPSIZE01 = (2048,1536)
@@ -99,6 +100,9 @@ class BoardWatchProcess(multiprocessing.Process):
             warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
             self.boardWatcher.updateBoardImage(warpImage)
             if self.boardWatcher.isCaptureReady:
+                if isinstance(self.board, GTKGui):
+                    screenShot = self.board.getScreenShot()
+                    ISC.saveimg(screenShot)
                 ISC.saveimg(warpImage)
                 (newInk, newErase) = self.boardWatcher.captureBoardDifferences()
                 ISC.saveimg(newInk)

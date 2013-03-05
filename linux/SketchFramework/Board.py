@@ -102,7 +102,7 @@ class Board(object):
     def xml(self, width, height):
         root = ET.Element("Board")
 
-        root.attrib["ident"] = str(self._id)
+        root.attrib["id"] = str(self._id)
         root.attrib["width"] = str(width)
         root.attrib["height"] = str(height)
         strokes_el = ET.SubElement(root, "Strokes")
