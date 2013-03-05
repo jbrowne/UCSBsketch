@@ -194,6 +194,7 @@ class CalibrationArea(ImageArea):
             self.get_toplevel().destroy()
         elif key == 'c':
             if len(self.warpCorners) == 4:
+                print "Using pre-defined calibration"
                 capProc = BoardWatchProcess(self.imageQueue, self.dimensions, 
                                             self.warpCorners, self.sketchSurface,
                                             targetCorners = CalibrationArea.RAWBOARDCORNERS)
@@ -201,6 +202,7 @@ class CalibrationArea(ImageArea):
                 self.disable()
                 self.get_toplevel().destroy()                
             else:
+                print "Searching for Chessboard..."
                 warpCorners = findCalibrationChessboard(self.rawImage)
                 if len(warpCorners) == 4:
                     print "Warp Corners: %s" % (warpCorners)
@@ -209,8 +211,10 @@ class CalibrationArea(ImageArea):
                                                 warpCorners, self.sketchSurface, 
                                                 targetCorners=CalibrationArea.CHESSBOARDCORNERS)
                     self.sketchSurface.registerKeyCallback('v', lambda: capProc.start())
-                self.disable()
-                self.get_toplevel().destroy()
+                    self.disable()
+                    self.get_toplevel().destroy()
+                else:
+                    print "No chessboard found!"
 
 
     def onMouseUp(self, widget, e):
