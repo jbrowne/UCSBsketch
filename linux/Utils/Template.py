@@ -17,7 +17,6 @@ from Utils import Logger
 
 from SketchFramework import Point
 from SketchFramework import Stroke
-from SketchFramework.Annotation import Annotation
 
 
 logger = Logger.getLogger('TemplateDict', Logger.WARN )
@@ -41,35 +40,35 @@ class TemplateDict( object ):
         "Load templates from filename into self._templates"
         logger.debug("Loading templates: %s" % filename)
         try:
-           fp = open(filename, "r")
+            fp = open(filename, "r")
         except:
-           return
+            return
         
         self._templates = {}
         current_template = None 
         for line in fp.readlines():
-           fields = line.split()
-           if line.startswith("#TEMPLATE"):
-               #assert len(fields) == 3
-               template_name = fields[1]
-               current_template_set = self._templates.setdefault(template_name, [])
-               current_template = []
-               current_template_set.append(current_template)
-               
-           elif line.startswith("#END"):
-               assert len(fields) == 2
-               assert fields[1] == template_name
-               
-               template_name = None
-               current_template = None
-               
-               logger.debug('   "%s" loaded' % template_name)
-           elif len(line.strip()) > 0:
-               assert len(fields) == 2
-               x = float(fields[0])
-               y = float(fields[1])
-               assert current_template is not None
-               current_template.append(Point.Point(x, y))
+            fields = line.split()
+            if line.startswith("#TEMPLATE"):
+                #assert len(fields) == 3
+                template_name = fields[1]
+                current_template_set = self._templates.setdefault(template_name, [])
+                current_template = []
+                current_template_set.append(current_template)
+                
+            elif line.startswith("#END"):
+                assert len(fields) == 2
+                assert fields[1] == template_name
+                
+                template_name = None
+                current_template = None
+                
+                logger.debug('   "%s" loaded' % template_name)
+            elif len(line.strip()) > 0:
+                assert len(fields) == 2
+                x = float(fields[0])
+                y = float(fields[1])
+                assert current_template is not None
+                current_template.append(Point.Point(x, y))
         fp.close()
         logger.debug("Loaded %s templates" % len(self._templates))
         return self._templates
@@ -120,13 +119,12 @@ def _scoreStroke(stroke, template, sample_size = None):
     numPoints = len(template)
     if len(template) == len(sNorm.Points):
         for idx in range(0, numPoints, numPoints/sample_size ):
-       
-           templ_vect.append(template[idx].X)
-           templ_vect.append(template[idx].Y)
-       
-           p = sNorm.Points[idx]
-           point_vect.append(p.X - centr.X)
-           point_vect.append(p.Y - centr.Y)
+            templ_vect.append(template[idx].X)
+            templ_vect.append(template[idx].Y)
+            
+            p = sNorm.Points[idx]
+            point_vect.append(p.X - centr.X)
+            point_vect.append(p.Y - centr.Y)
        
         angularDist = GeomUtils.vectorDistance(point_vect, templ_vect)
     else:

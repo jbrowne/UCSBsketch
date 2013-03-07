@@ -163,7 +163,7 @@ class Stroke(AnnotatableObject):
 
     def translate(self, xDist, yDist, overWrite = False):
         "Input: Stroke, and the distance in points to translate in X- and Y-directions. Returns a new translated stroke"
-        logger.warn("Deprecated: translate")
+        logger.warn("Deprecated: 'Stroke.translate'. Use GeomUtils.translate instead")
         if overWrite:
             for p in self.Points:
                 p.X += xDist
@@ -179,8 +179,9 @@ class Stroke(AnnotatableObject):
             self.Center = Point(self.X, self.Y)
             return self
         else:
-            retStroke = Stroke()
+            pointList = []
             for p in self.Points:
                 newPoint = Point(p.X + xDist, p.Y + yDist)
-                retStroke.addPoint(newPoint)
+                pointList.append(newPoint)
+            retStroke = Stroke(pointList)
             return retStroke

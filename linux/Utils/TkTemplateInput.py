@@ -5,7 +5,7 @@ import time
 import math
 import pdb
 from Utils import GeomUtils
-import Stroke
+from SketchFramework import Stroke
 from SketchFramework import Point
 
 from Tkinter import *
@@ -27,55 +27,55 @@ def scoreStroke(stroke, template):
     point_vect = []
     templ_vect = []
     for q in template:
-       templ_vect.append(q.X)
-       templ_vect.append(q.Y)
+        templ_vect.append(q.X)
+        templ_vect.append(q.Y)
     for p in sNorm.Points:
-       point_vect.append(p.X - centr.X)
-       point_vect.append(p.Y - centr.Y)
+        point_vect.append(p.X - centr.X)
+        point_vect.append(p.Y - centr.Y)
     angularDist = GeomUtils.vectorDistance(point_vect, templ_vect)
     return angularDist
 
 def loadTemplates(filename = TEMPLATE_FILE):
     print "Loading templates: %s" % filename
     try:
-       fp = open(filename, "r")
+        fp = open(filename, "r")
     except:
-       return
+        return
     
     templates = {}
     current_template = None 
     for line in fp.readlines():
-       fields = line.split()
-       if line.startswith("#TEMPLATE"):
-           assert len(fields) == 2
-           current_template = fields[1]
-           templates[current_template] = []
-       elif line.startswith("#END"):
-           assert len(fields) == 2
-           template_name = fields[1]
-           assert current_template == template_name
-           current_template = None 
-       else:
-           assert len(fields) == 2
-           x = float(fields[0])
-           y = float(fields[1])
-           assert current_template is not None
-           templates[current_template].append(Point.Point(x, y))
+        fields = line.split()
+        if line.startswith("#TEMPLATE"):
+            assert len(fields) == 2
+            current_template = fields[1]
+            templates[current_template] = []
+        elif line.startswith("#END"):
+            assert len(fields) == 2
+            template_name = fields[1]
+            assert current_template == template_name
+            current_template = None 
+        else:
+            assert len(fields) == 2
+            x = float(fields[0])
+            y = float(fields[1])
+            assert current_template is not None
+            templates[current_template].append(Point.Point(x, y))
     return templates
           
            
 def storeTemplate(normStroke, tag=None, filename = TEMPLATE_FILE, overwrite = False):
     print "Saving template %s to: %s" % (tag, filename)
     if overwrite:
-       fp = open (filename, "w")
+        fp = open (filename, "w")
     else:
-       fp = open (filename, "a")
+        fp = open (filename, "a")
 
     if type(tag) is str:
-       print >> fp, "#TEMPLATE %s" % (tag)
-       for p in normStroke.Points:
-          print >> fp, "%s %s" % (p.X, p.Y)
-       print >>fp, "#END %s" % (tag)
+        print >> fp, "#TEMPLATE %s" % (tag)
+        for p in normStroke.Points:
+            print >> fp, "%s %s" % (p.X, p.Y)
+        print >>fp, "#END %s" % (tag)
     fp.close()
 
 

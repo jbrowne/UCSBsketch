@@ -16,6 +16,10 @@ Todo:
 * Make it more object oriented
 
 """
+import sys
+if __name__ == "__main__":
+    sys.path.append("../")
+    
 from SketchFramework.Stroke import Stroke
 from Utils import Logger
 import Image
@@ -27,7 +31,6 @@ import os
 import pdb
 import pickle
 import random
-import sys
 import time
 
 log = Logger.getLogger("ISC", Logger.DEBUG)
@@ -251,7 +254,7 @@ def circlePixels(center, rad):
     rad_sqr = rad * rad
     points = set()
     if rad == 0:
-       return [center]
+        return [center]
     dy = 0
     prevDx = rad + 1
     while dy <= rad:
@@ -448,7 +451,7 @@ def _squareIntersections(graphDict, rawImg):
 
                 #log.debug( " Intersections: %s\n * New median point %s" % (allIntersects, str(newCrossPoint)) )
                 #newCrossPoint = (int(sum(allCrossPointsX) / len(allCrossPointsX)), \
-                                  #int(sum(allCrossPointsY) / len(allCrossPointsY)) )
+                #int(sum(allCrossPointsY) / len(allCrossPointsY)) )
             else:
                 #log.debug( " Intersections empty, reverting to old CP" )
                 newCrossPoint = cp
@@ -1232,7 +1235,7 @@ def thinBlobsPoints(pointSet, img, cleanNoise = False, evenIter = True, finalPas
                 setImgVal(i, j, FILLEDVAL, outImg)
                 for nbor in getEightNeighbors(p):
                     if nbor in filledvalsCache:
-                         del( filledvalsCache[nbor])
+                        del( filledvalsCache[nbor])
             elif filled > 2: #No need to process otherwise
                 retPoints.add(p)
 
@@ -1300,8 +1303,7 @@ def cleanContours(pointSet, img):
                 setImgVal(point[0], point[1], 0, DEBUGIMG)
             log.debug( "Saving Contours" )
             saveimg(DEBUGIMG)
-                
-    exit(1)
+
 
                     
 
@@ -1367,9 +1369,9 @@ def getImgVal(x,y,img):
       
 def setImgVal(x,y,val,img):
     try:
-         img[y,x] = val
+        img[y,x] = val
     except:
-         pass
+        pass
 
 def getHeight(img):
     return img.rows
@@ -1650,24 +1652,21 @@ def convertBlackboardImage(gray_img):
 def removeBackground(cv_img):
     """Take in a color image and convert it to a binary image of just ink"""
     global BGVAL, ISBLACKBOARD, DEBUG
-    #Hardcoded for resolution/phone/distance
-    #tranScale = min (cv_img.cols / float(NORMWIDTH), NORMWIDTH)
-    denoise_k = 5 / 1000.0
-    smooth_k  = 3 / 100.0
-    ink_thresh = 90 
+    #Values computed relative to image resolution 
+#    denoise_k = 5 / 1000.0 #Used to smooth out noise
     width = cv_img.cols
-
-    denoise_k = max (1, int(denoise_k * width))
-    if denoise_k % 2 == 0:
-        denoise_k += 1
+    smooth_k  = 3 / 100.0 #Initial smoothing kernel to remove background
     smooth_k = max (1, int(smooth_k * width))
     if smooth_k % 2 == 0:
         smooth_k += 1
 
-    #log.debug( "Foreground denoise kernel = %s x %s" % ( denoise_k, denoise_k) )
-    #log.debug( "Background Median kernel = %s x %s" % ( smooth_k, smooth_k) )
+    ink_thresh = 90 #Hardcoded value to distinguish between ink and background
 
-    inv_factor = 0.5
+#    denoise_k = max (1, int(denoise_k * width))
+#    if denoise_k % 2 == 0:
+#        denoise_k += 1
+
+    #Convert to grayscale if needed
     if cv_img.type != cv.CV_8UC1:
         gray_img = cv.CreateMat(cv_img.rows, cv_img.cols, cv.CV_8UC1)
         cv.CvtColor(cv_img, gray_img, cv.CV_RGB2GRAY)
@@ -1675,82 +1674,79 @@ def removeBackground(cv_img):
         gray_img = cv.CloneMat(cv_img)
 
 
-    gray_img = convertBlackboardImage(gray_img)
-    #Create histogram for single channel (0..255 range), into 255 bins
+    gray_img = convertBlackboardImage(gray_img)    
     saveimg(gray_img)
-    bg_img = gray_img
-    #saveimg(adaptiveThreshold(gray_img), title="Niblack")
-    #exit(1)
+
 
     #Generate the "background image"
     log.debug( "Remove foreground" )
+    smoothScale = 1.15 #How fast do we grow the smoothing kernel
+    bg_img = gray_img
     while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows / 2.0:
-        #log.debug( "Background Median kernel = %s x %s" % ( smooth_k, smooth_k) )
         bg_img = smooth(bg_img, ksize=smooth_k, t='median')
-        smooth_k = int(smooth_k * 1.15)
+        smooth_k = int(smooth_k * smoothScale)
         if smooth_k % 2 == 0:
             smooth_k += 1
         if DEBUG :
             log.debug( "Background Image:" )
             saveimg(bg_img)
-    log.debug( "Done" )
-    #bg_img = invert(bg_img)
+    log.debug( "Remove foreground -- Done" )
 
     #Remove the "background" data from the original image
-    cv.AddWeighted(gray_img, 0.5, bg_img, -0.5, 128.0, gray_img )
+    ink_img = cv.CloneMat(gray_img)
+    cv.AddWeighted(gray_img, 0.5, bg_img, -0.5, 128.0, ink_img )
     if DEBUG :
-        log.debug( "Background removed" )
-        saveimg(gray_img)
+        log.debug( "Ink isolated -- background removed" )
+        saveimg(ink_img)
     #cv.EqualizeHist(gray_img, gray_img)
 
     #Convert the black ink to white and amplify!
-    gray_img = invert(gray_img)
+    log.debug("Amplifying ink")
+    ink_img = invert(ink_img)
     if DEBUG:
-        saveimg(gray_img)
-    #for i in [3, 2]: #xrange(3):
+        saveimg(ink_img)
+    #Add the image back onto itself, saturating the light areas (ink), but
+    #    leaving the darker areas dark.
     if ISBLACKBOARD:
         amplifyList = [1]
     else:
         amplifyList = [2]
     for i in amplifyList:
-        gray_img2 = smooth(gray_img, ksize=3, t='median')
-        #gamma = ( (i * 2 - 1)* -128)#- 127
+        smooth_ink_img = smooth(ink_img, ksize=3, t='median')
         gamma = ( (i * 2 - 1)* -127)#- 127
-        cv.AddWeighted(gray_img, i, gray_img2, i, gamma, gray_img )
+        cv.AddWeighted(ink_img, i, smooth_ink_img, i, gamma, ink_img )
         if DEBUG:
-            saveimg(gray_img)
-    gray_img = invert(gray_img)
+            saveimg(ink_img)
+    ink_img = invert(ink_img)
     if DEBUG:
         log.debug( "Ink Amplified" )
-        saveimg(gray_img)
-
-
+        saveimg(ink_img)
 
     #Binarize the amplified ink image
-    cv.Threshold(gray_img, gray_img, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
-    #adaptiveThreshold(gray_img)
+    ink_mask = cv.CloneMat(gray_img)
+    cv.Threshold(ink_img, ink_mask, ink_thresh, BGVAL, cv.CV_THRESH_BINARY)
+
     if DEBUG:
         log.debug( "Ink Isolated" )
-        saveimg(gray_img)
+        saveimg(ink_mask)
 
-    #_, _, gray_img = erodeBlobsPoints(AllPtsIter(gray_img.cols, gray_img.rows), gray_img)
-    #show(gray_img)
-    #gray_img = smooth(gray_img, ksize=denoise_k)
+#    isolated_ink = cv.CloneMat(gray_img)
+#    cv.Copy(bg_img, isolated_ink, ink_mask)
 
-    return gray_img, bg_img
+    return ink_mask, bg_img
 
 
 def floodFill(image, seedPt, thresholds = (0, 255), color=0):
-     """Fills a region with color from a seed point, as long as the
-     pixels are in the range defined by thresholds (inclusive)."""
-     x,y = seedPt
-     seedVal = image[y,x]
-     loDiff = seedVal - thresholds[0]
-     hiDiff = thresholds[1] - seedVal
-     log.debug( "Filling %s-%s with %s" % (seedVal - loDiff, seedVal + hiDiff, color) )
-     cv.FloodFill(image, seedPt, 
-                      color, lo_diff=loDiff , up_diff=hiDiff, 
-                      flags = cv.CV_FLOODFILL_FIXED_RANGE)
+    """Fills a region with color from a seed point, as long as the
+    pixels are in the range defined by thresholds (inclusive)."""
+    x,y = seedPt
+    seedVal = image[y,x]
+    loDiff = seedVal - thresholds[0]
+    hiDiff = thresholds[1] - seedVal
+    log.debug( "Filling %s-%s with %s" % (seedVal - loDiff, seedVal + hiDiff, color) )
+    cv.FloodFill(image, seedPt, 
+                     color, lo_diff=loDiff , up_diff=hiDiff, 
+                     flags = cv.CV_FLOODFILL_FIXED_RANGE)
      
 
 def blobsToStrokes(img):
@@ -1836,27 +1832,33 @@ def prettyPrintStrokes(img, strokeList):
     """Take in a raw, color image and return a list of strokes extracted from it."""
 
     temp_img = cv.CloneMat(img)
-    cv.Set(temp_img, BGVAL)
-
-    pointsPerFrame = 5
-    numPts = 0
+    cv.Set(temp_img, (255,255,255))
+    videoWriter = cv.CreateVideoWriter("Debug.avi", 
+                                       cv.CV_FOURCC('D', 'I', 'V', 'X'),
+                                       30, cv.GetSize(img))
+    cv.WriteFrame(videoWriter, cv.GetImage(temp_img))
+    pointsPerFrame = 20
     strokeList = list(strokeList)
-    strokeList.sort(key = (lambda s: s.center[1] * 10 + s.center[0]) ) 
+
     lineColor =  0
     startColor = 128
     stopColor = 220
-    thicknesses = []
     for s in strokeList:
         prev = None
-        for i, p in enumerate(s.getPoints()):
+        allPoints = s.Points
+        for i, p in enumerate(allPoints):
+            p = (int(p.X), int(p.Y))
             if prev is not None:
                 cv.Line(temp_img, prev, p, lineColor, thickness=1)
             else:
                 cv.Circle(temp_img, p, 1, startColor, thickness=-1)
             prev = p 
+            if i % pointsPerFrame == 0:
+                cv.WriteFrame(videoWriter, cv.GetImage(temp_img))
         cv.Circle(temp_img, p, 1, stopColor, thickness=-1)
-        if DEBUG:
-            saveimg(temp_img)
+        cv.WriteFrame(videoWriter, cv.GetImage(temp_img))
+        
+
 
 def pointDist(p1, p2):
     "Find the squared distance between two points"
@@ -1881,9 +1883,9 @@ def saveimg(cv_img, name = "", outdir = "./temp/", title=""):
     
     outdir = os.path.abspath(outdir) + "/"
     if name == "":
-         outfname = outdir + FNAMEITER.next() + ".jpg"
+        outfname = outdir + FNAMEITER.next() + ".jpg"
     else:
-         outfname = outdir + name + ".jpg"
+        outfname = outdir + name + ".jpg"
     log.debug( "Saving %s: %s"  % (outfname, title) )
     cv.SaveImage(outfname, cv_img)
 
@@ -1891,46 +1893,19 @@ def main(args):
     global SQUARE_ERROR, PRUNING_ERROR, DEBUG
     DEBUG = True
 
-    #debugTester(args)
-
     if len (args) < 2:
-        print( "Usage: %s <image_file> [output_file]" % (args[0]))
+        print( "Usage: %s <image_file>" % (args[0]))
         exit(1)
 
     fname = args[1]
+    in_img = cv.LoadImageM(fname)
 
-    if len(args) > 2:
-        outfname = args[2]
-    else:
-        outfname = None
+    strokeList = cvimgToStrokes(in_img)
+    prettyPrintStrokes(in_img, strokeList['strokes'])
 
-
-    #in_img = cv.LoadImageM(fname)
-    ##print "Processing image %sx%s" % (getWidth(in_img), getHeight(in_img))
-    imageToStrokes(fname)
-    #out_img = processStrokes(in_img)
-    #saveimg(out_img)
-    
-    #if outfname is not None:
-        #print "Saving to %s" % (outfname)
-        #cv.SaveImage(outfname, out_img)
-
-    #show(out_img)
-
-
-
-def debugTester(args):
-    log.debug( " px, py, x1, y1, x2, y2 " )
-    pt = ( int (args[1]), int(args[2]) )
-    ls1 = ( int (args[3]), int(args[4]) )
-    ls2 = ( int (args[5]), int(args[6]) )
-
-    log.debug( pointDistanceFromLine( pt, (ls1, ls2) ) )
-    exit(0)
 
 if __name__ == "__main__":
     sys.path.append("../")
     main(sys.argv)
-    #test()
 
 
