@@ -5,7 +5,6 @@ import cv
 import pdb
 import sys
 
-
 def main(args):
     """Load two lists of strokes and return a score for them"""
     if len(args) < 3:
