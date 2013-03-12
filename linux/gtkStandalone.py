@@ -74,6 +74,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.boardProcThread = None # set by resetBoard()
 
         #GUI data variables
+        self.shouldDrawStrokes = True
         self.currentPoints = None # set by resetBoard()
         self.strokeList = None # set by resetBoard()
         self.opQueue = None # set by resetBoard()
@@ -159,6 +160,9 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         elif key in ('1','0','-','`',' '):
             self.controlTuringMachines(key)
             self.boardChanged()
+        elif key == 'D':
+            self.shouldDrawStrokes = not self.shouldDrawStrokes
+            self.draw()
 
 
     def controlTuringMachines(self, key):
@@ -506,8 +510,9 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         log.debug("Redraw")
         self.opQueue.put(partial(GTKGui.clearBoard, self))
         with self.board.Lock:
-            for stk in self.board.Strokes:
-                stk.drawMyself()
+            if self.shouldDrawStrokes:
+                for stk in self.board.Strokes:
+                    stk.drawMyself()
             for obs in self.board.BoardObservers:
                 obs.drawMyself()
         self.doPaint()
