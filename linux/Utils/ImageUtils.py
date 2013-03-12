@@ -89,18 +89,18 @@ def initializeCapture(cam = 0, dims=(1280, 1024,), disableAutoExposure = True, d
     reth = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT))
     retw = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH))
     if disableAutoExposure:
-        os.system("v4l2-ctl -d %s --set-ctrl exposure_auto=3" % (cam,)) # Enable auto exposure
+        os.system("v4l2-ctl -d %d --set-ctrl exposure_auto=3" % (cam,)) # Enable auto exposure
         def disableExposure():
             time.sleep(4)
             print "Disabling autoexposure"
-            os.system("v4l2-ctl -d %s --set-ctrl exposure_auto=1" % (cam,)) # Disable auto exposure
+            os.system("v4l2-ctl -d %d --set-ctrl exposure_auto=1" % (cam,)) # Disable auto exposure
         threading.Thread(target=disableExposure).start()
     if disableAutoFocus:
-        os.system("v4l2-ctl --set-ctrl focus_auto=1")
+        os.system("v4l2-ctl -d %d --set-ctrl focus_auto=1" % (cam,))
         def disableFocus():
             time.sleep(4)
             print"Disabling autofocus"
-            os.system("v4l2-ctl --set-ctrl focus_auto=0")
+            os.system("v4l2-ctl -d %d --set-ctrl focus_auto=0" % (cam,))
         threading.Thread(target=disableFocus).start()
     return capture, (retw, reth,)
 
