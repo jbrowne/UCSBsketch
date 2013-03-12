@@ -23,6 +23,8 @@ import cv
 import gobject
 import gtk
 import math
+import multiprocessing
+import os
 import pangocairo
 import pdb
 import pygtk
@@ -531,16 +533,22 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def getScreenShot(self):
         width, height = self.window.get_size()
+
         #if self._pixbuf is None:
         log.debug("  pixbuf size: %sx%s" % (width, height))
         _pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8,
                                 width, height)
+
+        #BREAKING
+        print os.getpid()
         screenImage = _pixbuf.get_from_drawable(self.window, 
                                         self.window.get_colormap(), 
                                         0, 0, 0, 0, width, height)
+     
         retImage = cv.CreateImageHeader( (screenImage.get_width(), screenImage.get_height()), cv.IPL_DEPTH_8U, 3)
         cv.SetData(retImage, screenImage.get_pixels())
         retImage = cv.GetMat(retImage)
+
         return retImage
 
     def _updateScreenImage(self):
@@ -554,7 +562,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                                         0, 0, 0, 0, width, height)        
         self.screenImage.save('screenshot.png', 'png')
         
-        saveimg(self.getScreenShot())
+#        saveimg(self.getScreenShot())
 
         
     def b2c(self, pt):

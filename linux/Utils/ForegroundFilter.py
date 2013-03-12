@@ -24,21 +24,10 @@ class ForegroundFilter(object):
     def __init__(self):
         #Complete model of board contents
         self._bgImage = None
-        self._processedFramesHist = None
-        self._bgImagesHist = None
-        self.initialize()
-        
-        
-    def initialize(self):
-        self._bgImage = None
-        self._processedFramesHist = []
-        self._bgImagesHist = []
- 
+
  
     def setBackground(self, image):
         self._bgImage = cv.CloneMat(image)
-        self._processedFramesHist = [cv.CloneMat(image)]
-        self._bgImagesHist = [cv.CloneMat(image)]
         
         
     def updateBackground(self, newImage):
@@ -47,34 +36,9 @@ class ForegroundFilter(object):
         if self._bgImage is None:
             self.setBackground(newImage)
             return
-        historyLength = 5
-        consistencyThresh = 10
-        #Watch for the processed frames to settle,
-        # and only update the background image
-        # if a majority of the last N frames agree
-        if len(self._processedFramesHist) >= historyLength:
-            self._processedFramesHist.pop(0)
-        processedFrame = processImage(self._bgImage, newImage)
-        self._processedFramesHist.append(processedFrame)
 
-        prevFrame = None
-        frameDiffSum = None
-        for frame in self._processedFramesHist:
-            if prevFrame is None:
-                prevFrame = frame
-                frameDiffSum = cv.CloneMat(frame)
-                cv.Set(frameDiffSum, (0,0,0))
-                continue
-            diffImage = cv.CloneMat(prevFrame)
-            cv.AbsDiff(prevFrame, frame, diffImage)
-#            cv.AddWeighted(diffImage, 0.5, frameDiffSum, 0.5, 0.0, frameDiffSum)
-            cv.Max(diffImage, frameDiffSum, frameDiffSum)
-        # Generate a mask of where the processed frames have been consistent for a while
-        frameDiffMask = max_allChannel(frameDiffSum)
-        cv.Threshold(frameDiffMask, frameDiffMask, consistencyThresh, 255, cv.CV_THRESH_BINARY_INV)
-        # Copy from the most recent processed frame to the background image
-        cv.Copy(processedFrame, self._bgImage, mask=frameDiffMask)
-
+        self._bgImage = processImage(self._bgImage, newImage)
+        return self._bgImage
 
     def filterForeground(self, newImage):
         diffImage = cv.CloneMat(self._bgImage)
@@ -94,45 +58,80 @@ class ForegroundFilter(object):
 
     
 def processImage(bgImage, newImage):
+    """Within a single frame, try to filter out non-ink occlusions,
+    given an image of roughly the background"""
     erodeIterations = max(bgImage.cols/256, bgImage.rows/256, 1)
     smoothKernel = max(bgImage.cols / 50, bgImage.rows / 50, 1)
     if smoothKernel % 2 == 0:
         smoothKernel += 1
 
+    #Get the raw diff from the background
     retImage = cv.CloneMat(bgImage)
     diffImage = cv.CloneMat(bgImage)
     cv.AbsDiff(bgImage, newImage, diffImage)
     diffImage = max_allChannel(diffImage)
 
     #Get the diff without "small" components (e.g. writing)
+    # by performing a "close" on small components
     diffImageEroded = cv.CloneMat(diffImage)
     cv.Erode(diffImageEroded, diffImageEroded, iterations = erodeIterations)
     cv.Dilate(diffImageEroded, diffImageEroded, iterations = erodeIterations)
 
+    #Get the parts that were completely erased due to the opening,
+    # and correspond to thin, ink-like differences
+    inkDifferences = cv.CloneMat(diffImage)
+    cv.AbsDiff(diffImage, diffImageEroded, inkDifferences)
+    cv.Smooth(inkDifferences, inkDifferences, smoothtype=cv.CV_MEDIAN)
+    cv.Dilate(inkDifferences, inkDifferences, iterations=4)
+    cv.Erode(inkDifferences, inkDifferences, iterations=2)
+    cv.Threshold(inkDifferences, inkDifferences, 20, 255, cv.CV_THRESH_BINARY)
+    
     #Figure out if the thin change is due to something big covering
     # the writing, i.e. a large region of high difference surrounding it
     smoothDiff = cv.CloneMat(diffImage)
-    cv.Smooth(smoothDiff, smoothDiff, smoothtype=cv.CV_MEDIAN, param1=smoothKernel, param2=smoothKernel)
+    cv.Smooth(diffImage, smoothDiff, smoothtype=cv.CV_MEDIAN, param1=smoothKernel, param2=smoothKernel)
+    
+    #Don't count ink-differences covered by large change components
     largeBlobMask = cv.CreateMat(diffImage.rows, diffImage.cols, diffImage.type)
     cv.AbsDiff(smoothDiff, diffImageEroded, largeBlobMask)
+    cv.Max(largeBlobMask, smoothDiff, largeBlobMask)
+    cv.Threshold(largeBlobMask, largeBlobMask, 20, 255, cv.CV_THRESH_BINARY)
+    cv.Dilate(largeBlobMask, largeBlobMask, iterations=4)
     
-    cv.Threshold(largeBlobMask, largeBlobMask, 20, 255, cv.CV_THRESH_BINARY_INV)
-    cv.Erode(largeBlobMask, largeBlobMask, iterations=4)
-
-    #Get the parts that were completely erased due to the opening
-    cv.AbsDiff(diffImage, diffImageEroded, diffImageEroded)
-    cv.Threshold(diffImageEroded, diffImageEroded, 20, 255, cv.CV_THRESH_BINARY)
-    cv.Dilate(diffImageEroded, diffImageEroded, iterations=2)
-
-#    showResized("Interesting Differences", diffImageEroded, 0.4)
-#    showResized("Differences to ignore", largeBlobMask, 0.4)
+    # Only consider the changes that are small, and not a result of occlusion
+    # Remove from the blend mask anything connected to obvious foreground
+    #    differences
+    fillPoints = getFillPoints(largeBlobMask)
+    finalInkMask = cv.CloneMat(inkDifferences)
+    cv.Max(largeBlobMask, inkDifferences, finalInkMask)
+    for pt in fillPoints:
+        cv.FloodFill(finalInkMask, pt, 0)
     
-    cv.And(diffImageEroded, largeBlobMask, diffImageEroded)
-
-    cv.Copy(newImage, retImage, diffImageEroded)
+    # Actually integrate the changes
+    cv.Copy(newImage, retImage, finalInkMask)
+    
+    # Debug the masks
+#    tempMat = cv.CloneMat(finalInkMask)
+#    cv.AddWeighted(inkDifferences, 0.5, tempMat, 0.5, 0.0, tempMat)
+#    showResized("Mask Combo", tempMat, 0.5)
+#    cv.AddWeighted(largeBlobMask, 1.0, inkDifferences, -0.5, 0.0, tempMat)
+#    showResized("Blob coverage", tempMat, 0.5)
+    # /Debug
 
     return retImage
 
+def getFillPoints(image):
+    """Generate points from which iterative flood fill would cover all non-zero pixels
+    in image."""
+    image = cv.CloneMat(image)
+    retList = []
+    minVal, maxVal, minLoc, maxLoc = cv.MinMaxLoc(image)
+    while maxVal > 0:
+        retList.append(maxLoc)
+        cv.FloodFill(image, maxLoc, 0)
+        minVal, maxVal, minLoc, maxLoc = cv.MinMaxLoc(image)
+    return retList
+        
 
 def main(args):
     if len(args) > 1:
@@ -141,7 +140,6 @@ def main(args):
     else:
         camNum = 0
     capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE02)    
-    warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
     targetCorners_Chess = [(5*dims[0]/16.0, 5*dims[1]/16.0),
                          (11*dims[0]/16.0, 5*dims[1]/16.0),
                          (11*dims[0]/16.0, 11*dims[1]/16.0),
@@ -150,8 +148,7 @@ def main(args):
     fgFilter = ForegroundFilter()
     while True:
         image = captureImage(capture)
-#        image = warpFrame(image, warpCorners, targetCorners_Chess)
-        
+       
         fgFilter.updateBackground(image)
         dispImage = fgFilter.getBackgroundImage()
         

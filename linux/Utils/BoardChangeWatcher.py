@@ -61,6 +61,9 @@ class BoardChangeWatcher(object):
         
     
     def updateBoardImage(self, image):
+        precentDiffThresh = 0.2
+        diffMaskThresh = 50
+        windowLen = 2
         if self._lastCaptureImage is None:
             self.setBoardImage(image)
             return
@@ -72,15 +75,16 @@ class BoardChangeWatcher(object):
         captureDiffMask = cv.CloneMat(self._fgFilter.getBackgroundImage())
         cv.AbsDiff(captureDiffMask, self._lastCaptureImage, captureDiffMask)
         captureDiffMask = max_allChannel(captureDiffMask)
-        cv.Threshold(captureDiffMask, captureDiffMask, 50, 255, cv.CV_THRESH_BINARY)
-        if len(self._boardDiffHist) > 5:
+        cv.Threshold(captureDiffMask, captureDiffMask, diffMaskThresh, 255, cv.CV_THRESH_BINARY)
+
+        if len(self._boardDiffHist) > windowLen:
             self._boardDiffHist.pop(0)
         self._boardDiffHist.append(captureDiffMask)
         
         prev = None
         cumulativeDiff = None
         thisDiff = None
-#        for frame in self._boardDiffHist[::max(1,len(self._boardDiffHist)/2)]:
+
         for frame in self._boardDiffHist:
             if prev is None:
                 prev = frame
@@ -93,16 +97,18 @@ class BoardChangeWatcher(object):
         #Now that we have the max sequential difference between frames,
         #    smooth out the edge artifacts due to noise
         cv.Smooth(cumulativeDiff, cumulativeDiff, smoothtype=cv.CV_MEDIAN)
+
         #The difference percentage is in terms of the size of the changed component from the background
-#        showResized("Cumulative Diff", cumulativeDiff, 0.5)
         percentDiff = cv.CountNonZero(cumulativeDiff) / float(max(cv.CountNonZero(captureDiffMask), 1))
-        if percentDiff < 0.02: 
+        if percentDiff < precentDiffThresh: 
             if self._isBoardUpdated:
                 self.isCaptureReady = True
         else:
             #Only set unready if the difference is large
             self.isCaptureReady = False
             self._isBoardUpdated = True
+
+
 
 
     def captureBoardDifferences(self):
@@ -144,7 +150,7 @@ def main(args):
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
-    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE02)    
+    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE01)    
     
     warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
     targetCorners = [(5*dims[0]/16.0, 5*dims[1]/16.0),

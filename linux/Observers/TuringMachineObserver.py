@@ -14,11 +14,6 @@ from xml.etree import ElementTree as ET
 import pdb
 
 
-
-
-
-
-
 tm_logger = Logger.getLogger('TuringCollector', Logger.DEBUG )
 
 #-------------------------------------
@@ -358,30 +353,39 @@ class TuringMachineCollector(BoardObserver):
         self.onAnnotationUpdated(anno)
 
     def refreshTuringMachines(self):
-        labelEdgeMatchingThresh = 2000 # how many times greater than the median we'll match edges
 
-        labelEdgeMatches = {} # { label : {edge, distance} }
-
+        #Remove all of the current Turing Machines
         for tmAnno in set(self.tmMap.keys()):
             self.getBoard().RemoveAnnotation(tmAnno)
             del(self.tmMap[tmAnno])
-
+        
+        #Match all of the labels we've seen with their closest edges
+        #    in any graph
+        labelEdgeMatches = {} # { label : {edge, distance} }
         for textAnno in self.labelMap.keys():
             labelTL, labelBR = GeomUtils.strokelistBoundingBox(textAnno.Strokes)
             #Midpoint of the label's bounding box
             labelCenterPt = Point ( (labelTL.X + labelBR.X) / 2.0, (labelTL.Y + labelBR.Y) / 2.0) 
-
             labelMatchDict = labelEdgeMatches.setdefault(textAnno, {}) 
 
             for graphAnno in self.graphMap:
+                #Check to make sure the label doesn't share strokes with the graph structure
+                skipThisGraph = False
+                for textStroke in textAnno.Strokes:
+                    if textStroke in graphAnno.Strokes:
+                        skipThisGraph = True
+                        break
+                if skipThisGraph:
+                    continue
+                
                 #Match edges to labels
                 for edgeAnno in graphAnno.edge_set:
-                    edgeLabelPoints = GeomUtils.strokeNormalizeSpacing(edgeAnno.tailstroke, 19).Points #Midpoint in the arrow-stroke
+                    #Find the best choice among 19 evenly spaced points along the edge tailstroke
+                    edgeLabelPoints = GeomUtils.strokeNormalizeSpacing(edgeAnno.tailstroke, 19).Points
                     for elp in edgeLabelPoints:
                         dist = GeomUtils.pointDistanceSquared(elp.X, elp.Y, labelCenterPt.X, labelCenterPt.Y)
-                        #labelMatchDict['allmatches'].append({'anno': edgeAnno, 'dist': dist})
-                        if 'bestmatch' not in labelMatchDict or dist < labelMatchDict['bestmatch'][1]:
-                            labelMatchDict['bestmatch'] = (edgeAnno, dist)
+                        if 'bestmatch' not in labelMatchDict or dist < labelMatchDict['bestmatch']['dist']:
+                            labelMatchDict['bestmatch'] = {'edge': edgeAnno, 'dist': dist}
 
         #labelEdgeMatches contains each label paired with its best edge
         
@@ -398,8 +402,8 @@ class TuringMachineCollector(BoardObserver):
         for textAnno, matchDict in labelEdgeMatches.items():
             if 'bestmatch' in matchDict \
                 and textAnno.scale < medianSize * TuringMachineCollector.LABELMATCH_DISTANCE[1] \
-                and textAnno.scale > medianSize * TuringMachineCollector.LABELMATCH_DISTANCE[0]: # and matchDict['bestmatch'][1] < labelEdgeMatchingThresh:
-                edgeLabelList = edge2LabelMatching.setdefault(matchDict['bestmatch'][0], [])
+                and textAnno.scale > medianSize * TuringMachineCollector.LABELMATCH_DISTANCE[0]: 
+                edgeLabelList = edge2LabelMatching.setdefault(matchDict['bestmatch']['edge'], [])
                 edgeLabelList.append(textAnno)
             else:
                 tm_logger.debug("TextAnno %s not matched to an edge" % (textAnno.text))
@@ -413,7 +417,7 @@ class TuringMachineCollector(BoardObserver):
                 tmAnno = TuringMachineAnnotation(state_graph_anno = graphAnno)
 
             for edgeAnno in graphAnno.edge_set:
-                if edge2LabelMatching.get(edgeAnno, None) is not None:
+                if edgeAnno in edge2LabelMatching:
                     assocLabelsList = edge2LabelMatching[edgeAnno]
                     for label in assocLabelsList:
                         assocSet.add(label)
@@ -427,7 +431,6 @@ class TuringMachineCollector(BoardObserver):
                 self.tmMap[tmAnno] = assocSet
 
     def onAnnotationRemoved(self, anno):
-        newStrokes = set([])
         if anno in self.labelMap:
             del(self.labelMap[anno])
             self.refreshTuringMachines()
@@ -444,8 +447,6 @@ class TuringMachineVisualizer ( ObserverBase.Visualizer ):
         ObserverBase.Visualizer.__init__( self, board, TuringMachineAnnotation)
 
     def drawAnno( self, a ):
-        #tm_logger.debug(ET.tostring(a.xml()))
-
         edge_label_size = 15
         tape_label_size = 20
         active_color = "#BF5252"

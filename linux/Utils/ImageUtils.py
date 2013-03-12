@@ -78,7 +78,7 @@ def printMat(image):
 # Video Capture Utils
 ######################################
 
-def initializeCapture(cam = 0, dims=(1280, 1024,), disableAutoExposure = True):
+def initializeCapture(cam = 0, dims=(1280, 1024,), disableAutoExposure = True, disableAutoFocus = True):
     """Try to initialize the capture to the requested dimensions,
     and disable auto-exposure. 
     Returns the capture and the actual dimensions"""
@@ -95,6 +95,13 @@ def initializeCapture(cam = 0, dims=(1280, 1024,), disableAutoExposure = True):
             print "Disabling autoexposure"
             os.system("v4l2-ctl -d %s --set-ctrl exposure_auto=1" % (cam,)) # Disable auto exposure
         threading.Thread(target=disableExposure).start()
+    if disableAutoFocus:
+        os.system("v4l2-ctl --set-ctrl focus_auto=1")
+        def disableFocus():
+            time.sleep(4)
+            print"Disabling autofocus"
+            os.system("v4l2-ctl --set-ctrl focus_auto=0")
+        threading.Thread(target=disableFocus).start()
     return capture, (retw, reth,)
 
 

@@ -28,7 +28,7 @@ import multiprocessing
 import numpy
 import os
 import random
-import sys
+import sys  
 import threading
 import time
 from gtkStandalone import GTKGui
@@ -83,33 +83,34 @@ class BoardWatchProcess(multiprocessing.Process):
             print "Board watcher stopping"
             return
 
-        ISC.saveimg(rawImage)
+#        ISC.saveimg(rawImage)
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
-        ISC.saveimg(warpImage)
+#        ISC.saveimg(warpImage)
         self.boardWatcher.setBoardImage(warpImage)
 
-        ISC.DEBUG = True
+#        ISC.DEBUG = True
         boardWidth = self.board.getDimensions()[0]
         strokeList = ISC.cvimgToStrokes(flipMat(warpImage), targetWidth = boardWidth)['strokes']
-        ISC.DEBUG = False
+#        ISC.DEBUG = False
 
         for stk in strokeList:
             self.board.addStroke(stk)
         while self.keepGoing.is_set():
             rawImage = deserializeImage(self.imageQueue.get(block=True))
             warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
+#            print "Processing new image"
             self.boardWatcher.updateBoardImage(warpImage)
             if self.boardWatcher.isCaptureReady:
-                if isinstance(self.board, GTKGui):
-                    screenShot = self.board.getScreenShot()
-                    ISC.saveimg(screenShot)
+                
                 ISC.saveimg(warpImage)
+#                ISC.saveimg(self.boardWatcher._fgFilter.getBackgroundImage())
                 (newInk, newErase) = self.boardWatcher.captureBoardDifferences()
                 ISC.saveimg(newInk)
                 ISC.saveimg(newErase)
                 cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
 
-                ISC.saveimg(self.boardWatcher.acceptCurrentImage())
+                acceptedImage = self.boardWatcher.acceptCurrentImage()
+                ISC.saveimg(acceptedImage)
                 strokeList = ISC.cvimgToStrokes(flipMat(newInk), targetWidth = boardWidth)['strokes']
                 for stk in strokeList:
                     self.board.addStroke(stk)
@@ -135,8 +136,8 @@ class CaptureProcess(Process):
             image = captureImage(self.capture)
 #            sys.stdout.write(".")
             try:
-                self.imageQueue.put(serializeImage(image), block=False)
-            except FullException as e:
+                self.imageQueue.put(serializeImage(image), block=True, timeout=0.25)
+            except FullException:
                 try:
                     _ = self.imageQueue.get_nowait()
                 except:
@@ -338,14 +339,13 @@ def deserializeImage(serializedImage):
     return rawImage
 
 
-
 def main(args):
     if len(args) > 1:
         camNum = int(args[1])
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
-    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE01)    
+    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE00)    
 
     sketchSurface = GTKGui(dims = PROJECTORSIZE)
     sketchWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)

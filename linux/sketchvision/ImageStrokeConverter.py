@@ -1501,11 +1501,13 @@ def getHistogramList(img, normFactor = 1000, numBins = 256):
         retVector.append(cv.QueryHistValue_1D(hist, idx))
     return retVector
 
-def isForeGroundGone(img):
-    "Figure out whether the strokes of an image have been smoothed away or still remain"
+def isForeGroundGone(img, borderThresh = 0.05):
+    """Figure out whether the strokes of an image have been smoothed 
+    away or still remain. borderThresh is the % of the image border
+    that should be ignored"""
     #Define a region that we want to look at, so we don't try to 
     #smudge out border artifacts and mess up the ink
-    borderThresh = 0.15 #How much of the border to ignore in figuring whether the foreground is gone
+    #borderThresh = 0.15 #How much of the border to ignore in figuring whether the foreground is gone
     left = int( borderThresh * img.cols)
     right = int( (1 - 2 * borderThresh) * img.cols)
     top = int( borderThresh * img.rows)
@@ -1656,6 +1658,7 @@ def removeBackground(cv_img):
             log.debug( "Background Image:" )
             saveimg(bg_img)
     log.debug( "Remove foreground -- Done" )
+    saveimg(bg_img)
 
     #Remove the "background" data from the original image
     ink_img = cv.CloneMat(gray_img)
@@ -1851,7 +1854,7 @@ def main(args):
     fname = args[1]
     in_img = cv.LoadImageM(fname)
 
-    strokeList = cvimgToStrokes(in_img)
+    strokeList = cvimgToStrokes(in_img, targetWidth = in_img.cols)
     prettyPrintStrokes(in_img, strokeList['strokes'])
 
 
