@@ -1,7 +1,5 @@
-if __name__ == "__main__":
-    import sys
-    sys.path.append("./")
 from Utils.ImageUtils import captureImage
+from Utils.ImageUtils import getFillPoints
 from Utils.ImageUtils import initializeCapture
 from Utils.ImageUtils import max_allChannel
 from Utils.ImageUtils import showResized
@@ -11,6 +9,9 @@ import cv
 import os
 import threading
 import time
+if __name__ == "__main__":
+    import sys
+    sys.path.append("./")
 
 CAPSIZE00 = (2592, 1944)
 CAPSIZE01 = (2048,1536)
@@ -44,7 +45,6 @@ class ForegroundFilter(object):
         diffImage = cv.CloneMat(self._bgImage)
         retImage = cv.CloneMat(newImage)
         cv.AbsDiff(newImage, self._bgImage, diffImage)
-#        cv.CvtColor(diffImage, diffImage, cv.CV_RGB2GRAY)
         cv.AddWeighted(retImage, 1.0, diffImage, 0.5, 0.0, retImage)
         return retImage
     
@@ -120,18 +120,6 @@ def processImage(bgImage, newImage):
 
     return retImage
 
-def getFillPoints(image):
-    """Generate points from which iterative flood fill would cover all non-zero pixels
-    in image."""
-    image = cv.CloneMat(image)
-    retList = []
-    minVal, maxVal, minLoc, maxLoc = cv.MinMaxLoc(image)
-    while maxVal > 0:
-        retList.append(maxLoc)
-        cv.FloodFill(image, maxLoc, 0)
-        minVal, maxVal, minLoc, maxLoc = cv.MinMaxLoc(image)
-    return retList
-        
 
 def main(args):
     if len(args) > 1:

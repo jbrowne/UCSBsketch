@@ -8,6 +8,19 @@ import time
 ######################################
 # Image Manipulation
 ######################################
+def getFillPoints(image):
+    """Generate points from which iterative flood fill would cover all non-zero pixels
+    in image."""
+    image = cv.CloneMat(image)
+    retList = []
+    _, maxVal, _ , maxLoc = cv.MinMaxLoc(image)
+    while maxVal > 0:
+        retList.append(maxLoc)
+        cv.FloodFill(image, maxLoc, 0)
+        _, maxVal, _, maxLoc = cv.MinMaxLoc(image)
+    return retList
+        
+
 def resizeImage(img, scale=None, dims=None):
     """Return a resized copy of the image for either relative
     scale, or that matches the dimensions given"""
