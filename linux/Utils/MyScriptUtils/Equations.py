@@ -1,8 +1,21 @@
+from Utils.MyScriptUtils.MyScriptRequest import MyScriptEncodable
+from Utils.MyScriptUtils.MyScriptRequest import MyScriptInputUnit
+from Utils.MyScriptUtils.MyScriptRequest import getRequestResponse
+
+
+
+def recognizeEquation(strokes):
+    """Take in a list of strokes, send them to MyScript, 
+    and return any recognized equation"""
+    mscRequest = MyScriptEqnRequest.fromInputUnit(MyScriptInputUnit.fromStrokeList(strokes))
+    response = getRequestResponse('equationInput', mscRequest)
+    return response
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Equation recognition request structures
 # http://download.visionobjects.eu/downloads/online-info/MyScriptWebServices/
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-class MyScriptEqnRequest(object):
+class MyScriptEqnRequest(MyScriptEncodable):
     def __init__(self, components = [], resultTypes=['LATEX']):
         """Constructs a request to be sent to MyScript for 
         interpretation. """

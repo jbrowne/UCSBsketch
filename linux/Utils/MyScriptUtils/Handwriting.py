@@ -1,11 +1,21 @@
+from Utils.MyScriptUtils.MyScriptRequest import MyScriptComponent
+from Utils.MyScriptUtils.MyScriptRequest import MyScriptEncodable
+from Utils.MyScriptUtils.MyScriptRequest import MyScriptInputUnit
+from Utils.MyScriptUtils.MyScriptRequest import getRequestResponse
+
+
+def recognizeHandwriting(strokes):
+    """Take in a list of strokes, send them to MyScript, 
+    and return any recognized handwriting"""
+    mscRequest = MyScriptHwrRequest(inputUnitList=[MyScriptInputUnit.fromStrokeList(strokes)])
+    response = getRequestResponse('hwrInput', mscRequest)
+    return response
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Handwriting recognition request structures
 # http://download.visionobjects.eu/downloads/online-info/MyScriptWebServices/
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-from Utils.MyScriptUtils import MyScriptRequest
-from Utils.MyScriptUtils.MyScriptRequest import MyScriptComponent
-from Utils.MyScriptUtils.MyScriptRequest import MyScriptInputUnit
-class MyScriptHwrProperties(object):
+class MyScriptHwrProperties(MyScriptEncodable):
     """A hwrProperties object for sending strokes to MyScript"""
     def __init__(self, numTextCandidates=1, 
                        numWordCandidates=1, 
@@ -14,7 +24,7 @@ class MyScriptHwrProperties(object):
         self.wordCandidateListSize = numWordCandidates
         self.characterCandidateListSize = numCharCandidates
 
-class MyScriptHwrParameter(object):
+class MyScriptHwrParameter(MyScriptEncodable):
     """A hwrParameter object for sending stroke requests 
     to MyScript"""
     def __init__(self, hwrProperties = MyScriptHwrProperties(), subsetKnowledges = []):
@@ -37,7 +47,7 @@ class MyScriptStringComponent(MyScriptComponent):
         MyScriptComponent.__init__(self, 'string')        
         self.string = string
 
-class MyScriptHwrRequest(object):
+class MyScriptHwrRequest(MyScriptEncodable):
     def __init__(self, inputUnitList=[], hwrParameter=MyScriptHwrParameter()):
         """Constructs a request to be sent to MyScript for 
         interpretation. Takes as input a MyScriptHwrParameter and

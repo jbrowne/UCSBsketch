@@ -15,7 +15,6 @@ class MyScriptResponse(object):
     def __repr__(self):
         return u"Id: %s: Result { %s }" % (self.instanceId, self.result)
 
-    
 class MyScriptResult(object):
     """A MyScript result object. These are returned for both Handwriting and
     Equation recognition responses."""
