@@ -298,10 +298,12 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.opQueue.put(op)
         
     def drawBitmap(self, x, y, filename):
-        pixbuf = gtk.gdk.pixbuf_new_from_file(filename)        
-        op = partial(GTKGui._drawBitmap, self, x, y, pixbuf)
-#        op()
-        self.opQueue.put(op)
+        try:
+            pixbuf = gtk.gdk.pixbuf_new_from_file(filename)        
+            op = partial(GTKGui._drawBitmap, self, x, y, pixbuf)
+            self.opQueue.put(op)
+        except Exception as e:
+            log.warn(str(e))
 
     #________________________________________
     #  Private, actual draw calls

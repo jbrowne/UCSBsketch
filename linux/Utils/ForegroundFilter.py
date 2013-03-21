@@ -1,3 +1,6 @@
+import sys
+if __name__ == "__main__":
+    sys.path.append("./")
 from Utils.ImageUtils import captureImage
 from Utils.ImageUtils import getFillPoints
 from Utils.ImageUtils import initializeCapture
@@ -9,9 +12,6 @@ import cv
 import os
 import threading
 import time
-if __name__ == "__main__":
-    import sys
-    sys.path.append("./")
 
 CAPSIZE00 = (2592, 1944)
 CAPSIZE01 = (2048,1536)
