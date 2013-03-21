@@ -1,27 +1,21 @@
-import pdb
-from Observers import Semantics_Class1
-from Observers import DebugObserver
-from Observers import RubineObserver
-from Bin import (BinObserver, EqualsObserver, PlusObserver,
-                 MinusObserver, DivideObserver, MultObserver,
-                 ExpressionObserver, EquationObserver, DirectedLine)
-from Observers import NumberObserver
-from Observers import CircleObserver
 from Observers import ArrowObserver
+from Observers import CircleObserver
 from Observers import DiGraphObserver
-from Observers import TuringMachineObserver
 from Observers import LineObserver
 from Observers import TextObserver
+from Observers import TuringMachineObserver
+from Observers.EquationObserver import EquationCollector
+from Observers.EquationObserver import EquationMarker
+from Observers.EquationObserver import EquationVisualizer
 
-from Observers import RaceTrackObserver
-from Observers import TemplateObserver
-from Observers import TestAnimObserver
- 
 def initializeBoard(board):
     """Board initialization code, conveniently placed at the beginning of the
     file for easy modification"""
 
     if board is not None:
+        EquationCollector(board)
+        EquationVisualizer(board)        
+
         CircleObserver.CircleMarker(board)
         #CircleObserver.CircleVisualizer(board)
         ArrowObserver.ArrowMarker(board)
