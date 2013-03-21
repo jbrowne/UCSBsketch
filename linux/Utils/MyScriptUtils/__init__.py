@@ -1,8 +1,23 @@
 #!/usr/bin/env python
+from SketchFramework.Stroke import Stroke
+from SketchFramework.Point import Point 
 from Utils.MyScriptUtils.Equations import recognizeEquation
 from Utils.MyScriptUtils.Handwriting import recognizeHandwriting
+
+    
+def flipStrokes(strokes):
+    """Invert the stroke vertically (for topleft origin approximation)"""
+    flipped = []
+    top = max([stk.BoundTopLeft.Y for stk in strokes])
+    for stroke in strokes:
+        points = []
+        for pt in stroke.Points:
+            ptCpy = Point(pt.X, top - pt.Y)
+            points.append(ptCpy)
+        flipped.append(Stroke(points))
+    return flipped
+
 if __name__ == '__main__':
-    from SketchFramework.Stroke import Stroke
     from Utils import Logger
     from Utils.MyScriptUtils.Equations import MyScriptEqnRequest
     from Utils.MyScriptUtils.Handwriting import MyScriptHwrParameter
@@ -54,15 +69,7 @@ if __name__ == '__main__':
         win.add(gui)
         win.show_all()
         gtk.main()
-    
-    def flipStrokes(strokes):
-        flipped = []
-        for stroke in strokes:
-            points = list(stroke.Points)
-            for pt in points:
-                pt.Y = 2000 - pt.Y
-            flipped.append(Stroke(points))
-        return flipped
+
 
     #CALL MAIN
     main(sys.argv)

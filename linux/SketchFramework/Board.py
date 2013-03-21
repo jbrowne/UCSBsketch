@@ -1,14 +1,15 @@
+from SketchFramework.SketchGUI import DummyGUI
+from SketchFramework.Stroke import Stroke
+from Utils import GeomUtils
+from Utils import Logger
+from xml.etree import ElementTree as ET
 import datetime 
 import pdb 
-import threading
 import sys 
+import threading
+from Utils.GeomUtils import pointDistance
 
-from SketchFramework.Stroke import Stroke
-from SketchFramework.SketchGUI import DummyGUI
 
-from Utils import Logger
-from Utils import GeomUtils
-from xml.etree import ElementTree as ET
 
 logger = Logger.getLogger('Board', Logger.WARN )
 
@@ -206,7 +207,7 @@ class Board(object):
 
     def IsRegisteredForStroke( self, observer ):
         "Input: BoardObserver observer.  return true if observer is already listening for strokes"
-        if annoObserver in self.StrokeObservers:
+        if observer in self.StrokeObservers:
             return True
         else: return False
 
@@ -299,7 +300,8 @@ class Board(object):
                 logger.error( "RemoveAnnotation: Trying to remove nonexistant annotation %s", anno  )
             
     def AddBoardObserver ( self, obs, targetAnnoList ):
-        "Input: Observer obs.  Obs is added to the list of Board Observers"
+        """Input: Observer obs. and targetAnnoList is the list of annotations that
+        this observer might add.  Obs is added to the list of Board Observers"""
         # FIXME? should we check that the object is one in the list once?
         if obs not in self.BoardObservers:
             logger.debug( "Adding Observer: %s", str(obs.__class__.__name__) )
@@ -350,8 +352,7 @@ class Board(object):
 	# find all the strokes that have a center point within radius of given location
         stroke_list = []
         for s in self.Strokes:
-            isStroke = isinstance(s, Stroke)  # FIXME: this looks a little weird? 
-            if isStroke and (radius==None or PointDistance(s.X,s.Y,x,y) < radius): 
+            if isinstance(s, Stroke) and (radius==None or pointDistance(s.X,s.Y,x,y) < radius): 
                 stroke_list.append(s)
         return stroke_list
                 

@@ -9,7 +9,7 @@ from SketchFramework.Point import Point
 from SketchFramework.SketchGUI import _SketchGUI
 from SketchFramework.Stroke import Stroke
 from Utils import Logger
-from Utils.GeomUtils import *
+from Utils.GeomUtils import getStrokesIntersection
 from Utils.StrokeStorage import StrokeStorage
 from functools import partial
 from multiprocessing import Queue as ProcQueue, Process
@@ -24,6 +24,7 @@ import pangocairo
 import pdb
 import pygtk
 import threading
+import time
 
 
 
@@ -66,7 +67,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
         #Semantic board data
         self.board = None # set by resetBoard()
-        self.boardProcThread = None # set by resetBoard()
+        self.boardProcThread = BoardThread(self.board) # set by resetBoard()
 
         #GUI data variables
         self.currentPoints = None # set by resetBoard()
@@ -213,22 +214,26 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
             self.opQueue.put(lambda : self.resetBackBuffer())
 
     def resetBoard(self):
+        log.debug("Resetting Board")
         self.opQueue = Queue.Queue()
         self.board = Board(gui = self)
         self.strokeList = []
         self.currentPoints = []
         Config.initializeBoard(self.board)
+        self.boardProcThread.stop()
         self.boardProcThread = BoardThread(self.board)
         self.boardProcThread.start()
         self.opQueue.put(lambda : time.sleep(0.1)) # So we don't reset too early
         self.opQueue.put(lambda : self.resetBackBuffer())
+        self.opQueue.put(lambda : self.boardChanged())
 
     def boardChanged(self):
-        self.draw()
-        #self.opQueue.put(partial(GTKGui.draw, self))
-
+        if self.strokeQueue.empty(): #No strokes waiting to be processed
+            if self.board.Lock.acquire(False): #Nobody's using the board
+                self.board.Lock.release()
+                self.draw()
+               
     def loadStrokesFromImage(self, filename=None, image=None):
-        pruneLen = 1
         width, height = self.window.get_size()
         if image is None:
             if filename is None:
@@ -244,8 +249,6 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
     def loadStrokes(self):
         for stroke in self.strokeLoader.loadStrokes():
             self.addStroke(stroke)
-           # op = partial(GTKGui.addStroke, self, stroke)
-           # self.opQueue.put(op)
 
     def saveStrokes(self):
         self.strokeLoader.saveStrokes(self.strokeList)
@@ -281,6 +284,12 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
 
     def drawBox(self, *args, **kargs):
         op = partial(GTKGui._drawBox, self, *args, **kargs)
+        self.opQueue.put(op)
+        
+    def drawBitmap(self, x, y, filename):
+        pixbuf = gtk.gdk.pixbuf_new_from_file(filename)        
+        op = partial(GTKGui._drawBitmap, self, x, y, pixbuf)
+#        op()
         self.opQueue.put(op)
 
     #________________________________________
@@ -378,10 +387,16 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                 #Draw a dot or something
                 pass
         self.context.restore()
+    
+    def _drawBitmap(self, x, y, pixbuf):
+        """Draw a bitmap on the board"""
+        self.context.save()
+        pt = self.b2c(Point(x,y))
+        ctxt2 = gtk.gdk.CairoContext(self.context)
+        ctxt2.set_source_pixbuf(pixbuf, pt.X, pt.Y)
+        ctxt2.paint()
+        self.context.restore()        
         
-    #def drawCurve(self, curve, width = 2, color = "#FFFFFF"):
-    #    "Draw a curve on the board with width and color as specified"
-
     def _getContext(self):
         return self.window.cairo_create()
 
@@ -562,6 +577,7 @@ class BoardThread(threading.Thread):
     def setQueue(self, queue):
         with self.qlock:
             self.opQueue = queue
+
     def getQueue(self):
         return self.opQueue
 
@@ -575,16 +591,15 @@ class BoardThread(threading.Thread):
 
     def run(self):
         while self.running:
-            if not self.opQueue.empty():
-                op, callback = self.opQueue.get()
-                with self.board.Lock:
+            with self.board.Lock:
+                while not self.opQueue.empty():
+                    op, callback = self.opQueue.get()
                     op()
-                self.opQueue.task_done()
-                callback()
-            else:
-                time.sleep(0.3)
+                    self.opQueue.task_done()
+                    callback()
+            time.sleep(0.3)
         log.debug("Board thread quitting")
-        
+     
 
 
 def hexToTuple(hexString):
