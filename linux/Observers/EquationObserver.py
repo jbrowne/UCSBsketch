@@ -1,4 +1,6 @@
 from Observers import ObserverBase
+from Queue import Empty
+from Queue import Queue
 from SketchFramework.Annotation import Annotation
 from SketchFramework.Board import BoardObserver
 from SketchFramework.Point import Point
@@ -8,12 +10,14 @@ from Utils.GeomUtils import strokelistBoundingBox
 from Utils.MyScriptUtils import flipStrokes
 from Utils.MyScriptUtils.Equations import recognizeEquation
 from threading import Lock
+import gtk
 import os
 import pdb
 import shutil
 import subprocess
 import tempfile
 import threading
+import time
 
 
 logger = Logger.getLogger('EquationObserver', Logger.DEBUG)
@@ -30,10 +34,8 @@ class EquationAnnotation(Annotation):
         return EquationAnnotation(latex)
     
     def __init__(self, latex):
-        #Reminder, CircleAnno has fields:
-        #   center
         Annotation.__init__(self)
-        logger.debug("Annotating as %s" % (latex))
+#        logger.debug("Annotating as %s" % (latex))
         self.latex = latex
         
     def setEqual(self, rhsanno):
@@ -43,30 +45,59 @@ class EquationAnnotation(Annotation):
         return u'Eqn: "{}"'.format(self.latex)
 
 #-------------------------------------
+class DeferredEquationRecognizer(threading.Thread):
+    """A thread that pools equation recognition requests.
+    Interface is through DER.annoQueue, which accepts
+    EquationAnnotation objects (already added to the board)."""
+    def __init__(self, annoQueue, board):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.annoQueue = annoQueue
+        self.board = board
+        
+    def run(self):
+        """Wait indefinitely for the first anno added to the queue.
+        Then wait at least _delay_, then process the rest of the 
+        queued annotations."""
+        delay = 0.5 #seconds
+        while True:
+            updateSet = set([])
+            annotation = self.annoQueue.get(True)
+            self.annoQueue.task_done()
+            updateSet.add(annotation)
+            time.sleep(delay)
+            try:
+                while True:
+                    annotation = self.annoQueue.get_nowait()
+                    self.annoQueue.task_done()
+                    updateSet.add(annotation)
+            except Empty:
+                pass
+            for annotation in updateSet:
+                if len(annotation.Strokes) > 0:
+                    mscResponse = recognizeEquation(flipStrokes(annotation.Strokes))            
+                    eqnAnno = EquationAnnotation.fromMyScriptResponse(mscResponse)
+                    annotation.setEqual(eqnAnno)
+                    with self.board.Lock:
+                        self.board.UpdateAnnotation(annotation, annotation.Strokes)
+        
 
 class EquationMarker( BoardObserver ):
-    def __init__(self, board):
+    """Used to tag a individual strokes as equations"""
+    def __init__(self, board, deferredAnnoQueue):
         BoardObserver.__init__(self, board)
         self.getBoard().AddBoardObserver(self, [EquationAnnotation])
         self.getBoard().RegisterForStroke( self )
+        self.deferredAnnoQueue = deferredAnnoQueue
 
     def onStrokeAdded( self, stroke ):
         if stroke.length()<6:
             return
-        
-        def getAndAddEquation():
-            """Helper function to query MyScript and tag the annotation"""
-            mscResponse = recognizeEquation(flipStrokes([stroke]))
-            eqnAnno = EquationAnnotation.fromMyScriptResponse(mscResponse)
-            if eqnAnno is not None:
-                with self.getBoard().Lock:
-                    self.getBoard().AnnotateStrokes([stroke], eqnAnno)
-                    self.getGUI().boardChanged()
-        t = threading.Thread(target=getAndAddEquation)
-        t.daemon = True
-        t.start()
-#        getAndAddEquation()
-        
+        #Annotate a null equation annotation for deferred recognition
+        eqnAnno = EquationAnnotation("")
+        with self.getBoard().Lock:
+            self.getBoard().AnnotateStrokes([stroke], eqnAnno)
+        self.deferredAnnoQueue.put(eqnAnno) #Mark it for deferred recognition
 
 
     def onStrokeRemoved(self, stroke):
@@ -75,23 +106,10 @@ class EquationMarker( BoardObserver ):
             logger.debug("Removing stroke from %s" % (anno.latex))
             annoStrokes = list(anno.Strokes)
             annoStrokes.remove(stroke)
-            def updateAnno():
-                if len(annoStrokes) == 0:
-                    with self.getBoard().Lock:
-                        self.getBoard().RemoveAnnotation(anno)
-                else:
-                    mscResponse = recognizeEquation(flipStrokes(annoStrokes))
-                    eqnAnno = EquationAnnotation.fromMyScriptResponse(mscResponse)
-                    if eqnAnno is not None:
-                        logger.debug("Updating Equation" % (eqnAnno))
-                        with self.getBoard().Lock:
-                            anno.setEqual(eqnAnno)
-                            self.getBoard().UpdateAnnotation(anno, annoStrokes)
-                self.getGUI().boardChanged()
+            self.getBoard().UpdateAnnotation(anno, annoStrokes)
+            self.deferredAnnoQueue.put(anno)
+            
 
-            t = threading.Thread(target=updateAnno)
-            t.daemon = True
-            t.start()
 #-------------------------------------
 
 class EquationCollector ( ObserverBase.Collector ):
@@ -101,12 +119,22 @@ class EquationCollector ( ObserverBase.Collector ):
             [], EquationAnnotation )
         #Initialize the equation marker
         observers = board.GetBoardObservers()
+                
+        self.annoQueue = Queue()
+        self.deferredRecognizer = DeferredEquationRecognizer(self.annoQueue, board)
+        self.deferredRecognizer.start()
+        
         if EquationMarker not in [type(obs) for obs in observers]:
             logger.debug("Registering Equation Marker")
-            EquationMarker(self.getBoard())
+            EquationMarker(self.getBoard(), self.annoQueue)
         
+    
+    def onAnnotationUpdated(self, annotation):
+        if isinstance(annotation, EquationAnnotation):
+            self.getGUI().boardChanged()
+            
     def mergeCollections( self, from_anno, to_anno ):
-        "merge from_anno into to_anno if they point to each other"
+        "merge from_anno into to_anno if they are naer enough to each other"
         vertOverlapRatio = 0
         horizOverlapRatio = 0
         minScale = 20
@@ -115,18 +143,20 @@ class EquationCollector ( ObserverBase.Collector ):
         #   |          |
         #   | (0,0)    |
         #   +--------bb[1]
+        heights = [s.BoundTopLeft.Y - s.BoundBottomRight.Y for s in from_anno.Strokes]
         bb_from = GeomUtils.strokelistBoundingBox( from_anno.Strokes )
-        center_from = Point( (bb_from[0].X + bb_from[1].X) / 2.0, (bb_from[0].Y + bb_from[1].Y) / 2.0)
-        from_scale = max(minScale, bb_from[0].Y - bb_from[1].Y)
-        tl = Point (bb_from[0].X - from_scale, center_from.Y + from_scale / 1.3  )
-        br = Point (bb_from[1].X + from_scale, center_from.Y - from_scale / 1.3  )
+#        center_from = Point( (bb_from[0].X + bb_from[1].X) / 2.0, (bb_from[0].Y + bb_from[1].Y) / 2.0)
+        from_scale = max(minScale, heights[len(heights)/2])
+        tl = Point (bb_from[0].X - from_scale, bb_from[0].Y + from_scale / 1.3  )
+        br = Point (bb_from[1].X + from_scale, bb_from[1].Y - from_scale / 1.3  )
         bb_from = (tl, br)
 
         bb_to = GeomUtils.strokelistBoundingBox( to_anno.Strokes )
-        center_to = Point( (bb_to[0].X + bb_to[1].X) / 2.0, (bb_to[0].Y + bb_to[1].Y) / 2.0)
-        to_scale = max(minScale, bb_to[0].Y - bb_to[1].Y) 
-        tl = Point (bb_to[0].X - to_scale, center_to.Y + to_scale / 1.3  )
-        br = Point (bb_to[1].X + to_scale, center_to.Y - to_scale / 1.3  )
+        heights = [s.BoundTopLeft.Y - s.BoundBottomRight.Y for s in to_anno.Strokes]        
+#        center_to = Point( (bb_to[0].X + bb_to[1].X) / 2.0, (bb_to[0].Y + bb_to[1].Y) / 2.0)
+        to_scale = max(minScale, heights[len(heights)/2]) 
+        tl = Point (bb_to[0].X - to_scale, bb_to[0].Y + to_scale / 1.3  )
+        br = Point (bb_to[1].X + to_scale, bb_to[1].Y - to_scale / 1.3  )
         bb_to = (tl, br)
         # check x's overlap
         if   bb_from[1].X - bb_to[0].X < horizOverlapRatio \
@@ -139,19 +169,26 @@ class EquationCollector ( ObserverBase.Collector ):
           or bb_to[0].Y - bb_from[1].Y < vertOverlapRatio :
             logger.debug("Not merging %s and %s: vertical overlap too small" % (from_anno, to_anno))
             return False
-        
-        allStrokes = list(set(from_anno.Strokes + to_anno.Strokes))
-        flippedStks = flipStrokes(allStrokes)
-        mscResponse = recognizeEquation(flippedStks)
-        eqAnno = EquationAnnotation.fromMyScriptResponse(mscResponse)
-        to_anno.setEqual(eqAnno)
+
+        self.annoQueue.put(to_anno)
         return True
 
-def pngFromLatex(latex, pngFileName):
+def pixbufFromLatex(latex):
+    """Generate a png image from LaTex markup. The image
+    is returned as a gtk.gdk.pixbuf, as well as stored in
+    pngFileName"""
+    logger.debug("Generating Latex {}".format(latex))
+    tempDir = tempfile.mkdtemp(prefix="Sketch_")
+    pngFileName = os.path.join(tempDir, "equationOutput.png")
     tex2imPath = os.path.abspath("./Utils/tex2im.sh")
     args = ['-f', 'png', '-b', 'black', '-t', 'red', '-o', pngFileName]
     cmd = [tex2imPath] + args + [latex]
     subprocess.call(cmd)
+    pixbuf = gtk.gdk.pixbuf_new_from_file(pngFileName) #pixbuf
+    shutil.rmtree(tempDir)
+    return pixbuf
+
+
     
 ##-------------------------------------
 
@@ -161,27 +198,29 @@ class EquationVisualizer( ObserverBase.Visualizer ):
     def __init__(self, board):
         ObserverBase.Visualizer.__init__( self, board, EquationAnnotation)
         self.lock = Lock()
+        self._cachedPixbuf = {} # 'latexString' : pixbuf
         
     def drawAnno( self, a ):
         bbox = GeomUtils.strokelistBoundingBox(a.Strokes)
         gui = self.getBoard().getGUI()
-        visLogger.debug("Drawing Anno: {}".format(a.latex))
-        if hasattr(gui, 'drawBitmap'):
-            with self.lock:
-                tempDir = tempfile.mkdtemp(prefix="Sketch_")
-            pngFileName = os.path.join(tempDir, "equationOutput.png")
-            pngFromLatex(a.latex, pngFileName)
-            gui.drawBitmap(bbox[1].X, bbox[1].Y, pngFileName)
-            shutil.rmtree(tempDir)
-        else:
-            gui.drawText(bbox[1].X, bbox[1].Y, a.latex)
+        drawBox = False
+        if drawBox: #Draw the logical box
+            minScale = 20
+            heights = [s.BoundTopLeft.Y - s.BoundBottomRight.Y for s in a.Strokes]
+            bb_from = GeomUtils.strokelistBoundingBox( a.Strokes )
+            from_scale = max(minScale, heights[len(heights)/2])
+            tl = Point (bb_from[0].X - from_scale, bb_from[0].Y + from_scale / 1.3  )
+            br = Point (bb_from[1].X + from_scale, bb_from[1].Y - from_scale / 1.3  )
+            bb_from = (tl, br)
+            gui.drawBox(tl, br, color="#FFFFFF")
             
+        visLogger.debug("Drawing Anno: {}".format(a.latex))
+        if a.latex and len(a.latex) > 0:
+            if hasattr(gui, 'drawBitmap'):
+                if a.latex not in self._cachedPixbuf:
+                    self._cachedPixbuf[a.latex] = pixbufFromLatex(a.latex)
+                pixbuf = self._cachedPixbuf[a.latex]
+                gui.drawBitmap(bbox[1].X, bbox[1].Y, pixbuf=pixbuf)
+            else:
+                gui.drawText(bbox[1].X, bbox[1].Y, a.latex)
 
-#        minScale = 20
-#        bb_from = GeomUtils.strokelistBoundingBox( a.Strokes )
-#        center_from = Point( (bb_from[0].X + bb_from[1].X) / 2.0, (bb_from[0].Y + bb_from[1].Y) / 2.0)
-#        from_scale = max(minScale, bb_from[0].Y - bb_from[1].Y)
-#        tl = Point (bb_from[0].X - from_scale, center_from.Y + (from_scale / 1.3) )
-#        br = Point (bb_from[1].X + from_scale, center_from.Y - (from_scale / 1.3) )
-#        bb_from = (tl, br)
-#        gui.drawBox(tl, br, color="#FFFFFF")

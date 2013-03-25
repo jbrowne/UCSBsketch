@@ -238,7 +238,7 @@ class Board(object):
         for observer in obsSet:
             observer.onAnnotationSuggested(anno_type, strokelist)
 
-    def UpdateAnnotation(self, anno, new_strokes=None, notify=True, remove_empty = True ):
+    def UpdateAnnotation(self, anno, new_strokes, notify=True, remove_empty = True ):
 	"""Input: Annotation, Strokes.  Changes the annotation and alerts the correct listeners. 
        If the new strokes are empty, remove_empty determines whether to remove the annotation."""
         # if strokes are different from the old strokes then we update them too
@@ -287,11 +287,12 @@ class Board(object):
                 obs.onAnnotationRemoved(anno)
         # remove the annotation from the strokes. 
         # do this second, since observers may need to check the old strokes' properties
-        for stroke in anno.Strokes:
+        for stroke in list(anno.Strokes):
             # logger.debug("RemoveAnnotation: stroke.Annotations = %s, ident=%d", stroke.Annotations, stroke.ident )
             # logger.debug("RemoveAnnotation: anno.__class__ = %s", anno.__class__ )
             try:
                 stroke.Annotations[anno.__class__].remove(anno)
+                anno.Strokes.remove(stroke)
                 #if len(stroke.Annotations[anno.__class__]) == 0:
                 #    del(stroke.Annotations[anno.__class__]) #Delete the entry if it's empty
             except KeyError:

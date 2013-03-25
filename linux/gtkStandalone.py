@@ -297,11 +297,15 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         op = partial(GTKGui._drawBox, self, *args, **kargs)
         self.opQueue.put(op)
         
-    def drawBitmap(self, x, y, filename):
+    def drawBitmap(self, x, y, filename=None, pixbuf=None):
         try:
-            pixbuf = gtk.gdk.pixbuf_new_from_file(filename)        
-            op = partial(GTKGui._drawBitmap, self, x, y, pixbuf)
-            self.opQueue.put(op)
+            if pixbuf is None and filename is not None:
+                pixbuf = gtk.gdk.pixbuf_new_from_file(filename)
+            elif pixbuf is None:
+                raise Exception("Must specify filename or pixbuf")
+            else:
+                op = partial(GTKGui._drawBitmap, self, x, y, pixbuf)
+                self.opQueue.put(op)
         except Exception as e:
             log.warn(str(e))
 
@@ -531,6 +535,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                     stk.drawMyself()
             for obs in self.board.BoardObservers:
                 obs.drawMyself()
+        self.drawStroke(Stroke(self.currentPoints))
         self.doPaint()
 
     def doPaint(self):

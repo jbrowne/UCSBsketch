@@ -17,7 +17,7 @@ if __name__ == "__main__":
     sys.path.append("./")
     print sys.path
 
-#from Utils.ForegroundFilter import ForegroundFilter
+
 pygtk.require('2.0')
 
 log = Logger.getLogger("CamArea", Logger.DEBUG)
@@ -31,6 +31,10 @@ DEFAULT_CORNERS = [
                     (2235.6, 1506.6000000000001),
                     (625.32, 1441.8000000000002),
                   ]
+if __name__ == "__main__":
+    DEBUG = True
+else:
+    DEBUG = False
 class CamArea (ImageArea):
     RAWIMAGECORNERS = None
     CHESSBOARDCORNERS = None
@@ -76,7 +80,8 @@ class CamArea (ImageArea):
                        | gtk.gdk.VISIBILITY_NOTIFY_MASK
                        | gtk.gdk.POINTER_MOTION_MASK 
                        )
-        self.debugVideoWriter = None 
+        if DEBUG:
+            self.debugVideoWriter = None 
         self.callBacks = {}
         
     def idleUpdateImage(self):
@@ -93,12 +98,13 @@ class CamArea (ImageArea):
         #Do the displaying
         self.displayImage = resizeImage(cvImage, scale = self.imageScale)
         self.setCvMat(self.displayImage)
-        if self.debugVideoWriter is None:
-            self.debugVideoWriter = cv.CreateVideoWriter("Debug.avi", 
-                                                         cv.CV_FOURCC('D', 'I', 'V', 'X'), 
-                                  
-                      1, cv.GetSize(self.displayImage))
-        cv.WriteFrame(self.debugVideoWriter, cv.GetImage(self.displayImage))
+        if DEBUG:            
+            if self.debugVideoWriter is None:
+                self.debugVideoWriter = cv.CreateVideoWriter("Debug.avi", 
+                                                             cv.CV_FOURCC('D', 'I', 'V', 'X'), 
+                                      
+                          1, cv.GetSize(self.displayImage))
+            cv.WriteFrame(self.debugVideoWriter, cv.GetImage(self.displayImage))
 
         
         return self.shouldUpdate
