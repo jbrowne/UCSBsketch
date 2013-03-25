@@ -277,10 +277,10 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         op = partial(GTKGui._drawText, self, *args, **kargs)
         self.opQueue.put(op)
 
-    def drawLine(self, *args, **kargs):
+    def drawLine(self, x1, y1, x2, y2, width=2, color="#FFFFFF"):
         """Draw a line on the canvas from (x1,y1) to (x2,y2). Color should be 24
         bit RGB string #RRGGBB"""
-        op = partial(GTKGui._drawLine, self, *args, **kargs)
+        op = partial(GTKGui._drawLine, self, x1, y1, x2, y2, width, color)
         self.opQueue.put(op)
 
     def drawStroke(self, *args, **kargs):
@@ -324,7 +324,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.context.stroke()
         self.context.restore()
          
-    def _drawLine(self, x1, y1, x2, y2, width=2, color="#FFFFFF", _context=None):
+    def _drawLine(self, x1, y1, x2, y2, width, color, _context=None):
         """Draw a line on the canvas from (x1,y1) to (x2,y2). Color should be 24
         bit RGB string #RRGGBB"""
         if _context is None:
@@ -452,7 +452,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
             self.currentPoints.append(curPt)
             liveContext = self._getContext()
             self._drawLine(p.X, p.Y, curPt.X, curPt.Y, 
-                            color="#ffffff", _context= liveContext)
+                            2, "#ffffff", _context= liveContext)
             return True
         elif self.isMouseDown3:
             p = self.currentPoints[-1]
@@ -460,7 +460,7 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
             self.currentPoints.append(curPt)
             liveContext = self._getContext()
             self._drawLine(p.X, p.Y, curPt.X, curPt.Y, 
-                            color="#c00c0c", _context = liveContext)
+                            2, "#c00c0c", _context = liveContext)
             return True
     
     def onMouseUp(self, widget, e):
