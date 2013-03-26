@@ -6,13 +6,16 @@ from Utils.ImageUtils import captureImage
 from Utils.ImageUtils import initializeCapture
 from Utils.ImageUtils import resizeImage
 from Utils.ImageUtils import warpFrame
+from multiprocessing.queues import Queue
 from sketchvision import ImageStrokeConverter as ISC
 import cv
 import gobject
 import gtk
+import multiprocessing
 import pdb
 import pygtk
 import sys
+import threading
 if __name__ == "__main__":
     sys.path.append("./")
     print sys.path
@@ -128,28 +131,46 @@ class CamArea (ImageArea):
     
     def findCalibrationChessboard(self):
         patternSize = (7, 7)  #Internal corners of 8x8 chessboard
-        img = cv.CreateMat(self.prevImage.rows, self.prevImage.cols, cv.CV_8UC1)
-        cv.CvtColor(self.prevImage, img, cv.CV_RGB2GRAY)
-        ISC.saveimg(img)
-
+        grayImg = cv.CreateMat(self.prevImage.rows, self.prevImage.cols, cv.CV_8UC1)
+        cv.CvtColor(self.prevImage, grayImg, cv.CV_RGB2GRAY)
+        cv.AddWeighted(grayImg, -1, grayImg, 0, 255, grayImg)
+        ISC.saveimg(grayImg)
+        cornerListQueue = Queue()
         
-        _, corners = cv.FindChessboardCorners(img,
-                                        patternSize,
-                                        flags=cv.CV_CALIB_CB_ADAPTIVE_THRESH | 
-                                               cv.CV_CALIB_CB_NORMALIZE_IMAGE)
-        if len(corners) == 49:
+        def getCorners(idx, inImg, cornersQueue):
+            """Search for corners in image and put them in the queue"""
+            _, corners = cv.FindChessboardCorners(inImg,
+                                            patternSize,
+                                            flags=cv.CV_CALIB_CB_ADAPTIVE_THRESH | 
+                                                   cv.CV_CALIB_CB_NORMALIZE_IMAGE)
+            if len(corners) == 49:            
+                cornersQueue.put(corners)
+
+        for i in range(5):
+            img = cv.CloneMat(grayImg)
+            cv.Dilate(img, img, iterations=i)
+            cv.Erode(img, img, iterations=i)
+            ISC.saveimg(img)
+            
+            p = multiprocessing.Process(target=lambda: getCorners(i, img,cornerListQueue))
+            p.daemon = True
+            p.start()
+
+        try:
+            corners = cornerListQueue.get(True, timeout=4)
             self.targetWarpCorners = CamArea.CHESSBOARDCORNERS
             self.warpCorners = [corners[42], corners[0], corners[6], corners[48], ]
-#            self.isCalibrating = False
-
-        debugImg = cv.CreateMat(img.rows, img.cols, cv.CV_8UC3)
-        cv.CvtColor(img, debugImg, cv.CV_GRAY2RGB)
-        for pt in corners:
-            pt = (int(pt[0]), int(pt[1]))
-            cv.Circle(debugImg, pt, 4, (255,0,0))
-        ISC.saveimg(debugImg)     
-               
-        return corners
+    
+            debugImg = cv.CreateMat(grayImg.rows, grayImg.cols, cv.CV_8UC3)
+            cv.CvtColor(grayImg, debugImg, cv.CV_GRAY2RGB)
+            for pt in corners:
+                pt = (int(pt[0]), int(pt[1]))
+                cv.Circle(debugImg, pt, 4, (255,0,0))
+            ISC.saveimg(debugImg)                        
+            return corners
+        except:
+            print "Could not find corners"
+            return []
 
     def onMouseUp(self, widget, e):
         """Respond to the mouse being released"""
