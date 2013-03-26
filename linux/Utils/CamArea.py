@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+import sys
+if __name__ == "__main__":
+    sys.path.append("./")
+    print sys.path
 from ContinuousCapture import BoardChangeWatcher
 from Utils import Logger
 from Utils.ImageArea import ImageArea
@@ -6,6 +10,8 @@ from Utils.ImageUtils import captureImage
 from Utils.ImageUtils import initializeCapture
 from Utils.ImageUtils import resizeImage
 from Utils.ImageUtils import warpFrame
+from Utils.ImageUtils import findCalibrationChessboard
+
 from multiprocessing.queues import Queue
 from sketchvision import ImageStrokeConverter as ISC
 import cv
@@ -14,11 +20,7 @@ import gtk
 import multiprocessing
 import pdb
 import pygtk
-import sys
 import threading
-if __name__ == "__main__":
-    sys.path.append("./")
-    print sys.path
 
 
 pygtk.require('2.0')
@@ -41,7 +43,7 @@ else:
 class CamArea (ImageArea):
     RAWIMAGECORNERS = None
     CHESSBOARDCORNERS = None
-    def __init__(self, dims=MAXCAPSIZE, displayDims = (1366, 1024)):
+    def __init__(self, cam=0, dims=MAXCAPSIZE, displayDims = (1366, 1024)):
         # Create a new window
         CamArea.RAWIMAGECORNERS = [(0,0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1])]
         CamArea.CHESSBOARDCORNERS = [(5*dims[0]/16.0, 5*dims[1]/16.0), 
@@ -58,7 +60,7 @@ class CamArea (ImageArea):
         self.isCalibrating = True
 
         #Camera Data
-        self.currentCamera = 0
+        self.currentCamera = cam
         self.dimensions = dims
         self.warpCorners = []  #DEFAULT_CORNERS
         self.targetWarpCorners = CamArea.RAWIMAGECORNERS
@@ -130,47 +132,8 @@ class CamArea (ImageArea):
         return
     
     def findCalibrationChessboard(self):
-        patternSize = (7, 7)  #Internal corners of 8x8 chessboard
-        grayImg = cv.CreateMat(self.prevImage.rows, self.prevImage.cols, cv.CV_8UC1)
-        cv.CvtColor(self.prevImage, grayImg, cv.CV_RGB2GRAY)
-        cv.AddWeighted(grayImg, -1, grayImg, 0, 255, grayImg)
-        ISC.saveimg(grayImg)
-        cornerListQueue = Queue()
-        
-        def getCorners(idx, inImg, cornersQueue):
-            """Search for corners in image and put them in the queue"""
-            _, corners = cv.FindChessboardCorners(inImg,
-                                            patternSize,
-                                            flags=cv.CV_CALIB_CB_ADAPTIVE_THRESH | 
-                                                   cv.CV_CALIB_CB_NORMALIZE_IMAGE)
-            if len(corners) == 49:            
-                cornersQueue.put(corners)
-
-        for i in range(5):
-            img = cv.CloneMat(grayImg)
-            cv.Dilate(img, img, iterations=i)
-            cv.Erode(img, img, iterations=i)
-            ISC.saveimg(img)
-            
-            p = multiprocessing.Process(target=lambda: getCorners(i, img,cornerListQueue))
-            p.daemon = True
-            p.start()
-
-        try:
-            corners = cornerListQueue.get(True, timeout=4)
-            self.targetWarpCorners = CamArea.CHESSBOARDCORNERS
-            self.warpCorners = [corners[42], corners[0], corners[6], corners[48], ]
-    
-            debugImg = cv.CreateMat(grayImg.rows, grayImg.cols, cv.CV_8UC3)
-            cv.CvtColor(grayImg, debugImg, cv.CV_GRAY2RGB)
-            for pt in corners:
-                pt = (int(pt[0]), int(pt[1]))
-                cv.Circle(debugImg, pt, 4, (255,0,0))
-            ISC.saveimg(debugImg)                        
-            return corners
-        except:
-            print "Could not find corners"
-            return []
+        self.targetWarpCorners = CamArea.CHESSBOARDCORNERS
+        self.warpCorners = findCalibrationChessboard(self.prevImage)
 
     def onMouseUp(self, widget, e):
         """Respond to the mouse being released"""
@@ -248,10 +211,13 @@ class CamArea (ImageArea):
 
 
 
-def main():
+def main(args):
+    camNum = 0
+    if len(args)>1:
+        camNum = int(args[1])
     camWindow = gtk.Window()
 
-    cam = CamArea()
+    cam = CamArea(cam=camNum)
     camWindow.add(cam)
 
     def toggleCalibrating(camArea):
@@ -264,4 +230,4 @@ def main():
 
     gtk.main()
 if __name__ == "__main__":
-    main()
+    main(sys.argv)

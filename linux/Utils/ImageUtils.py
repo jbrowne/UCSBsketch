@@ -1,4 +1,6 @@
 from sketchvision.ImageStrokeConverter import saveimg
+from multiprocessing.queues import Queue
+import multiprocessing
 import commands
 import cv
 import numpy
@@ -165,31 +167,51 @@ def showResized(name, image, scale):
     
     
 def findCalibrationChessboard(image):
-    """Search the image for a calibration chessboard pattern,
-    and return four internal corners (tl, tr, br, bl) of the pattern""" 
     patternSize = (7, 7)  #Internal corners of 8x8 chessboard
-    grayImage = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    cv.CvtColor(image, grayImage, cv.CV_RGB2GRAY)
-    cv.AddWeighted(grayImage, -1, grayImage, 0, 255, grayImage) #Invert for checkerboard
+    grayImg = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
+    cv.CvtColor(image, grayImg, cv.CV_RGB2GRAY)
+    cv.AddWeighted(grayImg, -1, grayImg, 0, 255, grayImg)
+    saveimg(grayImg)
+    cornerListQueue = Queue()
+    
+    def getCorners(idx, inImg, cornersQueue):
+        """Search for corners in image and put them in the queue"""
+        print "{} Searching".format(idx)
+        _, corners = cv.FindChessboardCorners(inImg,
+                                        patternSize,
+                                        flags=cv.CV_CALIB_CB_ADAPTIVE_THRESH | 
+                                               cv.CV_CALIB_CB_NORMALIZE_IMAGE)
+        print "{} found {} corners".format(idx, len(corners))
+        if len(corners) == 49:            
+            cornersQueue.put(corners)
 
-    _, corners = cv.FindChessboardCorners(grayImage,
-                                    patternSize,
-                                    flags=cv.CV_CALIB_CB_ADAPTIVE_THRESH | 
-                                           cv.CV_CALIB_CB_NORMALIZE_IMAGE)
-    if len(corners) == 49:
+    for i in range(10):
+        img = cv.CloneMat(grayImg)
+        cv.Erode(img, img, iterations=i)
+        cv.Dilate(img, img, iterations=i)
+        saveimg(img, name=str(i))
+        
+        p = multiprocessing.Process(target=lambda: getCorners(i, img,cornerListQueue))
+        p.daemon = True
+        p.start()
+    try:
+        corners = cornerListQueue.get(True, timeout=5)
+        #Debug Image
+        debugImg = cv.CreateMat(grayImg.rows, grayImg.cols, cv.CV_8UC3)
+        cv.CvtColor(grayImg, debugImg, cv.CV_GRAY2RGB)
+        for pt in corners:
+            pt = (int(pt[0]), int(pt[1]))
+            cv.Circle(debugImg, pt, 4, (255,0,0))
+        saveimg(debugImg)                        
+        #//Debug Image
         #Figure out the correct corner mapping
         points = sorted([corners[42], corners[0], corners[6], corners[48]], key = lambda pt: pt[0] + pt[1])
         if points[1][0] < points[2][0]:
             points[1], points[2] = points[2], points[1] #swap tr/bl as needed
         (tl, tr, bl, br) = points
         warpCorners = [tl, tr, br, bl]
-    else:
+    except Exception as e:
+        print "Could not find corners: {}".format(e)
         warpCorners = []
-    saveimg(grayImage)
-    debugImg = cv.CreateMat(image.rows, image.cols, image.type)
-    cv.CvtColor(grayImage, debugImg, cv.CV_GRAY2RGB)
-    for pt in warpCorners:
-        pt = (int(pt[0]), int(pt[1]))
-        cv.Circle(debugImg, pt, 4, (255,0,0))
-    saveimg(debugImg)     
+
     return warpCorners
