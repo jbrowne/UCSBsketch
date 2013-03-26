@@ -1,3 +1,4 @@
+from Utils.ImageUtils import changeExposure
 if __name__ == "__main__":
     import sys
     sys.path.append("./")
@@ -117,7 +118,7 @@ class BoardChangeWatcher(object):
         is darker than the last capture, and lighterDiff is the contents
         that is lighter. 
         Should check isCaptureReady field before using the results"""
-        differenceThresh = 25
+        differenceThresh = 10
         darkerDiff = cv.CreateMat(self._lastCaptureImage.rows, self._lastCaptureImage.cols, cv.CV_8UC1)
         lighterDiff = cv.CloneMat(darkerDiff)
 
@@ -151,20 +152,31 @@ def main(args):
     else:
         camNum = 0
     capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE01)    
+
+    dispScale = 0.5    
+    warpCorners = []
+    targetCorners = [ (0,0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1]) ] 
     
-    warpCorners = [(766.7376708984375, 656.48828125), (1059.5025634765625, 604.4216918945312), (1048.0185546875, 837.3212280273438), (733.5200805664062, 880.5441284179688)]
-    targetCorners = [(5*dims[0]/16.0, 5*dims[1]/16.0),
-                         (11*dims[0]/16.0, 5*dims[1]/16.0),
-                         (11*dims[0]/16.0, 11*dims[1]/16.0),
-                         (5*dims[0]/16.0, 11*dims[1]/16.0),] 
-    
+    def onMouseClick(event, x,y, flags, param):
+        if event == cv.CV_EVENT_LBUTTONUP:
+            if len(warpCorners) == 4:
+                warpCorners.pop()
+                warpCorners.pop()
+                warpCorners.pop()
+                warpCorners.pop()
+            else:
+                print "Adding warp corner {}".format( (x,y,) )
+                warpCorners.append((x/dispScale,y/dispScale,))
+    cv.NamedWindow("Output")
+    cv.SetMouseCallback("Output", onMouseClick)
     bcWatcher = BoardChangeWatcher()
     dispImage = captureImage(capture)
     #dispImage = warpFrame(dispImage, warpCorners, targetCorners)
 
     while True:
         image = captureImage(capture)
-        #image = warpFrame(image, warpCorners, targetCorners)
+        if len(warpCorners) == 4: 
+            image = warpFrame(image, warpCorners, targetCorners)
         bcWatcher.updateBoardImage(image)
         showResized("FGFilter", bcWatcher._fgFilter.getBackgroundImage(), 0.4)
 
@@ -174,7 +186,7 @@ def main(args):
             showResized("Lighter", lighter, 0.3)
             dispImage = bcWatcher.acceptCurrentImage()
         
-        showResized("Output", dispImage, 0.5)
+        showResized("Output", dispImage, dispScale)
         key = cv.WaitKey(50)
         if key != -1:
             key = chr(key%256)
@@ -183,6 +195,11 @@ def main(args):
             if key == 'r':
                 bcWatcher.setBoardImage(image)
                 dispImage = image
+            if key in ('+', '='):
+                changeExposure(camNum, 100)
+            elif key in ('-', '_'):
+                changeExposure(camNum, -100)
+
     cv.DestroyAllWindows()
                 
         

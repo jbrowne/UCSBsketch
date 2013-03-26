@@ -32,6 +32,7 @@ import sys
 import threading
 import time
 from gtkStandalone import GTKGui
+from Utils.ImageUtils import changeExposure
 #4:3 Capture sizes
 CAPSIZE00 = (2592, 1944)
 CAPSIZE01 = (2048,1536)
@@ -66,7 +67,6 @@ class BoardWatchProcess(multiprocessing.Process):
     def run(self):
         """Initialize the basic board model first, then continually
         update the image and add new ink to the board"""
-        #Initialize stuff
         print "Board Watcher Started: pid %s" % (self.pid,)
         try:
             import pydevd
@@ -174,6 +174,7 @@ class CalibrationArea(ImageArea):
         self.captureProc.start()
         
         #GUI configuration stuff
+        self.registeredCallbacks ={}
         self.keepGoing = True        
         self.dScale = 0.4
         self.warpCorners = []
@@ -187,6 +188,10 @@ class CalibrationArea(ImageArea):
                        | gtk.gdk.VISIBILITY_NOTIFY_MASK
                        | gtk.gdk.POINTER_MOTION_MASK 
                        )
+    
+    def registerKeyCallback(self, key, callback):
+        """Register a callback that takes key as an argument for a key"""
+        self.registeredCallbacks.setdefault(key, []).append(callback)
         
     def onKeyPress(self, widget, event, data=None):
         """Respond to a key being pressed"""
@@ -216,6 +221,8 @@ class CalibrationArea(ImageArea):
                     self.get_toplevel().destroy()
                 else:
                     print "No chessboard found!"
+        for callback in self.registeredCallbacks.get(key, []):
+            callback(key)
 
 
     def onMouseUp(self, widget, e):
@@ -355,10 +362,13 @@ def main(args):
     sketchSurface.registerKeyCallback('C', lambda: displayCalibrationPattern(sketchSurface))
     
     calibArea = CalibrationArea(capture, dims, sketchSurface)
+    calibArea.registerKeyCallback('+', lambda x: changeExposure(camNum, 100))
+    calibArea.registerKeyCallback('-', lambda x: changeExposure(camNum, -100))
     calibWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
     calibWindow.add(calibArea)
     calibWindow.connect("destroy", lambda x: calibWindow.destroy())
     calibWindow.show_all()
+    
 
     sketchSurface.grab_focus()
     gtk.main()
