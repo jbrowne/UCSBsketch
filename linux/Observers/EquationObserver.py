@@ -135,28 +135,35 @@ class EquationCollector ( ObserverBase.Collector ):
             
     def mergeCollections( self, from_anno, to_anno ):
         "merge from_anno into to_anno if they are naer enough to each other"
+        minScale = 20
         vertOverlapRatio = 0
         horizOverlapRatio = 0
-        minScale = 20
+        groupingDistScale = 0.3 #multiplier for the median scale of how far to check around
+                                # The strokes
+        def annoScale(anno):
+            """Helper function to get the scale of this annotation"""
+            heights = [s.BoundTopLeft.Y - s.BoundBottomRight.Y for s in anno.Strokes]
+#            scale = max(minScale, heights[len(heights)/2]) # median
+            scale = sum(heights)/float(max(1,len(heights)))
+            return max(scale, minScale)
+
         #  bb[0]-------+
         #   |          |
         #   |          |
-        #   | (0,0)    |
+        #   |          |
         #   +--------bb[1]
-        heights = [s.BoundTopLeft.Y - s.BoundBottomRight.Y for s in from_anno.Strokes]
+        # (0,0)
+        
+        from_scale = annoScale(from_anno)
         bb_from = GeomUtils.strokelistBoundingBox( from_anno.Strokes )
-#        center_from = Point( (bb_from[0].X + bb_from[1].X) / 2.0, (bb_from[0].Y + bb_from[1].Y) / 2.0)
-        from_scale = max(minScale, heights[len(heights)/2])
-        tl = Point (bb_from[0].X - from_scale, bb_from[0].Y + from_scale / 1.3  )
-        br = Point (bb_from[1].X + from_scale, bb_from[1].Y - from_scale / 1.3  )
+        tl = Point (bb_from[0].X - from_scale, bb_from[0].Y + from_scale / groupingDistScale  )
+        br = Point (bb_from[1].X + from_scale, bb_from[1].Y - from_scale / groupingDistScale  )
         bb_from = (tl, br)
 
+        to_scale = annoScale(to_anno)
         bb_to = GeomUtils.strokelistBoundingBox( to_anno.Strokes )
-        heights = [s.BoundTopLeft.Y - s.BoundBottomRight.Y for s in to_anno.Strokes]        
-#        center_to = Point( (bb_to[0].X + bb_to[1].X) / 2.0, (bb_to[0].Y + bb_to[1].Y) / 2.0)
-        to_scale = max(minScale, heights[len(heights)/2]) 
-        tl = Point (bb_to[0].X - to_scale, bb_to[0].Y + to_scale / 1.3  )
-        br = Point (bb_to[1].X + to_scale, bb_to[1].Y - to_scale / 1.3  )
+        tl = Point (bb_to[0].X - to_scale, bb_to[0].Y + to_scale / groupingDistScale  )
+        br = Point (bb_to[1].X + to_scale, bb_to[1].Y - to_scale / groupingDistScale  )
         bb_to = (tl, br)
         # check x's overlap
         if   bb_from[1].X - bb_to[0].X < horizOverlapRatio \
@@ -190,7 +197,7 @@ def pixbufFromLatex(latex):
 
 
     
-##-------------------------------------
+#-------------------------------------
 
 visLogger = Logger.getLogger("EquationVisualizer", Logger.DEBUG)
 class EquationVisualizer( ObserverBase.Visualizer ):
@@ -209,18 +216,22 @@ class EquationVisualizer( ObserverBase.Visualizer ):
             heights = [s.BoundTopLeft.Y - s.BoundBottomRight.Y for s in a.Strokes]
             bb_from = GeomUtils.strokelistBoundingBox( a.Strokes )
             from_scale = max(minScale, heights[len(heights)/2])
-            tl = Point (bb_from[0].X - from_scale, bb_from[0].Y + from_scale / 1.3  )
-            br = Point (bb_from[1].X + from_scale, bb_from[1].Y - from_scale / 1.3  )
+#            from_scale = max(minScale, sum(heights)/float(len(heights)))
+            tl = Point (bb_from[0].X - from_scale, bb_from[0].Y + from_scale / 2  )
+            br = Point (bb_from[1].X + from_scale, bb_from[1].Y - from_scale / 2  )
             bb_from = (tl, br)
             gui.drawBox(tl, br, color="#FFFFFF")
             
         visLogger.debug("Drawing Anno: {}".format(a.latex))
         if a.latex and len(a.latex) > 0:
-            if hasattr(gui, 'drawBitmap'):
-                if a.latex not in self._cachedPixbuf:
-                    self._cachedPixbuf[a.latex] = pixbufFromLatex(a.latex)
-                pixbuf = self._cachedPixbuf[a.latex]
-                gui.drawBitmap(bbox[1].X, bbox[1].Y, pixbuf=pixbuf)
-            else:
-                gui.drawText(bbox[1].X, bbox[1].Y, a.latex)
-
+            try:
+                if hasattr(gui, 'drawBitmap'):
+                    if a.latex not in self._cachedPixbuf:
+                        self._cachedPixbuf[a.latex] = pixbufFromLatex(a.latex)
+                    
+                    pixbuf = self._cachedPixbuf[a.latex]
+                    gui.drawBitmap(bbox[1].X, bbox[1].Y, pixbuf=pixbuf)
+                else:
+                    gui.drawText(bbox[1].X, bbox[1].Y, a.latex)
+            except Exception as e:
+                print "Cannot draw equation {}: {}".format(a.latex, e)
