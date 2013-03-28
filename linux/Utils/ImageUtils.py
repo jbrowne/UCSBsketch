@@ -106,6 +106,7 @@ def initializeCapture(cam = 0, dims=(1280, 1024,), disableAutoExposure = True, d
     retw = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH))
     if disableAutoExposure:
         setAutoExposure(cam, False)
+        changeExposure(cam, value=500)
     else:
         setAutoExposure(cam, True)
     if disableAutoFocus:
@@ -124,12 +125,17 @@ def setAutoExposure(cam, shouldAuto):
 def setAutoFocus(cam, shouldAuto):
     os.system("v4l2-ctl -d {} --set-ctrl focus_auto={}".format(cam,int(shouldAuto)))
 
-def changeExposure(cam=0, increment=0):
+def changeExposure(cam=0, increment=None, value=None):
     """Increase/Decrease the exposure of cam"""
     try:
-        exposure = commands.getoutput("v4l2-ctl -d {} --get-ctrl exposure_absolute".format(cam)).split()[1]
-        exposure = int(exposure)
-        exposure = max(0, exposure+increment)
+        if increment is not None:
+            exposure = commands.getoutput("v4l2-ctl -d {} --get-ctrl exposure_absolute".format(cam)).split()[1]
+            exposure = int(exposure)
+            exposure = max(0, exposure+increment)
+        elif value is not None:
+            exposure = max(0, value)
+        else:
+            raise Exception("increment or value must be an integer")
         commands.getoutput("v4l2-ctl -d {} --set-ctrl exposure_absolute={}".format(cam, exposure))
         print "Exposure {}".format(exposure)
     except Exception as e:
