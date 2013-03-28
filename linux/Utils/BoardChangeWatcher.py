@@ -21,6 +21,8 @@ CAPSIZE03 = (960, 720)
 CAPSIZE04 = (800, 600)
 PROJECTORSIZE = (1024, 768)
 
+DEBUG = False
+
 class BoardChangeWatcher(object):
     """This class watches a whiteboard, and bundles up
     changes of the board's contents as discreet "diff" events"""
@@ -62,6 +64,7 @@ class BoardChangeWatcher(object):
         
     
     def updateBoardImage(self, image):
+        global DEBUG
         precentDiffThresh = 0.2
         diffMaskThresh = 50
         windowLen = 2
@@ -108,6 +111,9 @@ class BoardChangeWatcher(object):
             #Only set unready if the difference is large
             self.isCaptureReady = False
             self._isBoardUpdated = True
+            
+#        if DEBUG:
+#            showResized("Capture Difference", captureDiffMask, 0.4)
 
 
 
@@ -118,20 +124,21 @@ class BoardChangeWatcher(object):
         is darker than the last capture, and lighterDiff is the contents
         that is lighter. 
         Should check isCaptureReady field before using the results"""
+        global DEBUG
         differenceThresh = 10
+        curBackground = self._fgFilter.getBackgroundImage()
+
+        
         darkerDiff = cv.CreateMat(self._lastCaptureImage.rows, self._lastCaptureImage.cols, cv.CV_8UC1)
         lighterDiff = cv.CloneMat(darkerDiff)
 
-        curBackground = self._fgFilter.getBackgroundImage()
         subtractedImage = cv.CloneMat(curBackground)
         
         cv.Sub(self._lastCaptureImage, curBackground, subtractedImage)
-#        darkerDiff = max_allChannel(subtractedImage)
         cv.Threshold(max_allChannel(subtractedImage), darkerDiff, differenceThresh, 255, cv.CV_THRESH_TOZERO)
         cv.Smooth(darkerDiff, darkerDiff, smoothtype=cv.CV_MEDIAN)
 
         cv.Sub(curBackground, self._lastCaptureImage, subtractedImage)
-#        lighterDiff = max_allChannel(subtractedImage)
         cv.Threshold(max_allChannel(subtractedImage), lighterDiff, differenceThresh, 255, cv.CV_THRESH_TOZERO)            
         cv.Smooth(lighterDiff, lighterDiff, smoothtype=cv.CV_MEDIAN)
         
@@ -139,19 +146,50 @@ class BoardChangeWatcher(object):
         cv.Set(retImage, 128)
         cv.Sub(retImage, darkerDiff, retImage)
         cv.Add(retImage, lighterDiff, retImage)
-#        showResized("BoardDiffs", retImage, 0.3)
-#        showResized("Darker", darkerDiff, 0.25)
-#        showResized("Lighter", lighterDiff, 0.25)       
+
+        #Light spots (projector augmented) in the previous image
+        lightSpotsImage = cv.CloneMat(self._lastCaptureImage)
+        lightSpotMask_Prev = cv.CreateMat(self._lastCaptureImage.rows, self._lastCaptureImage.cols, cv.CV_8UC1)
+        cv.Smooth(lightSpotsImage, lightSpotsImage, smoothtype=cv.CV_MEDIAN, param1=5, param2=5)
+        cv.Erode(lightSpotsImage, lightSpotsImage, iterations=10)
+        cv.Sub(self._lastCaptureImage, lightSpotsImage, lightSpotsImage)
+        cv.CvtColor(lightSpotsImage, lightSpotMask_Prev, cv.CV_RGB2GRAY)
+        cv.Threshold(lightSpotMask_Prev, lightSpotMask_Prev, 50, 255, cv.CV_THRESH_BINARY_INV)
+        
+        #Light spots (projector augmented) in the current image
+        lightSpotsImage = cv.CloneMat(curBackground)
+        lightSpotMask_Current = cv.CreateMat(curBackground.rows, curBackground.cols, cv.CV_8UC1)
+        cv.Smooth(lightSpotsImage, lightSpotsImage, smoothtype=cv.CV_MEDIAN, param1=5, param2=5)
+        cv.Erode(lightSpotsImage, lightSpotsImage, iterations=10)
+        cv.Sub(curBackground, lightSpotsImage, lightSpotsImage)
+        cv.CvtColor(lightSpotsImage, lightSpotMask_Current, cv.CV_RGB2GRAY)
+        cv.Threshold(lightSpotMask_Current, lightSpotMask_Current, 50, 255, cv.CV_THRESH_BINARY_INV)
+
+        #Filter out the spots that were projected before and are now darker
+        cv.And(lightSpotMask_Prev, darkerDiff, darkerDiff)
+        #Filter out the spots that are now lighter due to projection
+        cv.And(lightSpotMask_Current, lighterDiff, lighterDiff)
+        
+        if DEBUG:
+            showResized("BoardDiffs", retImage, 0.3)
+            showResized("Darker", darkerDiff, 0.25)
+            showResized("Lighter", lighterDiff, 0.25)    
+            showResized("Previous Projection", lightSpotMask_Prev, 0.4)
+            showResized("Current Projection", lightSpotMask_Prev, 0.4)
+
+
         return (darkerDiff, lighterDiff)
     
     
 def main(args):
+    global DEBUG
+    DEBUG = True
     if len(args) > 1:
         camNum = int(args[1])
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
-    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE01)    
+    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE00)    
 
     dispScale = 0.5    
     warpCorners = []
@@ -159,14 +197,10 @@ def main(args):
     
     def onMouseClick(event, x,y, flags, param):
         if event == cv.CV_EVENT_LBUTTONUP:
-            if len(warpCorners) == 4:
-                warpCorners.pop()
-                warpCorners.pop()
-                warpCorners.pop()
-                warpCorners.pop()
-            else:
-                print "Adding warp corner {}".format( (x,y,) )
+            if len(warpCorners) != 4:
                 warpCorners.append((x/dispScale,y/dispScale,))
+            if len(warpCorners) == 4:
+                print warpCorners
     cv.NamedWindow("Output")
     cv.SetMouseCallback("Output", onMouseClick)
     bcWatcher = BoardChangeWatcher()
@@ -195,6 +229,8 @@ def main(args):
             if key == 'r':
                 bcWatcher.setBoardImage(image)
                 dispImage = image
+            if key == 'R':
+                warpCorners = []
             if key in ('+', '='):
                 changeExposure(camNum, 100)
             elif key in ('-', '_'):
