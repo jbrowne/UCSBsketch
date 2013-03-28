@@ -1646,7 +1646,6 @@ def removeBackground(cv_img):
 #    denoise_k = max (1, int(denoise_k * width))
 #    if denoise_k % 2 == 0:
 #        denoise_k += 1
-    obviousBackgroundMask = getObviousBackgroundMask(cv_img)
 
     #Convert to grayscale if needed
     if cv_img.type != cv.CV_8UC1:
@@ -1664,7 +1663,7 @@ def removeBackground(cv_img):
     log.debug( "Remove foreground" )
     smoothScale = 1.15 #How fast do we grow the smoothing kernel
     bg_img = gray_img
-    while not isForeGroundGone(bg_img, mask=obviousBackgroundMask) \
+    while not isForeGroundGone(bg_img) \
             and smooth_k < cv_img.rows / 2.0:
         bg_img = smooth(bg_img, ksize=smooth_k, t='median')
         smooth_k = int(smooth_k * smoothScale)
@@ -1713,12 +1712,7 @@ def removeBackground(cv_img):
     if DEBUG:
         log.debug( "Ink Isolated" )
         saveimg(ink_mask)
-    cv.Copy(cv.CloneMat(ink_mask), ink_mask, obviousBackgroundMask)
     
-    if DEBUG:
-        log.debug( "Removed obvious background" )
-        saveimg(obviousBackgroundMask)
-        saveimg(ink_mask)
 
 #    lineImage = cv.CreateMat(bg_img.rows, bg_img.cols, cv.CV_8UC3)
 #    cv.CvtColor(gray_img, lineImage, cv.CV_GRAY2RGB)
