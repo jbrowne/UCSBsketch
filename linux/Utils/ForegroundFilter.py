@@ -69,13 +69,14 @@ def processImage(bgImage, newImage):
         smoothKernel += 1
 
     #Get a mask of the places that are too dark to be a whiteboard
-    backgroundThresh = 120
+    backgroundThresh = 90
+    bgMinSize = 20
     obviousBackgroundMask = cv.CreateMat(newImage.rows, newImage.cols, cv.CV_8UC1)
     cv.CvtColor(newImage, obviousBackgroundMask, cv.CV_RGB2GRAY)
     cv.Threshold(obviousBackgroundMask, obviousBackgroundMask, 
                  backgroundThresh, 255, cv.CV_THRESH_BINARY)
-    cv.Dilate(obviousBackgroundMask, obviousBackgroundMask, iterations = 5)
-    cv.Erode(obviousBackgroundMask, obviousBackgroundMask, iterations = 5)
+    cv.Dilate(obviousBackgroundMask, obviousBackgroundMask, iterations = bgMinSize)
+    cv.Erode(obviousBackgroundMask, obviousBackgroundMask, iterations = bgMinSize)
 
     #Get the raw diff from the background
     retImage = cv.CloneMat(bgImage)
@@ -122,11 +123,8 @@ def processImage(bgImage, newImage):
     
     cv.And(obviousBackgroundMask, finalInkMask, finalInkMask)
     
-    # Actually integrate the changes
-    cv.Copy(newImage, retImage, finalInkMask)
-    
     # Debug the masks
-    if DEBUG:
+    if DEBUG:    
         tempMat = cv.CloneMat(finalInkMask)
         cv.AddWeighted(inkDifferences, 0.5, tempMat, 0.5, 0.0, tempMat)
         showResized("Mask Combo", tempMat, 0.2)
@@ -134,6 +132,9 @@ def processImage(bgImage, newImage):
         showResized("Blob coverage", tempMat, 0.2)
         showResized("ObviousBackground", obviousBackgroundMask, 0.2)
     # /Debug
+
+    # Actually integrate the changes
+    cv.Copy(newImage, retImage, finalInkMask)
 
     return retImage
 
@@ -154,8 +155,10 @@ def main(args):
     def onMouseClick(event, x,y, flags, param):
         if event == cv.CV_EVENT_LBUTTONUP:
             if len(warpCorners) != 4:
-                print "Adding warp corner {}".format( (x,y,) )
                 warpCorners.append((x/dispScale,y/dispScale,))
+            if len(warpCorners) == 4:
+                print warpCorners
+                fgFilter.setBackground(image)
     cv.NamedWindow("Foreground Filter")
     cv.SetMouseCallback("Foreground Filter", onMouseClick)    
     fgFilter = ForegroundFilter()
