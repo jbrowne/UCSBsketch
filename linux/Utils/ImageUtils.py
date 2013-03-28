@@ -103,23 +103,13 @@ def initializeCapture(cam = 0, dims=(1280, 1024,), disableAutoExposure = True, d
     reth = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT))
     retw = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH))
     if disableAutoExposure:
+        setAutoExposure(cam, False)
+    else:
         setAutoExposure(cam, True)
-        def disableExposure():
-            time.sleep(10)
-            print "Disabling autoexposure"
-            setAutoExposure(cam, False)
-        t = threading.Thread(target=disableExposure)
-        t.daemon = True
-        t.start()
     if disableAutoFocus:
+        setAutoFocus(cam, False)
+    else:
         setAutoFocus(cam, True)
-        def disableFocus():
-            time.sleep(10)
-            print"Disabling autofocus"
-            setAutoFocus(cam, False)
-        t = threading.Thread(target=disableFocus)
-        t.daemon = True
-        t.start()
     return capture, (retw, reth,)
 
 def setAutoExposure(cam, shouldAuto):
