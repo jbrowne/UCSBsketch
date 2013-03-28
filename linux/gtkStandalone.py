@@ -399,10 +399,9 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                 for pt in stroke.Points[1:]:
                     pt = self.b2c(pt)
                     self.context.line_to( pt.X, pt.Y)
-                self.context.stroke()
             else:
-                #Draw a dot or something
                 pass
+        self.context.stroke()
         self.context.restore()
     
     def _drawBitmap(self, x, y, pixbuf):
