@@ -1,3 +1,6 @@
+import sys
+if __name__ == "__main__":
+    sys.path.append("./")
 from Utils.ImageUtils import captureImage
 from Utils.ImageUtils import changeExposure
 from Utils.ImageUtils import getFillPoints
@@ -8,11 +11,8 @@ from Utils.ImageUtils import warpFrame
 from sketchvision.ImageStrokeConverter import saveimg
 import cv
 import os
-import sys
 import threading
 import time
-if __name__ == "__main__":
-    sys.path.append("./")
 
 CAPSIZE00 = (2592, 1944)
 CAPSIZE01 = (2048,1536)
@@ -109,8 +109,8 @@ def processImage(bgImage, newImage):
     cv.Max(largeBlobMask, smoothDiff, largeBlobMask)
 
     cv.Threshold(largeBlobMask, largeBlobMask, 30, 255, cv.CV_THRESH_BINARY)
-    cv.Dilate(largeBlobMask, largeBlobMask, iterations=4)
-    
+    cv.Dilate(largeBlobMask, largeBlobMask, iterations=40)
+    cv.Erode(largeBlobMask, largeBlobMask, iterations=36)
     # Only consider the changes that are small, and not a result of occlusion
     # Remove from the blend mask anything connected to obvious foreground
     #    differences
@@ -129,10 +129,10 @@ def processImage(bgImage, newImage):
     if DEBUG:
         tempMat = cv.CloneMat(finalInkMask)
         cv.AddWeighted(inkDifferences, 0.5, tempMat, 0.5, 0.0, tempMat)
-        showResized("Mask Combo", tempMat, 0.5)
+        showResized("Mask Combo", tempMat, 0.2)
         cv.AddWeighted(largeBlobMask, 1.0, inkDifferences, -0.5, 0.0, tempMat)
-        showResized("Blob coverage", tempMat, 0.5)
-        showResized("ObviousBackground", obviousBackgroundMask, 0.5)
+        showResized("Blob coverage", tempMat, 0.2)
+        showResized("ObviousBackground", obviousBackgroundMask, 0.2)
     # /Debug
 
     return retImage
@@ -146,19 +146,14 @@ def main(args):
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
-    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE02)    
+    capture, dims = initializeCapture(cam = camNum, dims=CAPSIZE00)    
     dispScale = 0.5    
     warpCorners = []
     targetCorners = [ (0,0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1]) ] 
     
     def onMouseClick(event, x,y, flags, param):
         if event == cv.CV_EVENT_LBUTTONUP:
-            if len(warpCorners) == 4:
-                warpCorners.pop()
-                warpCorners.pop()
-                warpCorners.pop()
-                warpCorners.pop()
-            else:
+            if len(warpCorners) != 4:
                 print "Adding warp corner {}".format( (x,y,) )
                 warpCorners.append((x/dispScale,y/dispScale,))
     cv.NamedWindow("Foreground Filter")
@@ -178,6 +173,9 @@ def main(args):
             if key == 'q':
                 break
             if key == 'r':
+                fgFilter.setBackground(image)
+            if key == 'R':
+                warpCorners = []
                 fgFilter.setBackground(image)
             if key in ('+', '='):
                 changeExposure(camNum, 100)
