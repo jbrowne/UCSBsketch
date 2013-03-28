@@ -1501,10 +1501,11 @@ def getHistogramList(img, normFactor = 1000, numBins = 256):
         retVector.append(cv.QueryHistValue_1D(hist, idx))
     return retVector
 
-def isForeGroundGone(img, borderThresh = 0.05):
+def isForeGroundGone(img, mask = None, borderThresh = 0.05):
     """Figure out whether the strokes of an image have been smoothed 
     away or still remain. borderThresh is the % of the image border
-    that should be ignored"""
+    that should be ignored. Use the mask to filter where we should
+    look for foreground info."""
     #Define a region that we want to look at, so we don't try to 
     #smudge out border artifacts and mess up the ink
     #borderThresh = 0.15 #How much of the border to ignore in figuring whether the foreground is gone
@@ -1518,6 +1519,8 @@ def isForeGroundGone(img, borderThresh = 0.05):
     #Check for edge information
     edges = cv.CreateMat(img.rows, img.cols, cv.CV_8UC1)
     cv.Canny(img, edges, 50,100)
+    if mask is not None:
+        cv.And(cv.GetSubRect(mask, activeROI), edges, edges)
     edgeAmount = cv.CountNonZero(edges)
     cv.PutText(edges, "Edges", (20, edges.rows - 20), cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1), 255)
     log.debug("Saving Edges")
@@ -1616,6 +1619,17 @@ def convertBlackboardImage(gray_img):
         saveimg(gray_img)
     return gray_img
 
+def getObviousBackgroundMask(image):
+    """Get a mask of the places that are too dark to be a whiteboard"""
+    backgroundThresh = 120
+    obviousBackgroundMask = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
+    cv.CvtColor(image, obviousBackgroundMask, cv.CV_RGB2GRAY)
+    cv.Threshold(obviousBackgroundMask, obviousBackgroundMask, 
+                 backgroundThresh, 255, cv.CV_THRESH_BINARY)
+    cv.Dilate(obviousBackgroundMask, obviousBackgroundMask, iterations = 5)
+    cv.Erode(obviousBackgroundMask, obviousBackgroundMask, iterations = 5)
+    return obviousBackgroundMask
+
 def removeBackground(cv_img):
     """Take in a color image and convert it to a binary image of just ink"""
     global BGVAL, ISBLACKBOARD, DEBUG
@@ -1632,6 +1646,7 @@ def removeBackground(cv_img):
 #    denoise_k = max (1, int(denoise_k * width))
 #    if denoise_k % 2 == 0:
 #        denoise_k += 1
+    obviousBackgroundMask = getObviousBackgroundMask(cv_img)
 
     #Convert to grayscale if needed
     if cv_img.type != cv.CV_8UC1:
@@ -1649,7 +1664,8 @@ def removeBackground(cv_img):
     log.debug( "Remove foreground" )
     smoothScale = 1.15 #How fast do we grow the smoothing kernel
     bg_img = gray_img
-    while not isForeGroundGone(bg_img) and smooth_k < cv_img.rows / 2.0:
+    while not isForeGroundGone(bg_img, mask=obviousBackgroundMask) \
+            and smooth_k < cv_img.rows / 2.0:
         bg_img = smooth(bg_img, ksize=smooth_k, t='median')
         smooth_k = int(smooth_k * smoothScale)
         if smooth_k % 2 == 0:
@@ -1696,6 +1712,12 @@ def removeBackground(cv_img):
 
     if DEBUG:
         log.debug( "Ink Isolated" )
+        saveimg(ink_mask)
+    cv.Copy(cv.CloneMat(ink_mask), ink_mask, obviousBackgroundMask)
+    
+    if DEBUG:
+        log.debug( "Removed obvious background" )
+        saveimg(obviousBackgroundMask)
         saveimg(ink_mask)
 
 #    lineImage = cv.CreateMat(bg_img.rows, bg_img.cols, cv.CV_8UC3)
