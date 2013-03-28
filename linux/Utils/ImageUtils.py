@@ -167,6 +167,7 @@ def showResized(name, image, scale):
     
     
 def findCalibrationChessboard(image):
+    findTimeout = 10
     patternSize = (7, 7)  #Internal corners of 8x8 chessboard
     grayImg = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
     cv.CvtColor(image, grayImg, cv.CV_RGB2GRAY)
@@ -178,24 +179,26 @@ def findCalibrationChessboard(image):
         """Search for corners in image and put them in the queue"""
         print "{} Searching".format(idx)
         _, corners = cv.FindChessboardCorners(inImg,
-                                        patternSize,
-                                        flags=cv.CV_CALIB_CB_ADAPTIVE_THRESH | 
-                                               cv.CV_CALIB_CB_NORMALIZE_IMAGE)
+                                        patternSize)
         print "{} found {} corners".format(idx, len(corners))
-        if len(corners) == 49:            
-            cornersQueue.put(corners)
+        saveimg(inImg, name=str(idx))
+        cornersQueue.put(corners)
 
     for i in range(10):
         img = cv.CloneMat(grayImg)
         cv.Erode(img, img, iterations=i)
         cv.Dilate(img, img, iterations=i)
-        saveimg(img, name=str(i))
         
         p = multiprocessing.Process(target=lambda: getCorners(i, img,cornerListQueue))
         p.daemon = True
         p.start()
-    try:
-        corners = cornerListQueue.get(True, timeout=5)
+
+    corners = []
+    while len(corners) != 49 and i > 0:            
+        corners = cornerListQueue.get(True)
+        print "Got Result {}".format(i)
+        i-=1
+    if len(corners) == 49:
         #Debug Image
         debugImg = cv.CreateMat(grayImg.rows, grayImg.cols, cv.CV_8UC3)
         cv.CvtColor(grayImg, debugImg, cv.CV_GRAY2RGB)
@@ -210,8 +213,8 @@ def findCalibrationChessboard(image):
             points[1], points[2] = points[2], points[1] #swap tr/bl as needed
         (tl, tr, bl, br) = points
         warpCorners = [tl, tr, br, bl]
-    except Exception as e:
-        print "Could not find corners: {}".format(e)
+    else:
+        print "Could not find corners"
         warpCorners = []
 
     return warpCorners
