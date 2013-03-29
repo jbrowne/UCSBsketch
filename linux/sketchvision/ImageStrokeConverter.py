@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+if __name__ == "__main__":
+    import sys
+    sys.path.append("../")
 """
 filename: ImageStrokeConverter.py
 
@@ -16,13 +19,10 @@ Todo:
 * Make it more object oriented
 
 """
-import sys
-if __name__ == "__main__":
-    sys.path.append("../")
-
 from SketchFramework.Stroke import Stroke
 from Utils import Logger
 from Utils.GeomUtils import getLinesIntersection
+from Utils.ImageUtils import saveimg
 import Image
 import StringIO
 import cv
@@ -33,6 +33,7 @@ import pdb
 import pickle
 import random
 import time
+
 
     
 
@@ -1837,27 +1838,7 @@ def pointDist(p1, p2):
 
     return (p2x-p1x) ** 2 + (p2y-p1y) ** 2
 
-def show(cv_img):
-    "Save and display a cv_Image"
-    if cv_img.type == cv.CV_8UC1:
-        Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
-    elif cv_img.type == cv.CV_8UC3:
-        Image.fromstring("RGB", cv.GetSize(cv_img), cv_img.tostring()).show()
-    if DEBUG:
-        saveimg(cv_img)
-    
 
-def saveimg(cv_img, name = "", outdir = "./temp/", title=""):
-    "save a cv Image"
-    global FNAMEITER
-    
-    outdir = os.path.abspath(outdir) + "/"
-    if name == "":
-        outfname = outdir + FNAMEITER.next() + ".jpg"
-    else:
-        outfname = outdir + name + ".jpg"
-    log.debug( "Saving %s: %s"  % (outfname, title) )
-    cv.SaveImage(outfname, cv_img)
 
 def main(args):
     global SQUARE_ERROR, PRUNING_ERROR, DEBUG

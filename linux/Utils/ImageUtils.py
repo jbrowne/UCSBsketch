@@ -1,13 +1,15 @@
-from sketchvision.ImageStrokeConverter import saveimg
+from Utils import Logger
 from multiprocessing.queues import Queue
-import multiprocessing
+import Image
 import commands
 import cv
+import multiprocessing
 import numpy
 import os
 import threading
 import time
 
+log = Logger.getLogger("ImUtil", Logger.DEBUG)
 ######################################
 # Image Manipulation
 ######################################
@@ -50,7 +52,7 @@ def warpFrame(frame, corners, targetCorners):
             warpMat)
         #outImg = cv.CloneMat(frame)
         cv.WarpPerspective(frame, outImg, warpMat,
-            (cv.CV_INTER_CUBIC | cv.CV_WARP_FILL_OUTLIERS), 255)
+            (cv.CV_INTER_LINEAR), 255)
         return outImg
     else:
         return frame
@@ -212,5 +214,24 @@ def findCalibrationChessboard(image):
     else:
         print "Could not find corners"
         warpCorners = []
-
     return warpCorners
+
+def show(cv_img):
+    "Save and display a cv_Image"
+    if cv_img.type == cv.CV_8UC1:
+        Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
+    elif cv_img.type == cv.CV_8UC3:
+        Image.fromstring("RGB", cv.GetSize(cv_img), cv_img.tostring()).show()
+    
+
+def saveimg(cv_img, name = "", outdir = "./temp/", title=""):
+    "save a cv Image"
+    global FNAMEITER
+    
+    outdir = os.path.abspath(outdir) + "/"
+    if name == "":
+        outfname = outdir + FNAMEITER.next() + ".jpg"
+    else:
+        outfname = outdir + name + ".jpg"
+    log.debug( "Saving %s: %s"  % (outfname, title) )
+    cv.SaveImage(outfname, cv_img)
