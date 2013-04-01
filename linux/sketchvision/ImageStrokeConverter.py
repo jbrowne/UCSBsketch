@@ -155,16 +155,6 @@ def interiorAngle(P1, P2, P3):
         angle = math.pi
     return angle * 180 / math.pi
 
-def fname_iter():
-    "Used to generate a list of filenames"
-    imgnum = 0
-    while True:
-        fname = "%06.0d" % (imgnum)
-        imgnum += 1
-        yield fname 
-
-FNAMEITER = fname_iter()
-
 def GETNORMWIDTH():
     "Return the module's NORMWIDTH attribute"
     global NORMWIDTH

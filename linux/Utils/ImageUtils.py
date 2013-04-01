@@ -223,7 +223,15 @@ def show(cv_img):
     elif cv_img.type == cv.CV_8UC3:
         Image.fromstring("RGB", cv.GetSize(cv_img), cv_img.tostring()).show()
     
+def fname_iter():
+    "Used to generate a list of filenames"
+    imgnum = 0
+    while True:
+        fname = "%06.0d" % (imgnum)
+        imgnum += 1
+        yield fname 
 
+FNAMEITER = fname_iter()
 def saveimg(cv_img, name = "", outdir = "./temp/", title=""):
     "save a cv Image"
     global FNAMEITER
