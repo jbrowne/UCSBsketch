@@ -131,6 +131,7 @@ fi
 (
 cat << ENDHEADER1
 \documentclass[12pt]{article}
+\usepackage[usenames,dvipsnames]{xcolor}
 \usepackage{color}
 \usepackage[dvips]{graphicx}
 \usepackage{amsmath}

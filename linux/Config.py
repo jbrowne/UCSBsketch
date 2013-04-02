@@ -4,6 +4,8 @@ from Observers import DiGraphObserver
 from Observers import LineObserver
 from Observers import TextObserver
 from Observers import TuringMachineObserver
+from Observers.ChartObserver import ChartAreaCollector
+from Observers.ChartObserver import ChartVisualizer
 from Observers.EquationObserver import EquationCollector
 from Observers.EquationObserver import EquationMarker
 from Observers.EquationObserver import EquationVisualizer
@@ -14,12 +16,14 @@ def initializeBoard(board):
 
     if board is not None:
         EquationCollector(board)
-        EquationVisualizer(board)        
-
-        CircleObserver.CircleMarker(board)
-        #CircleObserver.CircleVisualizer(board)
+#        EquationVisualizer(board)
         ArrowObserver.ArrowMarker(board)
         ArrowObserver.ArrowVisualizer(board)
+        ChartAreaCollector(board)
+        ChartVisualizer(board)
+        """
+        CircleObserver.CircleMarker(board)
+        #CircleObserver.CircleVisualizer(board)
         LineObserver.LineMarker(board)
         #LineObserver.LineVisualizer(board)
         TextObserver.TextCollector(board)
@@ -30,7 +34,6 @@ def initializeBoard(board):
         TuringMachineObserver.TuringMachineCollector(board)
         TuringMachineObserver.TuringMachineExporter(board)
         TuringMachineObserver.TuringMachineVisualizer(board)
-        """
         RubineObserver.RubineMarker(board, "RubineData.xml", debug=True)
         RubineObserver.RubineVisualizer(board)
 

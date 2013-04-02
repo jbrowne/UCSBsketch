@@ -1,41 +1,41 @@
-import pdb
-import math
-from Utils import Logger
-from Utils.GeomUtils import ellipseAxisRatio
-
-from SketchFramework.Point import Point
-from SketchFramework.Stroke import Stroke
-from SketchFramework.Board import BoardObserver
-from SketchFramework.Annotation import Annotation, AnnotatableObject
-
 from Observers import ArrowObserver
 from Observers import ObserverBase
-
-from xml.etree import ElementTree as ET
+from Observers.EquationObserver import EquationAnnotation
+from SketchFramework.Annotation import Annotation
+from Utils import Logger
+from Utils.GeomUtils import ellipseAxisRatio, pointDist
+import math
+from Utils.LaTexCalculation import solveLaTex
+from Observers.EquationObserver import EquationVisualizer
 
 
 logger = Logger.getLogger('ChartObserver', Logger.DEBUG)
 
 #-------------------------------------
+
+
 class ChartAreaAnnotation(Annotation):
     def __init__(self, horizArrow, vertArrow):
         Annotation.__init__(self)
         self.horizontalArrow = horizArrow
         self.verticalArrow = vertArrow
+        self.equations = []
 
     def __repr__(self):
         return "CA: H {}, V {}".format(self.horizontalArrow, self.verticalArrow)
 
 #-------------------------------------
 
-class ChartAreaCollector( ObserverBase.Collector ):
 
-    def __init__( self, board ):
-        # this will register everything with the board, and we will get the proper notifications
-        ObserverBase.Collector.__init__( self, board, \
-            [ArrowObserver.ArrowAnnotation], ChartAreaAnnotation )
+class ChartAreaCollector(ObserverBase.Collector):
 
-    def collectionFromItem( self, strokes, anno ):
+    def __init__(self, board):
+        """This will register everything with the board, and we will
+        get the proper notifications"""
+        ObserverBase.Collector.__init__(self, board, \
+            [ArrowObserver.ArrowAnnotation], ChartAreaAnnotation)
+
+    def collectionFromItem(self, strokes, anno):
         vertDiff = math.fabs(anno.tip.Y - anno.tail.Y)
         horizDiff = math.fabs(anno.tip.X - anno.tail.X)
         straightness = ellipseAxisRatio(anno.tailstroke)
@@ -47,12 +47,13 @@ class ChartAreaCollector( ObserverBase.Collector ):
             else:
                 logger.debug("Vertical Axis found")
                 return ChartAreaAnnotation(None, anno)
-            
 
-    def mergeCollections( self, from_anno, to_anno ):
-        horizontalArrowList = [anno.horizontalArrow for anno in (from_anno, to_anno)
+    def mergeCollections(self, from_anno, to_anno):
+        horizontalArrowList = [anno.horizontalArrow for anno in
+                                            (from_anno, to_anno)
                                 if anno.horizontalArrow is not None]
-        verticalArrowList = [anno.verticalArrow for anno in (from_anno, to_anno)
+        verticalArrowList = [anno.verticalArrow for anno in
+                                            (from_anno, to_anno)
                                 if anno.verticalArrow is not None]
         print horizontalArrowList
         print verticalArrowList
@@ -73,29 +74,101 @@ class ChartAreaCollector( ObserverBase.Collector ):
             to_anno.horizontalArrow = horiz
             logger.debug(to_anno)
             return True
-            
+
 #-------------------------------------
 
-class ChartVisualizer( ObserverBase.Visualizer ):
-    "Watches for DiGraph annotations, draws them"
+
+class DummyEqnVisualizer(EquationVisualizer):
+    """A class that can be called to draw annotations,
+    but doesn't track anything itself"""
     def __init__(self, board):
-        ObserverBase.Visualizer.__init__( self, board, ChartAreaAnnotation )
+        ObserverBase.Visualizer.__init__(self, board, None)
+        self._cachedPixbuf = {}  # 'latexString' : pixbuf
 
-    def drawAnno( self, a ):
+
+class ChartVisualizer(ObserverBase.Visualizer):
+    "Watches for DiGraph annotations, draws them"
+    COLORS = ["#a0a0cc", "#a000a0", "#00a0a0", "#a00000", "#00a000",
+              "#0000a0"]
+    def __init__(self, board):
+        ObserverBase.Visualizer.__init__(self, board, ChartAreaAnnotation)
+        self.equationVisualizer = DummyEqnVisualizer(board)
+        self.getBoard().RegisterForAnnotation(EquationAnnotation, self)
+        self.equations = set([])
+
+    def onAnnotationAdded(self, strokes, annotation):
+        if type(annotation) == EquationAnnotation:
+            self.equations.add(annotation)
+        else:
+            ObserverBase.Visualizer.onAnnotationAdded(self, strokes, annotation)
+
+    def onAnnotationRemoved(self, annotation):
+        if type(annotation) == EquationAnnotation \
+            and annotation in self.equations:
+            self.equations.remove(annotation)
+        else:
+            ObserverBase.Visualizer.onAnnotationRemoved(self, annotation)
+
+    def drawAnno(self, a):
+        if a.horizontalArrow is None or a.verticalArrow is None:
+            return
+        x0, y0 = None, None  # offset coordinates
+        slopeFn = lambda x: 0
+        height = int(a.verticalArrow.tip.Y - a.verticalArrow.tail.Y)
+        width = int(a.horizontalArrow.tip.X - a.horizontalArrow.tail.X)
         for arrow in [a.horizontalArrow, a.verticalArrow]:
-            if arrow is not None:
-                x1 = arrow.tail.X
-                y1 = arrow.tail.Y
-                x2 = arrow.tip.X
-                y2 = arrow.tip.Y
-                self.getGUI().drawLine(x1,y1,x2,y2, color="#A0A000")
+            x1 = arrow.tail.X
+            y1 = arrow.tail.Y
+            x2 = arrow.tip.X
+            y2 = arrow.tip.Y
+            if x0 is None or x0 < x1:
+                x0 = x1
+            if y0 is None or y0 < y1:
+                y0 = y1
+#            self.getGUI().drawLine(x1, y1, x2, y2, color="#A0A000")
 
+        scale = 1
+        allGraphs = []
+        for i, eqn in enumerate(self.equations):
+            try:
+                isEquationAChart = len(self.getBoard().FindAnnotations(strokelist=eqn.Strokes, anno_type=ChartAreaAnnotation)) > 0
+                if isEquationAChart:
+                    continue
+                func = solveLaTex(eqn.latex)
+                points = []
+                for x in range(width):
+                    try:
+                        y = func(x)
+                        scale = float(max(y, scale))
+                    except:
+                        y = None
+                    points.append((x, y,))
+                allGraphs.append(points)
+                self.equationVisualizer.drawAnno(eqn)
+            except Exception as e:
+                logger.debug("Cannot draw equation '{}': {}".format(eqn.latex, e))
+                continue
 
+        for i, points in enumerate(allGraphs):
+            color = ChartVisualizer.COLORS[i % 6]
+            px = py = None
+            for x, y in points:
+                if y is not None:
+                    cx = x0 + x
+                    cy = y0 + (y / scale * height)
+                    if px is not None and py is not None:
+                        if cy < y0 + height and py < y0 + height \
+                            and cx < x0 + width and px < x0 + width:
+                            self.getGUI().drawLine(px, py, cx, cy, color=color)
+                    px = cx
+                    py = cy
+                else:
+                    px = py = None
 
 #-------------------------------------
 # if executed by itself, run all the doc tests
 
 if __name__ == "__main__":
-    Logger.setDoctest(logger) 
+    Logger.setDoctest(logger)
     import doctest
     doctest.testmod()
