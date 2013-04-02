@@ -185,7 +185,7 @@ class BoardChangeWatcher(object):
         # Remove the edge information from the differences
         cv.Sub(darkerDiff, edges, darkerDiff)
         cv.Sub(lighterDiff, edges, lighterDiff)
-        # Dilate the differences to finish the "opening" 
+        # Dilate the differences to finish the "opening"
         cv.Dilate(darkerDiff, darkerDiff)
         cv.Dilate(lighterDiff, lighterDiff)
 
