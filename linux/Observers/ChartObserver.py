@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from Observers import ArrowObserver
 from Observers import ObserverBase
 from Observers.EquationObserver import EquationAnnotation
@@ -7,25 +8,40 @@ from Utils.GeomUtils import ellipseAxisRatio, pointDist
 import math
 from Utils.LaTexCalculation import solveLaTex
 from Observers.EquationObserver import EquationVisualizer
+=======
+import pdb
+import math
+from Utils import Logger
+from Utils.GeomUtils import ellipseAxisRatio
+
+from SketchFramework.Point import Point
+from SketchFramework.Stroke import Stroke
+from SketchFramework.Board import BoardObserver
+from SketchFramework.Annotation import Annotation, AnnotatableObject
+
+from Observers import ArrowObserver
+from Observers import ObserverBase
+
+from xml.etree import ElementTree as ET
+>>>>>>> 4452fd9e7ccb8546365ec4c4dc6cb6c0a569dfd1
 
 
 logger = Logger.getLogger('ChartObserver', Logger.DEBUG)
 
 #-------------------------------------
-
-
 class ChartAreaAnnotation(Annotation):
     def __init__(self, horizArrow, vertArrow):
         Annotation.__init__(self)
         self.horizontalArrow = horizArrow
         self.verticalArrow = vertArrow
         self.equations = []
+=======
+>>>>>>> 4452fd9e7ccb8546365ec4c4dc6cb6c0a569dfd1
 
     def __repr__(self):
         return "CA: H {}, V {}".format(self.horizontalArrow, self.verticalArrow)
 
 #-------------------------------------
-
 
 class ChartAreaCollector(ObserverBase.Collector):
 
@@ -47,7 +63,6 @@ class ChartAreaCollector(ObserverBase.Collector):
             else:
                 logger.debug("Vertical Axis found")
                 return ChartAreaAnnotation(None, anno)
-
     def mergeCollections(self, from_anno, to_anno):
         horizontalArrowList = [anno.horizontalArrow for anno in
                                             (from_anno, to_anno)
@@ -169,6 +184,6 @@ class ChartVisualizer(ObserverBase.Visualizer):
 # if executed by itself, run all the doc tests
 
 if __name__ == "__main__":
-    Logger.setDoctest(logger)
+    Logger.setDoctest(logger) 
     import doctest
     doctest.testmod()
