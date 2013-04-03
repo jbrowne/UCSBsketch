@@ -135,10 +135,10 @@ class EquationCollector (ObserverBase.Collector):
 
     def mergeCollections(self, from_anno, to_anno):
         "merge from_anno into to_anno if they are naer enough to each other"
-        minScale = 20
+        minScale = 30
         vertOverlapRatio = 0
         horizOverlapRatio = 0
-        groupingDistScale = 0.3  # multiplier for the median scale of how far to check around
+        groupingDistScale = 0.4  # multiplier for the median scale of how far to check around
                                 # The strokes
         def annoScale(anno):
             """Helper function to get the scale of this annotation"""
@@ -156,14 +156,14 @@ class EquationCollector (ObserverBase.Collector):
 
         from_scale = annoScale(from_anno)
         bb_from = GeomUtils.strokelistBoundingBox(from_anno.Strokes)
-        tl = Point (bb_from[0].X - from_scale, bb_from[0].Y + from_scale / groupingDistScale)
-        br = Point (bb_from[1].X + from_scale, bb_from[1].Y - from_scale / groupingDistScale)
+        tl = Point (bb_from[0].X - from_scale, bb_from[0].Y + from_scale * groupingDistScale)
+        br = Point (bb_from[1].X + from_scale, bb_from[1].Y - from_scale * groupingDistScale)
         bb_from = (tl, br)
 
         to_scale = annoScale(to_anno)
         bb_to = GeomUtils.strokelistBoundingBox(to_anno.Strokes)
-        tl = Point (bb_to[0].X - to_scale, bb_to[0].Y + to_scale / groupingDistScale)
-        br = Point (bb_to[1].X + to_scale, bb_to[1].Y - to_scale / groupingDistScale)
+        tl = Point (bb_to[0].X - to_scale, bb_to[0].Y + to_scale * groupingDistScale)
+        br = Point (bb_to[1].X + to_scale, bb_to[1].Y - to_scale * groupingDistScale)
         bb_to = (tl, br)
         # check x's overlap
         if   bb_from[1].X - bb_to[0].X < horizOverlapRatio \
@@ -190,7 +190,6 @@ def pixbufFromLatex(latex):
     tex2imPath = os.path.abspath("./Utils/tex2im.sh")
     args = ['-f', 'png', '-b', 'black', '-t', 'Dandelion', '-o', pngFileName]
     cmd = [tex2imPath] + args + [latex]
-    print " ".join(cmd)
     subprocess.call(cmd)
     pixbuf = gtk.gdk.pixbuf_new_from_file(pngFileName)  # pixbuf
     shutil.rmtree(tempDir)
