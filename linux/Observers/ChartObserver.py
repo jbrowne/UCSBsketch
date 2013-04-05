@@ -1,19 +1,26 @@
 from Observers import ArrowObserver
 from Observers import ObserverBase
 from Observers.EquationObserver import EquationAnnotation
+from Observers.EquationObserver import EquationVisualizer
 from SketchFramework.Annotation import Annotation
+from SketchFramework.Board import BoardObserver
+from SketchFramework.Point import Point
+from SketchFramework.Stroke import Stroke
 from Utils import Logger
 from Utils.GeomUtils import ellipseAxisRatio, pointDist
-import math
 from Utils.LaTexCalculation import solveLaTex
-from Observers.EquationObserver import EquationVisualizer
+from xml.etree import ElementTree as ET
+import math
+import pdb
+from Utils.GeomUtils import strokelistBoundingBox
+
+
+
 
 
 logger = Logger.getLogger('ChartObserver', Logger.DEBUG)
 
 #-------------------------------------
-
-
 class ChartAreaAnnotation(Annotation):
     def __init__(self, horizArrow, vertArrow):
         Annotation.__init__(self)
@@ -21,11 +28,11 @@ class ChartAreaAnnotation(Annotation):
         self.verticalArrow = vertArrow
         self.equations = []
 
+
     def __repr__(self):
         return "CA: H {}, V {}".format(self.horizontalArrow, self.verticalArrow)
 
 #-------------------------------------
-
 
 class ChartAreaCollector(ObserverBase.Collector):
 
@@ -47,7 +54,6 @@ class ChartAreaCollector(ObserverBase.Collector):
             else:
                 logger.debug("Vertical Axis found")
                 return ChartAreaAnnotation(None, anno)
-
     def mergeCollections(self, from_anno, to_anno):
         horizontalArrowList = [anno.horizontalArrow for anno in
                                             (from_anno, to_anno)
@@ -88,7 +94,7 @@ class DummyEqnVisualizer(EquationVisualizer):
 
 class ChartVisualizer(ObserverBase.Visualizer):
     "Watches for DiGraph annotations, draws them"
-    COLORS = ["#a0a0cc", "#a000a0", "#00a0a0", "#a00000", "#00a000",
+    COLORS = ["#a000a0", "#00a0a0", "#a00000", "#00a000",
               "#0000a0"]
     def __init__(self, board):
         ObserverBase.Visualizer.__init__(self, board, ChartAreaAnnotation)
@@ -125,13 +131,16 @@ class ChartVisualizer(ObserverBase.Visualizer):
                 x0 = x1
             if y0 is None or y0 < y1:
                 y0 = y1
-#            self.getGUI().drawLine(x1, y1, x2, y2, color="#A0A000")
 
-        scale = 1
+        scales = []
         allGraphs = []
         for i, eqn in enumerate(self.equations):
             try:
-                isEquationAChart = len(self.getBoard().FindAnnotations(strokelist=eqn.Strokes, anno_type=ChartAreaAnnotation)) > 0
+                scale = 1
+                eqnAnnos = self.getBoard().FindAnnotations(
+                                               strokelist=eqn.Strokes,
+                                               anno_type=ChartAreaAnnotation)
+                isEquationAChart = len(eqnAnnos) > 0
                 if isEquationAChart:
                     continue
                 func = solveLaTex(eqn.latex)
@@ -143,19 +152,26 @@ class ChartVisualizer(ObserverBase.Visualizer):
                     except:
                         y = None
                     points.append((x, y,))
-                allGraphs.append(points)
+                allGraphs.append((i, points,))
                 self.equationVisualizer.drawAnno(eqn)
+                bbox = strokelistBoundingBox(eqn.Strokes)
+                color = ChartVisualizer.COLORS[i % len(ChartVisualizer.COLORS)]
+                self.getGUI().drawLine(bbox[0].X, bbox[1].Y - 3,
+                                       bbox[1].X, bbox[1].Y - 3,
+                                       color=color)
+                scales.append(scale)
             except Exception as e:
                 logger.debug("Cannot draw equation '{}': {}".format(eqn.latex, e))
                 continue
 
-        for i, points in enumerate(allGraphs):
-            color = ChartVisualizer.COLORS[i % 6]
+        drawScale = sum(scales) / float(max(1, len(scales)))
+        for i, points in allGraphs:
+            color = ChartVisualizer.COLORS[i % len(ChartVisualizer.COLORS)]
             px = py = None
             for x, y in points:
                 if y is not None:
                     cx = x0 + x
-                    cy = y0 + (y / scale * height)
+                    cy = y0 + (y / drawScale * height)
                     if px is not None and py is not None:
                         if cy < y0 + height and py < y0 + height \
                             and cx < x0 + width and px < x0 + width:

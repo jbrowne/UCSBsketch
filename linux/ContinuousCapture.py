@@ -29,7 +29,6 @@ import numpy
 import os
 import random
 import sys
-import threading
 import time
 from gtkStandalone import GTKGui
 from Utils.ImageUtils import changeExposure
@@ -64,6 +63,12 @@ class BoardWatchProcess(multiprocessing.Process):
             self.targetCorners = targetCorners
         print "Board Watcher Calibrated"
 
+        # Debug Windows
+        self._disp = ImageArea()
+        camWin = gtk.Window()
+        camWin.add(self._disp)
+        camWin.show_all()
+
     def run(self):
         """Initialize the basic board model first, then continually
         update the image and add new ink to the board"""
@@ -86,7 +91,8 @@ class BoardWatchProcess(multiprocessing.Process):
 #        ISC.saveimg(rawImage)
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
 #        ISC.saveimg(warpImage)
-        self.boardWatcher.setBoardImage(warpImage)
+        self.boardWatcher.setBoardImage(rawImage)
+        self._disp.setCvMat(self.boardWatcher._fgFilter.getBackgroundImage())
 
 #        ISC.DEBUG = True
         boardWidth = self.board.getDimensions()[0]
@@ -97,14 +103,17 @@ class BoardWatchProcess(multiprocessing.Process):
             self.board.addStroke(stk)
         while self.keepGoing.is_set():
             rawImage = deserializeImage(self.imageQueue.get(block=True))
+            self._disp.setCvMat(self.boardWatcher._fgFilter.getBackgroundImage())
             warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
 #            print "Processing new image"
-            self.boardWatcher.updateBoardImage(warpImage)
+            self.boardWatcher.updateBoardImage(rawImage)
             if self.boardWatcher.isCaptureReady:
 
                 ISC.saveimg(warpImage)
 #                ISC.saveimg(self.boardWatcher._fgFilter.getBackgroundImage())
                 (newInk, newErase) = self.boardWatcher.captureBoardDifferences()
+                newInk = warpFrame(newInk, self.warpCorners, self.targetCorners)
+                newErase = newErase(newInk, self.warpCorners, self.targetCorners)
                 ISC.saveimg(newInk)
                 ISC.saveimg(newErase)
                 cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
@@ -246,13 +255,13 @@ class CalibrationArea(ImageArea):
             serializedImage = self.imageQueue.get_nowait()
             self.rawImage = deserializeImage(serializedImage)
 
-            if len(self.warpCorners) == 4:
+            if False and len(self.warpCorners) == 4:
 #                dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.CHESSBOARDCORNERS)
                 dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.RAWBOARDCORNERS)
             else:
                 dispImage = self.rawImage
                 for x, y in self.warpCorners:
-                    cv.Circle(dispImage, (int(x), int(y)), 5, (200, 0, 200), thickness=-1)
+                    cv.Circle(dispImage, (int(x), int(y)), 5, (200, 0, 200), thickness= -1)
             self.setCvMat(resizeImage(dispImage, self.dScale))
         except EmptyException:
             pass

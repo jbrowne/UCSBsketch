@@ -18,7 +18,7 @@ def initializeBoard(board):
         EquationCollector(board)
 #        EquationVisualizer(board)
         ArrowObserver.ArrowMarker(board)
-        ArrowObserver.ArrowVisualizer(board)
+#        ArrowObserver.ArrowVisualizer(board)
         ChartAreaCollector(board)
         ChartVisualizer(board)
         """
