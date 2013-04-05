@@ -24,6 +24,7 @@ class ImageArea (gtk.EventBox):
         return self.cvImage
 
     def setCvMat(self, cvMat):
+        print "Setting CVMat"
         iplImg = cv.GetImage(cvMat)
         cv.CvtColor(iplImg, iplImg, cv.CV_BGR2RGB)
         img_pixbuf = gtk.gdk.pixbuf_new_from_data(iplImg.tostring(),

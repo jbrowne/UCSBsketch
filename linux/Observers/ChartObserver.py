@@ -14,7 +14,10 @@ import math
 import pdb
 from Utils.GeomUtils import strokelistBoundingBox
 
-
+from SketchFramework.Point import Point
+from SketchFramework.Stroke import Stroke
+from SketchFramework.Board import BoardObserver
+from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 
 
@@ -185,6 +188,6 @@ class ChartVisualizer(ObserverBase.Visualizer):
 # if executed by itself, run all the doc tests
 
 if __name__ == "__main__":
-    Logger.setDoctest(logger)
+    Logger.setDoctest(logger) 
     import doctest
     doctest.testmod()
