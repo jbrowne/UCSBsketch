@@ -163,6 +163,10 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
             self.boardChanged()
         elif key == 'D':
             self.shouldDrawStrokes = not self.shouldDrawStrokes
+            if self.shouldDrawStrokes:
+                print ("Show Strokes")
+            else:
+                print("Don't Show Strokes")
             self.draw()
 
 

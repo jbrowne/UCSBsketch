@@ -32,7 +32,7 @@ def resizeImage(img, scale=None, dims=None):
     if scale is not None:
         retImg = cv.CreateMat(int(img.rows * scale), int(img.cols * scale), img.type)
     elif dims is not None:
-        retImg = cv.CreateMat(dims[0], dims[1], img.type)
+        retImg = cv.CreateMat(dims[1], dims[0], img.type)
     else:
         retImg = cv.CloneMat(img)
     cv.Resize(img, retImg)

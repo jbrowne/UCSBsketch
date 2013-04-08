@@ -64,14 +64,15 @@ def processImage(bgImage, newImage):
         smoothKernel += 1
 
     # A conservative estimate of the biggest a piece of ink can be
-    bgMinSize = 20
+    inkMaxSize = 10
     # How dark is definitely too dark to be part of a whiteboard?
     backgroundThresh = 90
     # How different is the ink from its "eroded" background
     inkDifferenceThresh = 20
     # How different does a pixel have to be to be considered part
     #    of a blob?
-    largeBlobThresh = 30
+    largeBlobThresh = 20
+    largeBlobSmear = 40 # How wide of holes to close up between blobs
 
     obviousBackgroundMask = cv.CreateMat(newImage.rows,
                                          newImage.cols, cv.CV_8UC1)
@@ -79,9 +80,9 @@ def processImage(bgImage, newImage):
     cv.Threshold(obviousBackgroundMask, obviousBackgroundMask,
                  backgroundThresh, 255, cv.CV_THRESH_BINARY)
     cv.Dilate(obviousBackgroundMask,
-              obviousBackgroundMask, iterations=bgMinSize)
+              obviousBackgroundMask, iterations=inkMaxSize)
     cv.Erode(obviousBackgroundMask,
-             obviousBackgroundMask, iterations=bgMinSize)
+             obviousBackgroundMask, iterations=inkMaxSize)
 
     # Get the raw diff from the background
     retImage = cv.CloneMat(bgImage)
@@ -117,8 +118,8 @@ def processImage(bgImage, newImage):
     cv.AbsDiff(smoothDiff, diffImageEroded, largeBlobMask)
     cv.Max(largeBlobMask, smoothDiff, largeBlobMask)
     cv.Threshold(largeBlobMask, largeBlobMask, largeBlobThresh, 255, cv.CV_THRESH_BINARY)
-    cv.Dilate(largeBlobMask, largeBlobMask, iterations=40)
-    cv.Erode(largeBlobMask, largeBlobMask, iterations=36)
+    cv.Dilate(largeBlobMask, largeBlobMask, iterations=largeBlobSmear)
+    cv.Erode(largeBlobMask, largeBlobMask, iterations=largeBlobSmear - inkMaxSize)
 
     # Only consider the changes that are small, and not a result of occlusion
     # Remove from the blend mask anything connected to obvious foreground
@@ -157,7 +158,7 @@ def main(args):
         camNum = 0
     capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE00)
     changeExposure(camNum, value=300)
-    dispScale = 0.5
+    dispScale = 0.4
     warpCorners = []
     targetCorners = [(0, 0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1])]
 

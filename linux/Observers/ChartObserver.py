@@ -97,8 +97,8 @@ class DummyEqnVisualizer(EquationVisualizer):
 
 class ChartVisualizer(ObserverBase.Visualizer):
     "Watches for DiGraph annotations, draws them"
-    COLORS = ["#a000a0", "#00a0a0", "#a00000", "#00a000",
-              "#0000a0"]
+    COLORS = ["#ff00a0", "#00FF00", "#0000FF"] #["#a000a0", "#00a0a0", "#a00000", "#00a000",
+              #"#0000a0"]
     def __init__(self, board):
         ObserverBase.Visualizer.__init__(self, board, ChartAreaAnnotation)
         self.equationVisualizer = DummyEqnVisualizer(board)

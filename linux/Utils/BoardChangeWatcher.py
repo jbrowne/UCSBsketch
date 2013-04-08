@@ -108,7 +108,7 @@ class BoardChangeWatcher(object):
             self.isCaptureReady = False
             self._isBoardUpdated = True
 #        if DEBUG:
-#            showResized("Capture Difference", captureDiffMask, 0.4)
+            showResized("Capture Difference", captureDiffMask, 0.4)
 
     def captureBoardDifferences(self):
         """Returns a tuple of binary images: (darkerDiff, lighterDiff)
@@ -190,8 +190,8 @@ class BoardChangeWatcher(object):
         cv.Dilate(lighterDiff, lighterDiff)
 
         if DEBUG:
-            showResized("Darker", darkerDiff, 0.5)
-            showResized("Edges", edges, 0.5)
+            showResized("Darker", darkerDiff, 0.25)
+            #showResized("Edges", edges, 0.5)
             showResized("Lighter", lighterDiff, 0.25)
 #            showResized("Previous Projection", lightSpotMask_Prev, 0.4)
 #            showResized("Current Projection", lightSpotMask_Prev, 0.4)
@@ -207,7 +207,7 @@ def main(args):
     else:
         camNum = 0
     capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE00)
-    changeExposure(camNum, value=400)
+    changeExposure(camNum, value=100)
 
     dispScale = 0.5
     warpCorners = []
