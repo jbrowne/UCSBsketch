@@ -41,14 +41,16 @@ class BoardChangeWatcher(object):
         self.isCaptureReady = False
         self._isBoardUpdated = False
 
-    def setBoardCorners(corners):
+    def setBoardCorners(self, corners):
         """Set the region of the image that covers the board. Used
         to set up a mask for the filters."""
-        raise NotImplemented
         if self._lastCaptureImage is not None:
-            (w,h) = cv.GetSize(self._lastCaptureImage)
-            self._boardMask = cv.CreateMat(h,w, cv.CV_8UC1)
-        
+            if len(corners) == 4:
+                (w, h) = cv.GetSize(self._lastCaptureImage)
+                self._boardMask = cv.CreateMat(h, w, cv.CV_8UC1)
+                cv.Set(self._boardMask, 0)
+                cv.FillConvexPoly(self._boardMask, corners, 255)
+
     def setBoardImage(self, image):
         """Force the current background board image to be image"""
         print "Setting board image"
@@ -84,7 +86,9 @@ class BoardChangeWatcher(object):
         captureDiffMask = max_allChannel(captureDiffMask)
         cv.Threshold(captureDiffMask, captureDiffMask,
                      diffMaskThresh, 255, cv.CV_THRESH_BINARY)
-
+        # Mask the information according to where the board is
+        if self._boardMask is not None:
+            cv.And(captureDiffMask, self._boardMask, captureDiffMask)
         if len(self._boardDiffHist) > windowLen:
             self._boardDiffHist.pop(0)
         self._boardDiffHist.append(captureDiffMask)
@@ -105,6 +109,11 @@ class BoardChangeWatcher(object):
         # Now that we have the max sequential difference between frames,
         #    smooth out the edge artifacts due to noise
         cv.Smooth(cumulativeDiff, cumulativeDiff, smoothtype=cv.CV_MEDIAN)
+
+        # Mask the information according to where the board is
+        if self._boardMask is not None:
+            cv.And(cumulativeDiff, self._boardMask, cumulativeDiff)
+
         # The difference percentage is in terms of the size of
         #    the changed component from the background
         percentDiff = (cv.CountNonZero(cumulativeDiff) /
@@ -116,7 +125,8 @@ class BoardChangeWatcher(object):
             # Only set unready if the difference is large
             self.isCaptureReady = False
             self._isBoardUpdated = True
-#        if DEBUG:
+
+        if DEBUG:
             showResized("Capture Difference", captureDiffMask, 0.4)
 
     def captureBoardDifferences(self):
@@ -198,9 +208,14 @@ class BoardChangeWatcher(object):
         cv.Dilate(darkerDiff, darkerDiff)
         cv.Dilate(lighterDiff, lighterDiff)
 
+        # Mask the information according to where the board is
+        if self._boardMask is not None:
+            cv.And(self._boardMask, darkerDiff, darkerDiff)
+            cv.And(self._boardMask, lighterDiff, lighterDiff)
+
         if DEBUG:
             showResized("Darker", darkerDiff, 0.25)
-            #showResized("Edges", edges, 0.5)
+            # showResized("Edges", edges, 0.5)
             showResized("Lighter", lighterDiff, 0.25)
 #            showResized("Previous Projection", lightSpotMask_Prev, 0.4)
 #            showResized("Current Projection", lightSpotMask_Prev, 0.4)
@@ -225,7 +240,7 @@ def main(args):
     def onMouseClick(event, x, y, flags, param):
         if event == cv.CV_EVENT_LBUTTONUP:
             if len(warpCorners) != 4:
-                warpCorners.append((x / dispScale, y / dispScale,))
+                warpCorners.append((int(x / dispScale), int(y / dispScale),))
             if len(warpCorners) == 4:
                 print warpCorners
     cv.NamedWindow("Output")
@@ -239,7 +254,7 @@ def main(args):
         image = captureImage(capture)
         if not isPaused:
             if len(warpCorners) == 4:
-                image = warpFrame(image, warpCorners, targetCorners)
+                bcWatcher.setBoardCorners(warpCorners)
             bcWatcher.updateBoardImage(image)
             showResized("FGFilter",
                         bcWatcher._fgFilter.getBackgroundImage(), 0.4)
@@ -250,6 +265,8 @@ def main(args):
                 showResized("Lighter", lighter, 0.3)
                 dispImage = bcWatcher.acceptCurrentImage()
 
+            for corner in warpCorners:
+                cv.Circle(dispImage, corner, 3, (255, 200, 0))
             showResized("Output", dispImage, dispScale)
         key = cv.WaitKey(50)
         if key != -1:

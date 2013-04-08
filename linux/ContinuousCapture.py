@@ -44,7 +44,7 @@ PROJECTORSIZE = (1024, 768)
 HD1080 = (1920, 1080)
 HD720 = (1280, 720)
 SCREENSIZE = (1600, 900)
-GTKGUISIZE=(1024, 650)
+GTKGUISIZE = (1024, 650)
 
 class BoardWatchProcess(multiprocessing.Process):
     """This class watches a whiteboard, and bundles up
@@ -59,11 +59,10 @@ class BoardWatchProcess(multiprocessing.Process):
         self.keepGoing = Event()
         self.keepGoing.set()
         if targetCorners is None:
-            self.targetCorners = [ (0, 0), (dimensions[0], 0), (dimensions[0], dimensions[1]), (0, dimensions[1])]
+            self.targetCorners = [(0, 0), (dimensions[0], 0), (dimensions[0], dimensions[1]), (0, dimensions[1])]
         else:
             self.targetCorners = targetCorners
         print "Board Watcher Calibrated"
-
 
     def run(self):
         """Initialize the basic board model first, then continually
@@ -85,32 +84,21 @@ class BoardWatchProcess(multiprocessing.Process):
             print "Board watcher stopping"
             return
 
-#        ISC.saveimg(rawImage)
+        self.boardWatcher.setBoardImage(rawImage)
+        boardWidth = self.board.getDimensions()[0]
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
         warpImage = resizeImage(warpImage, dims=GTKGUISIZE)
-#        ISC.saveimg(warpImage)
-        self.boardWatcher.setBoardImage(rawImage)   
-
-#        ISC.DEBUG = True
-        boardWidth = self.board.getDimensions()[0]
         strokeList = ISC.cvimgToStrokes(flipMat(warpImage), targetWidth=boardWidth)['strokes']
-#        ISC.DEBUG = False
 
         for stk in strokeList:
             self.board.addStroke(stk)
         while self.keepGoing.is_set():
             rawImage = deserializeImage(self.imageQueue.get(block=True))
-            warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
-            warpImage = resizeImage(warpImage, dims=GTKGUISIZE)
-
-#            print "Processing new image"
             self.boardWatcher.updateBoardImage(rawImage)
             if self.boardWatcher.isCaptureReady:
-
-                ISC.saveimg(warpImage)
-#                ISC.saveimg(self.boardWatcher._fgFilter.getBackgroundImage())
+                ISC.saveimg(rawImage)
+                ISC.saveimg(self.boardWatcher._fgFilter.getBackgroundImage())
                 (newInk, newErase) = self.boardWatcher.captureBoardDifferences()
-                newInk = resizeImage(newInk, dims=GTKGUISIZE)
                 newInk = warpFrame(newInk, self.warpCorners, self.targetCorners)
                 newInk = resizeImage(newInk, dims=GTKGUISIZE)
                 newErase = warpFrame(newErase, self.warpCorners, self.targetCorners)
@@ -257,14 +245,12 @@ class CalibrationArea(ImageArea):
             self.rawImage = deserializeImage(serializedImage)
 
             if False and len(self.warpCorners) == 4:
-                #dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.CHESSBOARDCORNERS)
+                # dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.CHESSBOARDCORNERS)
                 dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.RAWBOARDCORNERS)
             else:
                 dispImage = self.rawImage
-                """
                 for x, y in self.warpCorners:
                     cv.Circle(dispImage, (int(x), int(y)), 5, (200, 0, 200), thickness= -1)
-                """
             self.setCvMat(resizeImage(dispImage, self.dScale))
         except EmptyException:
             pass
@@ -403,7 +389,7 @@ def main(args):
     debugSurface = DebugWindow()
     debugWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
     debugWindow.add(debugSurface)
-    #debugWindow.show_all()
+    # debugWindow.show_all()
 
     sketchSurface.grab_focus()
     gtk.main()

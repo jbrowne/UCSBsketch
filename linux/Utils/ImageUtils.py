@@ -52,7 +52,7 @@ def warpFrame(frame, corners, targetCorners):
             warpMat)
         #outImg = cv.CloneMat(frame)
         cv.WarpPerspective(frame, outImg, warpMat,
-            (cv.CV_INTER_LINEAR), 255)
+            (cv.CV_INTER_CUBIC), 255)
         return outImg
     else:
         return frame
