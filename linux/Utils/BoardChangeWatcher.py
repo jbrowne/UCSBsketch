@@ -32,6 +32,7 @@ class BoardChangeWatcher(object):
         self.isCaptureReady = False
         # Used to track if we've seen changes since last accept
         self._isBoardUpdated = False
+        self._boardMask = None
 
     def reset(self):
         self._fgFilter = ForegroundFilter()
@@ -40,6 +41,14 @@ class BoardChangeWatcher(object):
         self.isCaptureReady = False
         self._isBoardUpdated = False
 
+    def setBoardCorners(corners):
+        """Set the region of the image that covers the board. Used
+        to set up a mask for the filters."""
+        raise NotImplemented
+        if self._lastCaptureImage is not None:
+            (w,h) = cv.GetSize(self._lastCaptureImage)
+            self._boardMask = cv.CreateMat(h,w, cv.CV_8UC1)
+        
     def setBoardImage(self, image):
         """Force the current background board image to be image"""
         print "Setting board image"
