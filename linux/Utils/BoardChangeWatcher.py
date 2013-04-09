@@ -23,7 +23,7 @@ PROJECTORSIZE = (1024, 768)
 
 DEBUG = False
 
-logger = Logger.getLogger("BC_Watcher", Logger.WARN)
+logger = Logger.getLogger("BC_Watcher", Logger.DEBUG)
 class BoardChangeWatcher(object):
     """This class watches a whiteboard, and bundles up
     changes of the board's contents as discreet "diff" events"""
@@ -33,7 +33,6 @@ class BoardChangeWatcher(object):
         self._lastCaptureImage = None
         self.isCaptureReady = False
         # Used to track if we've seen changes since last accept
-        self._isBoardUpdated = False
         self._boardMask = None
 
     def reset(self):
@@ -41,7 +40,6 @@ class BoardChangeWatcher(object):
         self._boardDiffHist = []
         self._lastCaptureImage = None
         self.isCaptureReady = False
-        self._isBoardUpdated = False
 
     def setBoardCorners(self, corners, targetCorners=[]):
         """Set the region of the image that covers the board. Used
@@ -69,20 +67,21 @@ class BoardChangeWatcher(object):
         self._lastCaptureImage = cv.CloneMat(image)
         self._fgFilter.setBackground(image)
         self._boardDiffHist = []
-        self.isCaptureReady = False
-        self._isBoardUpdated = False
+        #logger.debug("Capture is not ready")
+        #self.isCaptureReady = False
 
     def acceptCurrentImage(self):
         """Confirm the current view of the whiteboard as correct (commit it)"""
         image = self._fgFilter.getBackgroundImage()
         self.setBoardImage(image)
-        self.isCaptureReady = False
-        self._isBoardUpdated = False
         return image
 
     def updateBoardImage(self, image):
         global DEBUG
-        precentDiffThresh = 0.2
+        precentDiffThresh = 0.1
+        # Lower limit of how many pixels must be different to count
+        #   as a change
+        totalPixelDiffThresh = 20
         diffMaskThresh = 20
         windowLen = 2
         if self._lastCaptureImage is None:
@@ -135,15 +134,19 @@ class BoardChangeWatcher(object):
 
         # The difference percentage is in terms of the size of
         #    the changed component from the background
+        totalCurrentDiff = cv.CountNonZero(captureDiffMask)
         percentDiff = (cv.CountNonZero(cumulativeDiff) /
-                        float(max(cv.CountNonZero(captureDiffMask), 1)))
-        if percentDiff < precentDiffThresh:
-            if self._isBoardUpdated:
-                self.isCaptureReady = True
+                        float(max(totalCurrentDiff, 1)))
+        if totalCurrentDiff > totalPixelDiffThresh:
+            if percentDiff < precentDiffThresh:
+                    logger.debug("Capture is READY!")
+                    self.isCaptureReady = True
+            else:
+                # Only set unready if the difference is large
+                logger.debug("Difference found, but capture is not ready")
+                self.isCaptureReady = False
         else:
-            # Only set unready if the difference is large
             self.isCaptureReady = False
-            self._isBoardUpdated = True
 
         if DEBUG:
             showResized("Live Model Difference", captureDiffMask, 0.25)
@@ -216,7 +219,11 @@ class BoardChangeWatcher(object):
         else:
             logger.warn("Watching with no board area set!")
 
-#        if DEBUG:
+        if DEBUG:
+            saveimg(darkerDiff, name="Darker")
+            saveimg(lighterDiff, name="Lighter")
+            saveimg(lightSpotMask_Prev, "LightSpotPrev")
+            saveimg(lightSpotMask_Current, "LightSpotCurrent")
 #            showResized("Darker", darkerDiff, 0.25)
 #            showResized("Lighter", lighterDiff, 0.25)
 #            showResized("Previous Projection", lightSpotMask_Prev, 0.25)
@@ -229,9 +236,6 @@ def findLightSpots(image):
     lightSpot_threshold = 10
     lightSpot_size = 10
     lightSpotsImage = cv.CloneMat(image)
-    edges = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    cv.CvtColor(image, edges, cv.CV_RGB2GRAY)
-    cv.Canny(edges, edges, 50, 100)
 
     cv.Smooth(lightSpotsImage, lightSpotsImage, smoothtype=cv.CV_MEDIAN,
               param1=5, param2=5)
@@ -241,14 +245,16 @@ def findLightSpots(image):
     cv.Sub(image, lightSpotsImage, lightSpotsImage)
     # Threshold on what counts as "light enough"
     lightSpotMask = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    cv.CvtColor(lightSpotsImage, lightSpotMask, cv.CV_RGB2GRAY)
+    #cv.CvtColor(lightSpotsImage, lightSpotMask, cv.CV_RGB2GRAY)
+    lightSpotMask = max_allChannel(lightSpotsImage)
     cv.Threshold(lightSpotMask, lightSpotMask, lightSpot_threshold, 255,
                  cv.CV_THRESH_BINARY_INV)
+
+    cv.Erode(lightSpotMask, lightSpotMask, iterations=3)
 
     if DEBUG:
 #        showResized("Lights Image", lightSpotsImage, 0.25)
 #        showResized("Lights Mask", lightSpotMask, 0.25)
-#        cv.Or(edges, lightSpotMask, lightSpotMask)
         showResized("Lights Mask (filtered)", lightSpotMask, 0.25)
     return lightSpotMask
 
@@ -283,14 +289,18 @@ def main(args):
     while True:
         image = captureImage(capture)
         if not isPaused:
-            if len(warpCorners) == 4:
+            if len(warpCorners) == 4 and bcWatcher._boardMask is None:
                 bcWatcher.setBoardCorners(warpCorners)
             bcWatcher.updateBoardImage(image)
             showResized("FGFilter",
-                        bcWatcher._fgFilter.getBackgroundImage(), 0.4)
+                        bcWatcher._fgFilter.getBackgroundImage(), 0.2)
 
             if bcWatcher.isCaptureReady:
                 (darker, lighter) = bcWatcher.captureBoardDifferences()
+                saveimg(darker, "DebugNewInk")
+                saveimg(lighter, "DebugNewErase")
+                saveimg(bcWatcher._fgFilter.getBackgroundImage(), 
+                        "DebugBG")
                 showResized("Darker", darker, 0.3)
                 showResized("Lighter", lighter, 0.3)
                 dispImage = bcWatcher.acceptCurrentImage()

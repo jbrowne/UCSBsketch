@@ -96,7 +96,9 @@ class BoardWatchProcess(multiprocessing.Process):
 
         for stk in strokeList:
             self.board.addStroke(stk)
+        i = 0
         while self.keepGoing.is_set():
+            i+=1
             rawImage = deserializeImage(self.imageQueue.get(block=True))
             self.boardWatcher.updateBoardImage(rawImage)
             if self.boardWatcher.isCaptureReady:
@@ -116,6 +118,13 @@ class BoardWatchProcess(multiprocessing.Process):
                 strokeList = ISC.cvimgToStrokes(flipMat(newInk), targetWidth=boardWidth)['strokes']
                 for stk in strokeList:
                     self.board.addStroke(stk)
+            elif i % 10 == 0:
+                #Debug save at least every 10 frames
+                (newInk, newErase) = self.boardWatcher.captureBoardDifferences()
+                debugBgImage = self.boardWatcher._fgFilter.getBackgroundImage()
+                saveimg(newInk, "Debug_NewInk")
+                saveimg(newErase, "Debug_NewErase")
+                saveimg(debugBgImage, "Debug_Background")
         print "Board watcher stopping"
 
     def stop(self):

@@ -106,6 +106,7 @@ def initializeCapture(cam=0, dims=(1280, 1024,), disableAutoExposure=True, disab
     cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH, w)
     reth = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT))
     retw = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH))
+    log.debug("Setting Capture to {}x{}".format(retw, reth))
     if disableAutoExposure:
         setAutoExposure(cam, False)
         changeExposure(cam, value=500)
