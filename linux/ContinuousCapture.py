@@ -12,6 +12,7 @@ from Utils.ImageUtils import captureImage
 from Utils.ImageUtils import flipMat
 from Utils.ImageUtils import initializeCapture
 from Utils.ImageUtils import resizeImage
+from Utils.ImageUtils import saveimg
 from Utils.ImageUtils import warpFrame
 from Utils.ImageUtils import findCalibrationChessboard
 from cv2 import cv
@@ -84,6 +85,7 @@ class BoardWatchProcess(multiprocessing.Process):
             print "Board watcher stopping"
             return
 
+        saveimg(rawImage, name="Initial_Board_Image")
         self.boardWatcher.setBoardImage(rawImage)
         boardWidth = self.board.getDimensions()[0]
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
@@ -96,19 +98,19 @@ class BoardWatchProcess(multiprocessing.Process):
             rawImage = deserializeImage(self.imageQueue.get(block=True))
             self.boardWatcher.updateBoardImage(rawImage)
             if self.boardWatcher.isCaptureReady:
-                ISC.saveimg(rawImage)
-                ISC.saveimg(self.boardWatcher._fgFilter.getBackgroundImage())
+                saveimg(rawImage, name="Raw Image")
+                saveimg(self.boardWatcher._fgFilter.getBackgroundImage(), name="BG_Image")
                 (newInk, newErase) = self.boardWatcher.captureBoardDifferences()
                 newInk = warpFrame(newInk, self.warpCorners, self.targetCorners)
                 newInk = resizeImage(newInk, dims=GTKGUISIZE)
                 newErase = warpFrame(newErase, self.warpCorners, self.targetCorners)
                 newErase = resizeImage(newErase, dims=GTKGUISIZE)
-                ISC.saveimg(newInk)
-                ISC.saveimg(newErase)
+                saveimg(newInk, name="NewInk")
+                saveimg(newErase, name="NewErase")
                 cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
 
                 acceptedImage = self.boardWatcher.acceptCurrentImage()
-                ISC.saveimg(acceptedImage)
+                saveimg(acceptedImage, name="AcceptedImage")
                 strokeList = ISC.cvimgToStrokes(flipMat(newInk), targetWidth=boardWidth)['strokes']
                 for stk in strokeList:
                     self.board.addStroke(stk)
@@ -222,7 +224,6 @@ class CalibrationArea(ImageArea):
         for callback in self.registeredCallbacks.get(key, []):
             callback(key)
 
-
     def onMouseUp(self, widget, e):
         """Respond to the mouse being released"""
         if len(self.warpCorners) >= 4:
@@ -230,7 +231,6 @@ class CalibrationArea(ImageArea):
         else:
             (x, y) = (e.x / self.dScale, e.y / self.dScale)
             self.warpCorners.append((x, y))
-
 
     def disable(self):
         self.keepGoing = False

@@ -24,7 +24,7 @@ def getFillPoints(image):
         cv.FloodFill(image, maxLoc, 0)
         _, maxVal, _, maxLoc = cv.MinMaxLoc(image)
     return retList
-        
+
 
 def resizeImage(img, scale=None, dims=None):
     """Return a resized copy of the image for either relative
@@ -162,53 +162,52 @@ def showResized(name, image, scale):
     """Combine resize and cv.ShowImage"""
     image = resizeImage(image, scale)
     cv.ShowImage(name, image)
-    
-    
+
+
 def findCalibrationChessboard(image):
     findTimeout = 10
-    patternSize = (7, 7)  #Internal corners of 8x8 chessboard
+    patternSize = (7, 7)  # Internal corners of 8x8 chessboard
     grayImg = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
     cv.CvtColor(image, grayImg, cv.CV_RGB2GRAY)
     cv.AddWeighted(grayImg, -1, grayImg, 0, 255, grayImg)
-    saveimg(grayImg)
     cornerListQueue = Queue()
-    
+
     def getCorners(idx, inImg, cornersQueue):
         """Search for corners in image and put them in the queue"""
         print "{} Searching".format(idx)
         _, corners = cv.FindChessboardCorners(inImg,
                                         patternSize)
         print "{} found {} corners".format(idx, len(corners))
-        saveimg(inImg, name=str(idx))
+        saveimg(inImg, name="Chessboard_Search_{}".format(idx))
         cornersQueue.put(corners)
 
-    for i in range(10):
+    for i in range(0, 12, 3):
         img = cv.CloneMat(grayImg)
         cv.Erode(img, img, iterations=i)
         cv.Dilate(img, img, iterations=i)
-        
-        p = multiprocessing.Process(target=lambda: getCorners(i, img,cornerListQueue))
+
+        p = multiprocessing.Process(target=lambda: getCorners(i, img, cornerListQueue))
         p.daemon = True
         p.start()
 
     corners = []
-    while len(corners) != 49 and i > 0:            
+    while len(corners) != 49 and i > 0:
         corners = cornerListQueue.get(True)
         print "Got Result {}".format(i)
-        i-=1
+        i -= 1
     if len(corners) == 49:
-        #Debug Image
+        # Debug Image
         debugImg = cv.CreateMat(grayImg.rows, grayImg.cols, cv.CV_8UC3)
         cv.CvtColor(grayImg, debugImg, cv.CV_GRAY2RGB)
         for pt in corners:
             pt = (int(pt[0]), int(pt[1]))
-            cv.Circle(debugImg, pt, 4, (255,0,0))
-        saveimg(debugImg)                        
-        #//Debug Image
-        #Figure out the correct corner mapping
-        points = sorted([corners[42], corners[0], corners[6], corners[48]], key = lambda pt: pt[0] + pt[1])
+            cv.Circle(debugImg, pt, 4, (255, 0, 0))
+        saveimg(debugImg, name="Corners_Found")
+        # //Debug Image
+        # Figure out the correct corner mapping
+        points = sorted([corners[42], corners[0], corners[6], corners[48]], key=lambda pt: pt[0] + pt[1])
         if points[1][0] < points[2][0]:
-            points[1], points[2] = points[2], points[1] #swap tr/bl as needed
+            points[1], points[2] = points[2], points[1]  # swap tr/bl as needed
         (tl, tr, bl, br) = points
         warpCorners = [tl, tr, br, bl]
     else:
@@ -222,24 +221,32 @@ def show(cv_img):
         Image.fromstring("L", cv.GetSize(cv_img), cv_img.tostring()).show()
     elif cv_img.type == cv.CV_8UC3:
         Image.fromstring("RGB", cv.GetSize(cv_img), cv_img.tostring()).show()
-    
+
 def fname_iter():
     "Used to generate a list of filenames"
     imgnum = 0
+    nameLock = threading.Lock()
     while True:
-        fname = "%06.0d" % (imgnum)
-        imgnum += 1
-        yield fname 
+        with nameLock:
+            fname = "%06.0d" % (imgnum)
+            imgnum += 1
+        yield fname
 
 FNAMEITER = fname_iter()
-def saveimg(cv_img, name = "", outdir = "./temp/", title=""):
+def saveimg(cv_img, name="", outdir="./temp/", filename=None):
     "save a cv Image"
     global FNAMEITER
-    
+
     outdir = os.path.abspath(outdir) + "/"
-    if name == "":
-        outfname = outdir + FNAMEITER.next() + ".jpg"
+    if filename is None:
+        outfname = outdir + FNAMEITER.next() + name + ".jpg"
     else:
-        outfname = outdir + name + ".jpg"
-    log.debug( "Saving %s: %s"  % (outfname, title) )
+        outfname = filename
+    if name != "":
+        cv_img = cv.CloneMat(cv_img)
+        cv.PutText(cv_img, name, (20, cv_img.rows - 20),
+                   cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, thickness=3), 0)
+        cv.PutText(cv_img, name, (20, cv_img.rows - 20),
+                   cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1), [255]*cv_img.channels)
+    log.debug("Saving %s" % (outfname))
     cv.SaveImage(outfname, cv_img)

@@ -7,6 +7,7 @@ from Utils.ImageUtils import captureImage
 from Utils.ImageUtils import changeExposure
 from Utils.ImageUtils import initializeCapture
 from Utils.ImageUtils import max_allChannel
+from Utils.ImageUtils import saveimg
 from Utils.ImageUtils import showResized
 from Utils.ImageUtils import warpFrame
 import cv

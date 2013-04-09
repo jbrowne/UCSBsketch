@@ -84,12 +84,12 @@ def cvimgToStrokes(in_img, targetWidth = None):
     CACHE = {}
     DEBUG = True
     if DEBUG:
-        saveimg(in_img)
+        saveimg(in_img, name="Raw_ink_image")
     saveimg(in_img, outdir="./photos/", 
-            name=datetime.datetime.now().strftime("%F-%T"+".jpg"))
+            filename=datetime.datetime.now().strftime("%F-%T"+".jpg"))
     small_img = resizeImage(in_img, targetWidth=targetWidth)
     #small_img = in_img
-    saveimg(small_img)
+    saveimg(small_img, name="Resized")
     temp_img, _ = removeBackground(small_img)
     #temp_img = cv.CreateMat(small_img.rows, small_img.cols, cv.CV_8UC1)
     #cv.CvtColor(small_img, temp_img, cv.CV_RGB2GRAY)
@@ -1515,7 +1515,7 @@ def isForeGroundGone(img, mask = None, borderThresh = 0.05):
     edgeAmount = cv.CountNonZero(edges)
     cv.PutText(edges, "Edges", (20, edges.rows - 20), cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1), 255)
     log.debug("Saving Edges")
-    saveimg(edges)
+    saveimg(edges, name="Edges")
     log.debug("Edge info left: %d" % (edgeAmount))
     if edgeAmount == 0:
         log.debug("Short circuiting background removal")
@@ -1607,7 +1607,7 @@ def convertBlackboardImage(gray_img):
     if ISBLACKBOARD:
         log.debug( "Converting Blackboard image to look like a whiteboard" )
         gray_img = invert(gray_img)
-        saveimg(gray_img)
+        saveimg(gray_img, name="Inverted_Blackboard")
     return gray_img
 
 def getObviousBackgroundMask(image):
@@ -1647,38 +1647,40 @@ def removeBackground(cv_img):
 
 
     gray_img = convertBlackboardImage(gray_img)    
-    saveimg(gray_img)
+    saveimg(gray_img, name="ConvertedBlackboard")
 
 
     #Generate the "background image"
     log.debug( "Remove foreground" )
     smoothScale = 1.15 #How fast do we grow the smoothing kernel
     bg_img = gray_img
+    i = 0
     while not isForeGroundGone(bg_img) \
             and smooth_k < cv_img.rows / 2.0:
+        i+= 1
         bg_img = smooth(bg_img, ksize=smooth_k, t='median')
         smooth_k = int(smooth_k * smoothScale)
         if smooth_k % 2 == 0:
             smooth_k += 1
         if DEBUG :
             log.debug( "Background Image:" )
-            saveimg(bg_img)
+            saveimg(bg_img, name="SmoothedForeground{}".format(i))
     log.debug( "Remove foreground -- Done" )
-    saveimg(bg_img)
+    saveimg(bg_img, name="Foreground_Removed")
 
     #Remove the "background" data from the original image
     ink_img = cv.CloneMat(gray_img)
     cv.AddWeighted(gray_img, 0.5, bg_img, -0.5, 128.0, ink_img )
     if DEBUG :
         log.debug( "Ink isolated -- background removed" )
-        saveimg(ink_img)
+        saveimg(ink_img, name="Ink_Isolated")
     #cv.EqualizeHist(gray_img, gray_img)
 
     #Convert the black ink to white and amplify!
     log.debug("Amplifying ink")
     ink_img = invert(ink_img)
     if DEBUG:
-        saveimg(ink_img)
+        saveimg(ink_img, name="Ink_Inverted")
     #Add the image back onto itself, saturating the light areas (ink), but
     #    leaving the darker areas dark.
     if ISBLACKBOARD:
@@ -1690,11 +1692,11 @@ def removeBackground(cv_img):
         gamma = ( (i * 2 - 1)* -127)#- 127
         cv.AddWeighted(ink_img, i, smooth_ink_img, i, gamma, ink_img )
         if DEBUG:
-            saveimg(ink_img)
+            saveimg(ink_img, name="Amplify_Ink_{}".format(i))
     ink_img = invert(ink_img)
     if DEBUG:
         log.debug( "Ink Amplified" )
-        saveimg(ink_img)
+        saveimg(ink_img, name="Ink_Amplify_Finished")
 
     #Binarize the amplified ink image
     ink_mask = cv.CloneMat(gray_img)
@@ -1702,7 +1704,7 @@ def removeBackground(cv_img):
 
     if DEBUG:
         log.debug( "Ink Isolated" )
-        saveimg(ink_mask)
+        saveimg(ink_mask, name="Ink_Isolated")
     
 
 #    lineImage = cv.CreateMat(bg_img.rows, bg_img.cols, cv.CV_8UC3)
@@ -1762,7 +1764,7 @@ def blobsToStrokes(img):
         passnum += 1
         log.debug( "Pass %s" % (passnum) )
         if DEBUG:
-            saveimg(img)
+            saveimg(img, name="Thinning_Pass_{}".format(passnum))
         evenIter = (passnum %2 == 0)
         t1 = time.time()
 
@@ -1783,7 +1785,7 @@ def blobsToStrokes(img):
     chartFile.close()
 
     if DEBUG:
-        saveimg(img)
+        saveimg(img, name="Ink_Thinned")
     log.debug( "Tracing strokes" )
     strokelist = pointsToStrokes(pointSet, rawImg)
     return strokelist
