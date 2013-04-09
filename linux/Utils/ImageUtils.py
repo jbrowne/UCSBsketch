@@ -63,12 +63,12 @@ def flipMat(image):
     retImage = cv.CreateMat(image.rows, image.cols, image.type)
     height = image.rows
     transMatrix = cv.CreateMatHeader(2, 3, cv.CV_32FC1)
-    narr = numpy.array([[1,0,0],[0,-1,height]], numpy.float32)
+    narr = numpy.array([[1, 0, 0], [0, -1, height]], numpy.float32)
     cv.SetData(transMatrix, narr, cv.CV_AUTOSTEP)
     cv.WarpAffine(image, retImage, transMatrix)
     return retImage
-    
-    
+
+
 def max_allChannel(image):
     """Return a grayscale image with values equal to the MAX
     over all 3 channels """
@@ -81,28 +81,28 @@ def max_allChannel(image):
     cv.Max(ch3, retImage, retImage)
     return retImage
 
-    
+
 def printMat(image):
     """Print out a text representation of an image"""
     for row in range(image.rows):
-        print "[", 
+        print "[",
         for col in range(image.cols):
-            print cv.mGet(image, row, col), 
+            print cv.mGet(image, row, col),
         print "]"
     print ""
-        
-        
+
+
 ######################################
 # Video Capture Utils
 ######################################
 
-def initializeCapture(cam = 0, dims=(1280, 1024,), disableAutoExposure = True, disableAutoFocus = True):
+def initializeCapture(cam=0, dims=(1280, 1024,), disableAutoExposure=True, disableAutoFocus=True):
     """Try to initialize the capture to the requested dimensions,
     and disable auto-exposure. 
     Returns the capture and the actual dimensions"""
     capture = cv.CaptureFromCAM(cam)
     w, h = dims
-    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT, h) 
+    cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT, h)
     cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH, w)
     reth = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT))
     retw = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH))
@@ -122,10 +122,10 @@ def setAutoExposure(cam, shouldAuto):
         value = 3
     else:
         value = 1
-    os.system("v4l2-ctl -d {} --set-ctrl exposure_auto={}".format(cam,value))
+    os.system("v4l2-ctl -d {} --set-ctrl exposure_auto={}".format(cam, value))
 
 def setAutoFocus(cam, shouldAuto):
-    os.system("v4l2-ctl -d {} --set-ctrl focus_auto={}".format(cam,int(shouldAuto)))
+    os.system("v4l2-ctl -d {} --set-ctrl focus_auto={}".format(cam, int(shouldAuto)))
 
 def changeExposure(cam=0, increment=None, value=None):
     """Increase/Decrease the exposure of cam"""
@@ -133,7 +133,7 @@ def changeExposure(cam=0, increment=None, value=None):
         if increment is not None:
             exposure = commands.getoutput("v4l2-ctl -d {} --get-ctrl exposure_absolute".format(cam)).split()[1]
             exposure = int(exposure)
-            exposure = max(0, exposure+increment)
+            exposure = max(0, exposure + increment)
         elif value is not None:
             exposure = max(0, value)
         else:
@@ -149,11 +149,11 @@ def captureImage(capture):
     of gtkImage.
     Returns cv Image of the capture"""
     cvImg = cv.QueryFrame(capture)
-    #cv.CvtColor(cvImg, cvImg, cv.CV_BGR2RGB)
+    # cv.CvtColor(cvImg, cvImg, cv.CV_BGR2RGB)
     cvMat = cv.GetMat(cvImg)
     return cv.CloneMat(cvMat)
 
-        
+
 ######################################
 # Misc User Interaction Methods
 ######################################
