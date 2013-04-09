@@ -83,7 +83,7 @@ class BoardChangeWatcher(object):
     def updateBoardImage(self, image):
         global DEBUG
         precentDiffThresh = 0.2
-        diffMaskThresh = 50
+        diffMaskThresh = 20
         windowLen = 2
         if self._lastCaptureImage is None:
             self.setBoardImage(image)
@@ -92,7 +92,9 @@ class BoardChangeWatcher(object):
         # Now that we've updated the background a little bit, analyze the
         #    difference from the previous backgrounds for consistency
         #    background images for consistency
-        # Track the new strokes that are added
+
+        # What is the difference between our model of the board and the
+        #    current view of the board:
         captureDiffMask = cv.CloneMat(self._fgFilter.getBackgroundImage())
         cv.AbsDiff(captureDiffMask, self._lastCaptureImage, captureDiffMask)
         captureDiffMask = max_allChannel(captureDiffMask)
@@ -102,7 +104,8 @@ class BoardChangeWatcher(object):
         if self._boardMask is not None:
             cv.And(captureDiffMask, self._boardMask, captureDiffMask)
         else:
-            logger.warn("Watching with no board area set!")            
+            logger.warn("Watching with no board area set!")
+
         if len(self._boardDiffHist) > windowLen:
             self._boardDiffHist.pop(0)
         self._boardDiffHist.append(captureDiffMask)
@@ -113,13 +116,13 @@ class BoardChangeWatcher(object):
 
         for frame in self._boardDiffHist:
             if prev is None:
-                prev = frame
-                cumulativeDiff = cv.CreateMat(prev.rows, prev.cols, prev.type)
+                cumulativeDiff = cv.CreateMat(frame.rows, frame.cols, frame.type)
                 cv.Set(cumulativeDiff, (0, 0, 0))
-                thisDiff = cv.CreateMat(prev.rows, prev.cols, prev.type)
+                thisDiff = cv.CreateMat(frame.rows, frame.cols, frame.type)
             else:
                 cv.AbsDiff(prev, frame, thisDiff)
                 cv.Max(thisDiff, cumulativeDiff, cumulativeDiff)
+            prev = frame
         # Now that we have the max sequential difference between frames,
         #    smooth out the edge artifacts due to noise
         cv.Smooth(cumulativeDiff, cumulativeDiff, smoothtype=cv.CV_MEDIAN)
@@ -143,7 +146,8 @@ class BoardChangeWatcher(object):
             self._isBoardUpdated = True
 
         if DEBUG:
-            showResized("Capture Difference", captureDiffMask, 0.4)
+            showResized("Live Model Difference", captureDiffMask, 0.25)
+            showResized("Change of model difference over window", cumulativeDiff, 0.25)
 
     def captureBoardDifferences(self):
         """Returns a tuple of binary images: (darkerDiff, lighterDiff)
@@ -175,29 +179,10 @@ class BoardChangeWatcher(object):
         cv.Smooth(lighterDiff, lighterDiff, smoothtype=cv.CV_MEDIAN)
 
         # Light spots (projector augmented) in the previous image
-        lightSpotsImage = cv.CloneMat(self._lastCaptureImage)
-        lightSpotMask_Prev = cv.CreateMat(self._lastCaptureImage.rows,
-                                          self._lastCaptureImage.cols,
-                                          cv.CV_8UC1)
-        cv.Smooth(lightSpotsImage, lightSpotsImage, smoothtype=cv.CV_MEDIAN,
-                  param1=5, param2=5)
-        cv.Erode(lightSpotsImage, lightSpotsImage, iterations=10)
-        cv.Sub(self._lastCaptureImage, lightSpotsImage, lightSpotsImage)
-        cv.CvtColor(lightSpotsImage, lightSpotMask_Prev, cv.CV_RGB2GRAY)
-        cv.Threshold(lightSpotMask_Prev, lightSpotMask_Prev, 50, 255,
-                     cv.CV_THRESH_BINARY_INV)
+        lightSpotMask_Prev = findLightSpots(self._lastCaptureImage)
 
         # Light spots (projector augmented) in the current image
-        lightSpotsImage = cv.CloneMat(curBackground)
-        lightSpotMask_Current = cv.CreateMat(curBackground.rows,
-                                             curBackground.cols, cv.CV_8UC1)
-        cv.Smooth(lightSpotsImage, lightSpotsImage, smoothtype=cv.CV_MEDIAN,
-                  param1=5, param2=5)
-        cv.Erode(lightSpotsImage, lightSpotsImage, iterations=10)
-        cv.Sub(curBackground, lightSpotsImage, lightSpotsImage)
-        cv.CvtColor(lightSpotsImage, lightSpotMask_Current, cv.CV_RGB2GRAY)
-        cv.Threshold(lightSpotMask_Current, lightSpotMask_Current, 50, 255,
-                     cv.CV_THRESH_BINARY_INV)
+        lightSpotMask_Current = findLightSpots(curBackground)
 
         # Filter out the spots that were projected before and are now darker
         cv.And(lightSpotMask_Prev, darkerDiff, darkerDiff)
@@ -229,16 +214,43 @@ class BoardChangeWatcher(object):
             cv.And(self._boardMask, darkerDiff, darkerDiff)
             cv.And(self._boardMask, lighterDiff, lighterDiff)
         else:
-            logger.warn("Watching with no board area set!")            
+            logger.warn("Watching with no board area set!")
 
-        if DEBUG:
-            showResized("Darker", darkerDiff, 0.25)
-            # showResized("Edges", edges, 0.5)
-            showResized("Lighter", lighterDiff, 0.25)
-#            showResized("Previous Projection", lightSpotMask_Prev, 0.4)
-#            showResized("Current Projection", lightSpotMask_Prev, 0.4)
+#        if DEBUG:
+#            showResized("Darker", darkerDiff, 0.25)
+#            showResized("Lighter", lighterDiff, 0.25)
+#            showResized("Previous Projection", lightSpotMask_Prev, 0.25)
+#            showResized("Current Projection", lightSpotMask_Prev, 0.25)
         return (darkerDiff, lighterDiff)
 
+
+def findLightSpots(image):
+    """Light spots (projector augmented) in the previous image"""
+    lightSpot_threshold = 10
+    lightSpot_size = 10
+    lightSpotsImage = cv.CloneMat(image)
+    edges = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
+    cv.CvtColor(image, edges, cv.CV_RGB2GRAY)
+    cv.Canny(edges, edges, 50, 100)
+
+    cv.Smooth(lightSpotsImage, lightSpotsImage, smoothtype=cv.CV_MEDIAN,
+              param1=5, param2=5)
+    # Find the light spots
+    cv.Erode(lightSpotsImage, lightSpotsImage, iterations=lightSpot_size)
+    cv.Dilate(lightSpotsImage, lightSpotsImage, iterations=lightSpot_size)
+    cv.Sub(image, lightSpotsImage, lightSpotsImage)
+    # Threshold on what counts as "light enough"
+    lightSpotMask = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
+    cv.CvtColor(lightSpotsImage, lightSpotMask, cv.CV_RGB2GRAY)
+    cv.Threshold(lightSpotMask, lightSpotMask, lightSpot_threshold, 255,
+                 cv.CV_THRESH_BINARY_INV)
+
+    if DEBUG:
+#        showResized("Lights Image", lightSpotsImage, 0.25)
+#        showResized("Lights Mask", lightSpotMask, 0.25)
+#        cv.Or(edges, lightSpotMask, lightSpotMask)
+        showResized("Lights Mask (filtered)", lightSpotMask, 0.25)
+    return lightSpotMask
 
 def main(args):
     global DEBUG
