@@ -9,13 +9,15 @@ from Utils.ForegroundFilter import ForegroundFilter
 from Utils.ForegroundFilter import max_allChannel
 from Utils.ImageArea import ImageArea
 from Utils.ImageUtils import captureImage
+from Utils.ImageUtils import changeExposure
+from Utils.ImageUtils import findCalibrationChessboard
 from Utils.ImageUtils import flipMat
 from Utils.ImageUtils import initializeCapture
 from Utils.ImageUtils import resizeImage
 from Utils.ImageUtils import saveimg
 from Utils.ImageUtils import warpFrame
-from Utils.ImageUtils import findCalibrationChessboard
 from cv2 import cv
+from gtkStandalone import GTKGui
 from gtkStandalone import GTKGui
 from multiprocessing import Event
 from multiprocessing import Process
@@ -31,8 +33,6 @@ import os
 import random
 import sys
 import time
-from gtkStandalone import GTKGui
-from Utils.ImageUtils import changeExposure
 # 4:3 Capture sizes
 CAPSIZE00 = (2592, 1944)
 CAPSIZE01 = (2048, 1536)
@@ -56,6 +56,7 @@ class BoardWatchProcess(multiprocessing.Process):
         self.imageQueue = imageQueue
         self.board = sketchGui
         self.boardWatcher = BoardChangeWatcher()
+        self.boardWatcher.setBoardCorners(warpCorners, targetCorners)
         self.warpCorners = warpCorners
         self.keepGoing = Event()
         self.keepGoing.set()
@@ -87,6 +88,7 @@ class BoardWatchProcess(multiprocessing.Process):
 
         saveimg(rawImage, name="Initial_Board_Image")
         self.boardWatcher.setBoardImage(rawImage)
+        self.boardWatcher.setBoardCorners(self.warpCorners, self.targetCorners)
         boardWidth = self.board.getDimensions()[0]
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
         warpImage = resizeImage(warpImage, dims=GTKGUISIZE)

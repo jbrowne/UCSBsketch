@@ -2,6 +2,7 @@ if __name__ == "__main__":
     import sys
     sys.path.append("./")
 """This module supports watching for ink-changes on a whiteboard."""
+from Utils import Logger
 from Utils.ForegroundFilter import ForegroundFilter
 from Utils.ImageUtils import captureImage
 from Utils.ImageUtils import changeExposure
@@ -22,7 +23,7 @@ PROJECTORSIZE = (1024, 768)
 
 DEBUG = False
 
-
+logger = Logger.getLogger("BC_Watcher", Logger.WARN)
 class BoardChangeWatcher(object):
     """This class watches a whiteboard, and bundles up
     changes of the board's contents as discreet "diff" events"""
@@ -42,15 +43,25 @@ class BoardChangeWatcher(object):
         self.isCaptureReady = False
         self._isBoardUpdated = False
 
-    def setBoardCorners(self, corners):
+    def setBoardCorners(self, corners, targetCorners=[]):
         """Set the region of the image that covers the board. Used
         to set up a mask for the filters."""
         if self._lastCaptureImage is not None:
             if len(corners) == 4:
                 (w, h) = cv.GetSize(self._lastCaptureImage)
-                self._boardMask = cv.CreateMat(h, w, cv.CV_8UC1)
-                cv.Set(self._boardMask, 0)
-                cv.FillConvexPoly(self._boardMask, corners, 255)
+                if len(targetCorners) == 0:
+                    self._boardMask = cv.CreateMat(h, w, cv.CV_8UC1)
+                    cv.Set(self._boardMask, 0)
+                    cv.FillConvexPoly(self._boardMask, corners, 255)
+                else:
+                    print targetCorners, len(targetCorners)
+                    self._boardMask = cv.CreateMat(h, w, cv.CV_8UC1)
+                    cv.Set(self._boardMask, 255)
+                    self._boardMask = warpFrame(self._boardMask, targetCorners,
+                                                corners)
+                saveimg(self._boardMask, name="BoardMask")
+        else:
+            logger.warn("Not setting corners. Unknown image size!")
 
     def setBoardImage(self, image):
         """Force the current background board image to be image"""
@@ -90,6 +101,8 @@ class BoardChangeWatcher(object):
         # Mask the information according to where the board is
         if self._boardMask is not None:
             cv.And(captureDiffMask, self._boardMask, captureDiffMask)
+        else:
+            logger.warn("Watching with no board area set!")            
         if len(self._boardDiffHist) > windowLen:
             self._boardDiffHist.pop(0)
         self._boardDiffHist.append(captureDiffMask)
@@ -114,6 +127,8 @@ class BoardChangeWatcher(object):
         # Mask the information according to where the board is
         if self._boardMask is not None:
             cv.And(cumulativeDiff, self._boardMask, cumulativeDiff)
+        else:
+            logger.warn("Watching with no board area set!")
 
         # The difference percentage is in terms of the size of
         #    the changed component from the background
@@ -213,6 +228,8 @@ class BoardChangeWatcher(object):
         if self._boardMask is not None:
             cv.And(self._boardMask, darkerDiff, darkerDiff)
             cv.And(self._boardMask, lighterDiff, lighterDiff)
+        else:
+            logger.warn("Watching with no board area set!")            
 
         if DEBUG:
             showResized("Darker", darkerDiff, 0.25)
