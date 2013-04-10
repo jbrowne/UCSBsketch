@@ -187,7 +187,7 @@ class CalibrationArea(ImageArea):
         # GUI configuration stuff
         self.registeredCallbacks = {}
         self.keepGoing = True
-        self.dScale = 0.4
+        self.dScale = 0.3
         self.warpCorners = []
         gobject.idle_add(self.idleUpdate)
         self.set_property("can-focus", True)  # So we can capture keyboard events
@@ -364,12 +364,17 @@ class DebugWindow(ImageArea):
         gobject.idle_add(self._updateImage)
 
     def setImage(self, image):
-        self.imageQueue.put(serializeImage(image))
+        try:
+            self.imageQueue.put_nowait(serializeImage(image))
+        except Exception as e:
+            print "Cannot display image: {}".format(e)
 
     def _updateImage(self):
-        if not self.imageQueue.empty():
-            img = deserializeImage(self.imageQueue.get())
+        try:
+            img = deserializeImage(self.imageQueue.get_nowait())
             self.setCvMat(img)
+        except Empty as e:
+            pass
         return True
 
 def main(args):

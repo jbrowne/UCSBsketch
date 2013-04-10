@@ -44,6 +44,7 @@ def warpFrame(frame, corners, targetCorners):
     match the targetCorners
     """
     outImg = cv.CreateMat(frame.rows, frame.cols, frame.type)
+    cv.Set(outImg, [0]*outImg.channels)
     if len(corners) == 4:
         # w,h = outImg.cols, outImg.rows #frame.cols, frame.rows
         warpMat = cv.CreateMat(3, 3, cv.CV_32FC1)  # Perspective warp matrix
@@ -52,7 +53,7 @@ def warpFrame(frame, corners, targetCorners):
             warpMat)
         # outImg = cv.CloneMat(frame)
         cv.WarpPerspective(frame, outImg, warpMat,
-            (cv.CV_INTER_CUBIC), 255)
+            (cv.CV_INTER_CUBIC), fillval=(0,0,0))
         return outImg
     else:
         return frame
