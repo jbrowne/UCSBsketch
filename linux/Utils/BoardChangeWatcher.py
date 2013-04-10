@@ -67,8 +67,8 @@ class BoardChangeWatcher(object):
         self._lastCaptureImage = cv.CloneMat(image)
         self._fgFilter.setBackground(image)
         self._boardDiffHist = []
-        #logger.debug("Capture is not ready")
-        #self.isCaptureReady = False
+        # logger.debug("Capture is not ready")
+        # self.isCaptureReady = False
 
     def acceptCurrentImage(self):
         """Confirm the current view of the whiteboard as correct (commit it)"""
@@ -245,7 +245,7 @@ def findLightSpots(image):
     cv.Sub(image, lightSpotsImage, lightSpotsImage)
     # Threshold on what counts as "light enough"
     lightSpotMask = cv.CreateMat(image.rows, image.cols, cv.CV_8UC1)
-    #cv.CvtColor(lightSpotsImage, lightSpotMask, cv.CV_RGB2GRAY)
+    # cv.CvtColor(lightSpotsImage, lightSpotMask, cv.CV_RGB2GRAY)
     lightSpotMask = max_allChannel(lightSpotsImage)
     cv.Threshold(lightSpotMask, lightSpotMask, lightSpot_threshold, 255,
                  cv.CV_THRESH_BINARY_INV)
@@ -299,7 +299,7 @@ def main(args):
                 (darker, lighter) = bcWatcher.captureBoardDifferences()
                 saveimg(darker, "DebugNewInk")
                 saveimg(lighter, "DebugNewErase")
-                saveimg(bcWatcher._fgFilter.getBackgroundImage(), 
+                saveimg(bcWatcher._fgFilter.getBackgroundImage(),
                         "DebugBG")
                 showResized("Darker", darker, 0.3)
                 showResized("Lighter", lighter, 0.3)
