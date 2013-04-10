@@ -183,6 +183,7 @@ def findCalibrationChessboard(image):
         saveimg(inImg, name="Chessboard_Search_{}".format(idx))
         cornersQueue.put(corners)
 
+    numProcs = 0
     for i in range(0, 12, 3):
         img = cv.CloneMat(grayImg)
         cv.Erode(img, img, iterations=i)
@@ -191,12 +192,13 @@ def findCalibrationChessboard(image):
         p = multiprocessing.Process(target=lambda: getCorners(i, img, cornerListQueue))
         p.daemon = True
         p.start()
+        numProcs += 1
 
     corners = []
-    while len(corners) != 49 and i > 0:
+    while len(corners) != 49 and numProcs > 0:
         corners = cornerListQueue.get(True)
         print "Got Result {}".format(i)
-        i -= 1
+        numProcs -= 1
     if len(corners) == 49:
         # Debug Image
         debugImg = cv.CreateMat(grayImg.rows, grayImg.cols, cv.CV_8UC3)
