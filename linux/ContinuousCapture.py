@@ -23,7 +23,7 @@ from multiprocessing import Event
 from multiprocessing import Process
 from multiprocessing import Queue
 from sketchvision import ImageStrokeConverter as ISC
-from threading import Lock
+from threading import Lock, Thread
 import gobject
 import gtk
 import math
@@ -74,7 +74,7 @@ class BoardWatchProcess(multiprocessing.Process):
     def run(self):
         """Initialize the basic board model first, then continually
         update the image and add new ink to the board"""
-        global debugSurface
+        global debugBgSurface, debugInkSurface
         print "Board Watcher Started: pid %s" % (self.pid,)
         try:
             import pydevd
@@ -96,6 +96,10 @@ class BoardWatchProcess(multiprocessing.Process):
         self.boardWatcher.setBoardImage(rawImage)
         self.boardWatcher.setBoardCorners(self.warpCorners, self.targetCorners)
         boardWidth = self.board.getDimensions()[0]
+        #DEBUG
+        bgImage = resizeImage(self.boardWatcher._fgFilter.getBackgroundImage(), scale=0.25)
+        debugBgSurface.setImage(bgImage)
+        #/DEBUG
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
         warpImage = resizeImage(warpImage, dims=GTKGUISIZE)
         strokeList = ISC.cvimgToStrokes(flipMat(warpImage),
@@ -106,8 +110,15 @@ class BoardWatchProcess(multiprocessing.Process):
         i = 0
         while self.keepGoing.is_set():
             i += 1
-            rawImage = deserializeImage(self.imageQueue.get(block=True))
+            try:
+                rawImage = deserializeImage(self.imageQueue.get(block=True, timeout=1))
+            except EmptyException:
+                continue
             self.boardWatcher.updateBoardImage(rawImage)
+            #DEBUG
+            bgImage = resizeImage(self.boardWatcher._fgFilter.getBackgroundImage(), scale=0.25)
+            debugBgSurface.setImage(bgImage)
+            #/DEBUG
             if self.boardWatcher.isCaptureReady:
                 saveimg(rawImage, name="Raw Image")
                 saveimg(self.boardWatcher._fgFilter.getBackgroundImage(),
@@ -119,6 +130,7 @@ class BoardWatchProcess(multiprocessing.Process):
                 newErase = warpFrame(newErase, self.warpCorners,
                                      self.targetCorners)
                 newErase = resizeImage(newErase, dims=GTKGUISIZE)
+                debugInkSurface.setImage(resizeImage(newInk, scale=0.75))
                 saveimg(newInk, name="NewInk")
                 saveimg(newErase, name="NewErase")
                 cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
@@ -278,18 +290,12 @@ class CalibrationArea(ImageArea):
         try:
             serializedImage = self.imageQueue.get_nowait()
             self.rawImage = deserializeImage(serializedImage)
-
-            if False and len(self.warpCorners) == 4:
-                # dispImage = warpFrame(self.rawImage, self.warpCorners,
-                #                       CalibrationArea.CHESSBOARDCORNERS)
-                dispImage = warpFrame(self.rawImage, self.warpCorners,
-                                      CalibrationArea.RAWBOARDCORNERS)
-            else:
-                dispImage = self.rawImage
-                for x, y in self.warpCorners:
-                    cv.Circle(dispImage, (int(x), int(y)), 5,
-                              (200, 0, 200), thickness= -1)
-            self.setCvMat(resizeImage(dispImage, self.dScale))
+            dispImage = self.rawImage
+            for x, y in self.warpCorners:
+                cv.Circle(dispImage, (int(x), int(y)), 5,
+                          (200, 0, 200), thickness= -1)
+            smallImage = resizeImage(dispImage, self.dScale)
+            self.setCvMat(smallImage)
         except EmptyException:
             pass
         return self.keepGoing
@@ -385,26 +391,44 @@ def deserializeImage(serializedImage):
 class DebugWindow(ImageArea):
     def __init__(self):
         ImageArea.__init__(self)
-        self.imageQueue = Queue()
-        gobject.idle_add(self._updateImage)
+        self.imageQueue = Queue(1)
+        gobject.timeout_add(200, self._updateImage)
+        self._lock = Lock()
+        self._thread = None
 
     def setImage(self, image):
         try:
-            self.imageQueue.put_nowait(serializeImage(image))
+            if self.imageQueue.empty():
+                self.imageQueue.put(serializeImage(image))
+        except FullException:
+            pass
         except Exception as e:
             print "Cannot display image: {}".format(e)
 
     def _updateImage(self):
-        try:
-            img = deserializeImage(self.imageQueue.get_nowait())
-            self.setCvMat(img)
-        except EmptyException:
-            pass
+        def getAndSetImage(surface, queue):
+            try:
+                img = deserializeImage(queue.get(True, 3))
+                with surface._lock:
+                    saveimg(img, "DebugImage")
+                    surface.setCvMat(img)
+                time.sleep(0.3)
+            except EmptyException as e:
+                pass
+            except Exception as e:
+                print "Error getting image! {}".format(e)
+    
+        with self._lock:
+            if self._thread is None or not self._thread.is_alive():
+                self._thread = Thread(target=getAndSetImage, 
+                                                args=(self, self.imageQueue))
+                self._thread.daemon=True
+                self._thread.start()
         return True
 
 
 def main(args):
-    global debugSurface
+    global debugBgSurface, debugInkSurface, debugInkQueue
     if len(args) > 1:
         camNum = int(args[1])
         print "Using cam %s" % (camNum,)
@@ -429,10 +453,18 @@ def main(args):
     calibWindow.connect("destroy", lambda _: calibWindow.destroy())
     calibWindow.show_all()
 
-    debugSurface = DebugWindow()
-    debugWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
-    debugWindow.add(debugSurface)
-    # debugWindow.show_all()
+    debugBgSurface = DebugWindow()
+    debugBgWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    debugBgWindow.add(debugBgSurface)
+    debugBgWindow.connect("destroy", lambda _: debugBgWindow.destroy())
+    debugBgWindow.show_all()
+
+    debugInkSurface = DebugWindow()
+    debugInkQueue = debugInkSurface.imageQueue
+    debugInkWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    debugInkWindow.add(debugInkSurface)
+    debugInkWindow.connect("destroy", lambda _: debugInkWindow.destroy())
+    debugInkWindow.show_all()
 
     sketchSurface.grab_focus()
     gtk.main()
