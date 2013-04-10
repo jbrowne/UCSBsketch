@@ -371,13 +371,13 @@ def trackChanges(image, history):
 
 def serializeImage(image):
     """Returns a serialized version of an image to put in a Queue"""
-    return (cv.GetSize(image), image.tostring())
+    return (cv.GetSize(image), image.type, image.tostring())
 
 
 def deserializeImage(serializedImage):
     """Turn a serialized image structure into a cvMat"""
-    (imageSize, imageData) = serializedImage
-    rawImage = cv.CreateMatHeader(imageSize[1], imageSize[0], cv.CV_8UC3)
+    (imageSize, imageType, imageData) = serializedImage
+    rawImage = cv.CreateMatHeader(imageSize[1], imageSize[0], imageType)
     cv.SetData(rawImage, imageData, cv.CV_AUTOSTEP)
     return rawImage
 
