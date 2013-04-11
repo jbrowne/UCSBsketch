@@ -243,9 +243,10 @@ def saveimg(cv_img, name="", outdir="./temp/", filename=None):
 
     outdir = os.path.abspath(outdir) + "/"
     if filename is None:
-        outfname = outdir + FNAMEITER.next() + name + ".jpg"
+        outfname = FNAMEITER.next() + name + ".jpg"
     else:
         outfname = filename
+    outfname = os.path.join(outdir, outfname)
     if name != "":
         cv_img = cv.CloneMat(cv_img)
         cv.PutText(cv_img, name, (20, cv_img.rows - 20),
