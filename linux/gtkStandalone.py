@@ -503,6 +503,18 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
         self.strokeQueue.put(stroke)
 #        self.boardProcThread.addStroke(stroke, callback = self.boardChanged)
 
+    def scribbleErase(self, stroke):
+        """Given an input stroke, find and remove all board strokes
+        that intersect the erase stroke."""
+        strokesToErase = set([])
+        for stk in list(self.strokeList):
+            if len(getStrokesIntersection(stroke, stk) ) > 0:
+                strokesToErase.add(stk)
+        log.debug("Found {} strokes out of {} to erase".format(len(strokesToErase), len(self.strokeList)))
+        for stk in strokesToErase:
+            self.strokeQueue.put( (GTKGui.REMOVEOP, stk,) )
+        return len(strokesToErase)
+
     def eraseStroke(self, stroke):
         """Remove a stroke from the board and our local lists"""
         self.strokeList.remove(stroke)

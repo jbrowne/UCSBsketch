@@ -4,6 +4,7 @@ from Queue import Full as FullException, Empty as EmptyException
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from Utils import ForegroundFilter as ff
+from Utils import Logger
 from Utils.BoardChangeWatcher import BoardChangeWatcher
 from Utils.ForegroundFilter import ForegroundFilter
 from Utils.ForegroundFilter import max_allChannel
@@ -48,6 +49,7 @@ SCREENSIZE = (1600, 900)
 GTKGUISIZE = (1024, 650)
 
 
+bwpLog = Logger.getLogger("BWP", Logger.DEBUG)
 class BoardWatchProcess(multiprocessing.Process):
     """This class watches a whiteboard, and bundles up
     changes of the board's contents as discreet "diff" events"""
@@ -69,13 +71,13 @@ class BoardWatchProcess(multiprocessing.Process):
                                   (0, dimensions[1])]
         else:
             self.targetCorners = targetCorners
-        print "Board Watcher Calibrated"
+        bwpLog.debug( "Board Watcher Calibrated")
 
     def run(self):
         """Initialize the basic board model first, then continually
         update the image and add new ink to the board"""
         global debugBgSurface, debugInkSurface
-        print "Board Watcher Started: pid %s" % (self.pid,)
+        bwpLog.debug( "Board Watcher Started: pid %s" % (self.pid,))
         try:
             import pydevd
             pydevd.settrace(stdoutToServer=True, stderrToServer=True,
@@ -89,7 +91,7 @@ class BoardWatchProcess(multiprocessing.Process):
             except EmptyException:
                 pass
         if not self.keepGoing.is_set():
-            print "Board watcher stopping"
+            bwpLog.debug( "Board watcher stopping")
             return
 
         saveimg(rawImage, name="Initial_Board_Image")
@@ -130,30 +132,40 @@ class BoardWatchProcess(multiprocessing.Process):
                 newErase = warpFrame(newErase, self.warpCorners,
                                      self.targetCorners)
                 newErase = resizeImage(newErase, dims=GTKGUISIZE)
-                debugInkSurface.setImage(resizeImage(newInk, scale=0.75))
                 saveimg(newInk, name="NewInk")
                 saveimg(newErase, name="NewErase")
-                cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
+
+                debugDiffImage = cv.CloneMat(newErase)
+                cv.Set(debugDiffImage, 128)
+                cv.Sub(debugDiffImage, newInk, debugDiffImage)
+                cv.Add(debugDiffImage, newErase, debugDiffImage)
+                debugInkSurface.setImage(resizeImage(debugDiffImage, scale=0.65))
 
                 acceptedImage = self.boardWatcher.acceptCurrentImage()
                 saveimg(acceptedImage, name="AcceptedImage")
+
+                cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
                 strokeList = ISC.cvimgToStrokes(flipMat(newInk),
                                         targetWidth=boardWidth)['strokes']
                 for stk in strokeList:
                     self.board.addStroke(stk)
-            elif i % 10 == 0:
+                    
+            """
+            elif i % 60 == 0:
                 # Debug save at least every 10 frames
                 newInk, newErase = self.boardWatcher.captureBoardDifferences()
                 debugBgImage = self.boardWatcher._fgFilter.getBackgroundImage()
                 saveimg(newInk, "Debug_NewInk")
                 saveimg(newErase, "Debug_NewErase")
                 saveimg(debugBgImage, "Debug_Background")
-        print "Board watcher stopping"
+            """
+        bwpLog.debug("Board watcher stopping")
 
     def stop(self):
         self.keepGoing.clear()
 
 
+capLog = Logger.getLogger("Capture", Logger.DEBUG)
 class CaptureProcess(Process):
     """A process that fills a queue with images as captured from
     a camera feed"""
@@ -167,7 +179,7 @@ class CaptureProcess(Process):
         self.daemon = True
 
     def run(self):
-        print "CaptureProcess pid: %s" % (self.pid,)
+        capLog.debug("CaptureProcess pid: {}".format(self.pid))
         while self.keepGoing.is_set():
             image = captureImage(self.capture)
 #            sys.stdout.write(".")
@@ -219,7 +231,7 @@ class CalibrationArea(ImageArea):
         # GUI configuration stuff
         self.registeredCallbacks = {}
         self.keepGoing = True
-        self.dScale = 0.3
+        self.dScale = 0.5
         self.warpCorners = []
         gobject.idle_add(self.idleUpdate)
         self.set_property("can-focus", True)  # So we can capture keyboard
@@ -245,26 +257,26 @@ class CalibrationArea(ImageArea):
             if len(self.warpCorners) == 4:
                 print "Using pre-defined calibration"
                 capProc = BoardWatchProcess(self.imageQueue, self.dimensions,
-                self.disable()
-                self.get_toplevel().destroy()
                                 self.warpCorners, self.sketchSurface,
                                 targetCorners=CalibrationArea.RAWBOARDCORNERS)
                 self.sketchSurface.registerKeyCallback('v',
                                                        lambda: capProc.start())
+                self.disable()
+                self.get_toplevel().destroy()
             else:
                 print "Searching for Chessboard..."
                 warpCorners = findCalibrationChessboard(self.rawImage)
                 if len(warpCorners) == 4:
                     print "Warp Corners: %s" % (warpCorners)
                     self.warpCorners = warpCorners
-                    self.disable()
-                    self.get_toplevel().destroy()
                     capProc = BoardWatchProcess(self.imageQueue,
                                 self.dimensions,
                                 warpCorners, self.sketchSurface,
                                 targetCorners=CalibrationArea.CHESSBOARDCORNERS)
                     self.sketchSurface.registerKeyCallback('v',
                                                 lambda: capProc.start())
+                    self.disable()
+                    self.get_toplevel().destroy()
                 else:
                     print "No chessboard found!"
         for callback in self.registeredCallbacks.get(key, []):
@@ -291,9 +303,11 @@ class CalibrationArea(ImageArea):
             serializedImage = self.imageQueue.get_nowait()
             self.rawImage = deserializeImage(serializedImage)
             dispImage = self.rawImage
+            """
             for x, y in self.warpCorners:
                 cv.Circle(dispImage, (int(x), int(y)), 5,
                           (200, 0, 200), thickness= -1)
+            """
             smallImage = resizeImage(dispImage, self.dScale)
             self.setCvMat(smallImage)
         except EmptyException:
@@ -410,7 +424,6 @@ class DebugWindow(ImageArea):
             try:
                 img = deserializeImage(queue.get(True, 3))
                 with surface._lock:
-                    saveimg(img, "DebugImage")
                     surface.setCvMat(img)
                 time.sleep(0.3)
             except EmptyException as e:
@@ -434,8 +447,8 @@ def main(args):
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
-    capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE00)
-    changeExposure(camNum, value=100)
+    capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE01)
+    changeExposure(camNum, value=200)
 
     sketchSurface = GTKGui(dims=GTKGUISIZE)
     sketchWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
