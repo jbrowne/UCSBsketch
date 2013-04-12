@@ -139,7 +139,8 @@ class BoardChangeWatcher(object):
                         float(max(totalCurrentDiff, 1)))
         if totalCurrentDiff > totalPixelDiffThresh:
             if percentDiff < precentDiffThresh:
-                    logger.debug("Capture is READY!")
+                    logger.debug("Capture is READY!: diff: {}, percentDiff: {}".format(totalCurrentDiff, percentDiff))
+                    saveimg(captureDiffMask, name="CapturedDifference")
                     self.isCaptureReady = True
             else:
                 # Only set unready if the difference is large
@@ -148,9 +149,16 @@ class BoardChangeWatcher(object):
         else:
             self.isCaptureReady = False
 
+        if self._boardMask is not None:
+            colorBoardMask = cv.CreateMat(image.rows, image.cols, cv.CV_8UC3)
+            cv.CvtColor(self._boardMask, colorBoardMask, cv.CV_GRAY2RGB)
+            cv.AddWeighted(self._fgFilter.latestMask, 0.75, colorBoardMask, 0.25, 0.0, self._fgFilter.latestMask)
         if DEBUG:
             showResized("Live Model Difference", captureDiffMask, 0.25)
             showResized("Change of model difference over window", cumulativeDiff, 0.25)
+            showResized("Debug Image", self._fgFilter.latestMask, 0.25)
+            if self._boardMask is not None:
+                showResized("Board Mask", self._boardMask, 0.25)
 
     def captureBoardDifferences(self):
         """Returns a tuple of binary images: (darkerDiff, lighterDiff)
@@ -266,8 +274,8 @@ def main(args):
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
-    capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE00)
-    changeExposure(camNum, value=100)
+    capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE01)
+    changeExposure(camNum, value=500)
 
     dispScale = 0.5
     warpCorners = []

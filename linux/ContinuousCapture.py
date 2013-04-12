@@ -48,6 +48,10 @@ HD720 = (1280, 720)
 SCREENSIZE = (1600, 900)
 GTKGUISIZE = (1024, 650)
 
+DEBUGBG_SCALE = 0.35
+DEBUGDIFF_SCALE = 0.65
+LIVECAP_SCALE = 0.3
+BLOBFILTER_SCALE = 0.3
 
 bwpLog = Logger.getLogger("BWP", Logger.DEBUG)
 class BoardWatchProcess(multiprocessing.Process):
@@ -71,13 +75,13 @@ class BoardWatchProcess(multiprocessing.Process):
                                   (0, dimensions[1])]
         else:
             self.targetCorners = targetCorners
-        bwpLog.debug( "Board Watcher Calibrated")
+        bwpLog.debug("Board Watcher Calibrated")
 
     def run(self):
         """Initialize the basic board model first, then continually
         update the image and add new ink to the board"""
-        global debugBgSurface, debugInkSurface
-        bwpLog.debug( "Board Watcher Started: pid %s" % (self.pid,))
+        global debugBgSurface, debugInkSurface, debugFilterSurface
+        bwpLog.debug("Board Watcher Started: pid %s" % (self.pid,))
         try:
             import pydevd
             pydevd.settrace(stdoutToServer=True, stderrToServer=True,
@@ -91,42 +95,46 @@ class BoardWatchProcess(multiprocessing.Process):
             except EmptyException:
                 pass
         if not self.keepGoing.is_set():
-            bwpLog.debug( "Board watcher stopping")
+            bwpLog.debug("Board watcher stopping")
             return
 
         saveimg(rawImage, name="Initial_Board_Image")
         self.boardWatcher.setBoardImage(rawImage)
         self.boardWatcher.setBoardCorners(self.warpCorners, self.targetCorners)
         boardWidth = self.board.getDimensions()[0]
-        #DEBUG
-        bgImage = resizeImage(self.boardWatcher._fgFilter.getBackgroundImage(), scale=0.25)
-        debugBgSurface.setImage(bgImage)
-        #/DEBUG
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
         warpImage = resizeImage(warpImage, dims=GTKGUISIZE)
+        # DEBUG
+        bgImage = resizeImage(self.boardWatcher._fgFilter.getBackgroundImage(), scale=DEBUGBG_SCALE)
+        debugBgSurface.setImage(bgImage)
+        debugInkSurface.setImage(resizeImage(warpImage, scale=DEBUGDIFF_SCALE))
+        # /DEBUG
+
         strokeList = ISC.cvimgToStrokes(flipMat(warpImage),
                                 targetWidth=boardWidth)['strokes']
 
         for stk in strokeList:
             self.board.addStroke(stk)
-        i = 0
+        framesSinceAccept = 0
         while self.keepGoing.is_set():
-            i += 1
+            framesSinceAccept += 1
             try:
                 rawImage = deserializeImage(self.imageQueue.get(block=True, timeout=1))
             except EmptyException:
                 continue
             self.boardWatcher.updateBoardImage(rawImage)
-            #DEBUG
-            bgImage = resizeImage(self.boardWatcher._fgFilter.getBackgroundImage(), scale=0.25)
-            debugBgSurface.setImage(bgImage)
-            #/DEBUG
+            # DEBUG
+            bgImage = self.boardWatcher._fgFilter.getBackgroundImage()
+            debugBgSurface.setImage(resizeImage(bgImage, scale=DEBUGBG_SCALE))
+            bgMask = self.boardWatcher._fgFilter.latestMask
+            debugFilterSurface.setImage(resizeImage(bgMask, scale=DEBUGBG_SCALE))
+            # /DEBUG
             if self.boardWatcher.isCaptureReady:
                 saveimg(rawImage, name="Raw Image")
                 saveimg(self.boardWatcher._fgFilter.getBackgroundImage(),
                         name="BG_Image")
                 newInk, newErase = self.boardWatcher.captureBoardDifferences()
-                newInk = warpFrame(newInk, self.warpCorners, 
+                newInk = warpFrame(newInk, self.warpCorners,
                                    self.targetCorners)
                 newInk = resizeImage(newInk, dims=GTKGUISIZE)
                 newErase = warpFrame(newErase, self.warpCorners,
@@ -135,30 +143,48 @@ class BoardWatchProcess(multiprocessing.Process):
                 saveimg(newInk, name="NewInk")
                 saveimg(newErase, name="NewErase")
 
-                debugDiffImage = cv.CloneMat(newErase)
-                cv.Set(debugDiffImage, 128)
-                cv.Sub(debugDiffImage, newInk, debugDiffImage)
-                cv.Add(debugDiffImage, newErase, debugDiffImage)
-                debugInkSurface.setImage(resizeImage(debugDiffImage, scale=0.65))
+                # DEBUG
+                # Generate and display the context difference image
+                warpBgImage = warpFrame(bgImage, self.warpCorners, self.targetCorners)
+                warpBgImage = resizeImage(warpBgImage, dims=GTKGUISIZE)
+
+                cv.Threshold(newInk, newInk, 20, 100, cv.CV_THRESH_BINARY)
+                cv.Threshold(newErase, newErase, 20, 128, cv.CV_THRESH_BINARY)
+                debugDiffImage = cv.CloneMat(warpBgImage)
+                redChannel = cv.CreateMat(warpBgImage.rows, warpBgImage.cols, cv.CV_8UC1)
+                greenChannel = cv.CreateMat(warpBgImage.rows, warpBgImage.cols, cv.CV_8UC1)
+                blueChannel = cv.CreateMat(warpBgImage.rows, warpBgImage.cols, cv.CV_8UC1)
+                cv.Split(debugDiffImage, blueChannel, greenChannel, redChannel, None)
+                cv.Add(newInk, blueChannel, blueChannel)
+                cv.Add(newErase, redChannel, redChannel)
+
+                cv.Sub(greenChannel, newInk, greenChannel)
+                cv.Sub(redChannel, newInk, redChannel)
+
+                cv.Sub(greenChannel, newErase, greenChannel)
+                cv.Sub(blueChannel, newErase, blueChannel)
+
+                cv.Merge(blueChannel, greenChannel, redChannel, None, debugDiffImage)
+
+                debugInkSurface.setImage(resizeImage(debugDiffImage, scale=DEBUGDIFF_SCALE))
+                # /DEBUG
 
                 acceptedImage = self.boardWatcher.acceptCurrentImage()
                 saveimg(acceptedImage, name="AcceptedImage")
+                framesSinceAccept = 0
 
                 cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
                 strokeList = ISC.cvimgToStrokes(flipMat(newInk),
                                         targetWidth=boardWidth)['strokes']
                 for stk in strokeList:
                     self.board.addStroke(stk)
-                    
-            """
-            elif i % 60 == 0:
-                # Debug save at least every 10 frames
-                newInk, newErase = self.boardWatcher.captureBoardDifferences()
-                debugBgImage = self.boardWatcher._fgFilter.getBackgroundImage()
-                saveimg(newInk, "Debug_NewInk")
-                saveimg(newErase, "Debug_NewErase")
-                saveimg(debugBgImage, "Debug_Background")
-            """
+        # DEBUG
+        if framesSinceAccept == 9 :
+                warpBgImage = warpFrame(bgImage, self.warpCorners, self.targetCorners)
+                warpBgImage = resizeImage(warpBgImage, dims=GTKGUISIZE)
+                debugInkSurface.setImage(resizeImage(warpBgImage, scale=DEBUGDIFF_SCALE))
+        # /DEBUG
+
         bwpLog.debug("Board watcher stopping")
 
     def stop(self):
@@ -231,7 +257,7 @@ class CalibrationArea(ImageArea):
         # GUI configuration stuff
         self.registeredCallbacks = {}
         self.keepGoing = True
-        self.dScale = 0.5
+        self.dScale = LIVECAP_SCALE
         self.warpCorners = []
         gobject.idle_add(self.idleUpdate)
         self.set_property("can-focus", True)  # So we can capture keyboard
@@ -261,8 +287,8 @@ class CalibrationArea(ImageArea):
                                 targetCorners=CalibrationArea.RAWBOARDCORNERS)
                 self.sketchSurface.registerKeyCallback('v',
                                                        lambda: capProc.start())
-                self.disable()
-                self.get_toplevel().destroy()
+#                self.disable()
+#                self.get_toplevel().destroy()
             else:
                 print "Searching for Chessboard..."
                 warpCorners = findCalibrationChessboard(self.rawImage)
@@ -275,8 +301,8 @@ class CalibrationArea(ImageArea):
                                 targetCorners=CalibrationArea.CHESSBOARDCORNERS)
                     self.sketchSurface.registerKeyCallback('v',
                                                 lambda: capProc.start())
-                    self.disable()
-                    self.get_toplevel().destroy()
+#                    self.disable()
+#                    self.get_toplevel().destroy()
                 else:
                     print "No chessboard found!"
         for callback in self.registeredCallbacks.get(key, []):
@@ -430,28 +456,29 @@ class DebugWindow(ImageArea):
                 pass
             except Exception as e:
                 print "Error getting image! {}".format(e)
-    
+
         with self._lock:
             if self._thread is None or not self._thread.is_alive():
-                self._thread = Thread(target=getAndSetImage, 
+                self._thread = Thread(target=getAndSetImage,
                                                 args=(self, self.imageQueue))
-                self._thread.daemon=True
+                self._thread.daemon = True
                 self._thread.start()
         return True
 
 
 def main(args):
-    global debugBgSurface, debugInkSurface, debugInkQueue
+    global debugBgSurface, debugInkSurface, debugFilterSurface
     if len(args) > 1:
         camNum = int(args[1])
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
     capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE01)
-    changeExposure(camNum, value=200)
+    changeExposure(camNum, value=300)
 
     sketchSurface = GTKGui(dims=GTKGUISIZE)
     sketchWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    sketchWindow.set_title("Sketch Surface")
     sketchWindow.add(sketchSurface)
     sketchWindow.connect("destroy", gtk.main_quit)
     sketchWindow.show_all()
@@ -462,21 +489,38 @@ def main(args):
     calibArea.registerKeyCallback('+', lambda _: changeExposure(camNum, 100))
     calibArea.registerKeyCallback('-', lambda _: changeExposure(camNum, -100))
     calibWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    calibWindow.set_title("Live View")
     calibWindow.add(calibArea)
     calibWindow.connect("destroy", lambda _: calibWindow.destroy())
     calibWindow.show_all()
 
+    debugFilterSurface = DebugWindow()
+    debugFilterSurface.setImage(
+        resizeImage(cv.CreateMat(dims[1], dims[0], cv.CV_8UC1), scale=DEBUGBG_SCALE))
+    debugFilterWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    debugFilterWindow.set_title("Foreground Filter")
+    debugFilterWindow.add(debugFilterSurface)
+    debugFilterWindow.connect("destroy", gtk.main_quit)
+    debugFilterWindow.show_all()
+
     debugBgSurface = DebugWindow()
+    debugBgSurface.setImage(
+        resizeImage(cv.CreateMat(dims[1], dims[0], cv.CV_8UC1), scale=DEBUGBG_SCALE))
     debugBgWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    debugBgWindow.set_title("Filtered Board View")
     debugBgWindow.add(debugBgSurface)
-    debugBgWindow.connect("destroy", lambda _: debugBgWindow.destroy())
+    debugBgWindow.connect("destroy", gtk.main_quit)
     debugBgWindow.show_all()
 
     debugInkSurface = DebugWindow()
-    debugInkQueue = debugInkSurface.imageQueue
+    guiDims = sketchSurface.getDimensions()
+    dummyInkImage = cv.CreateMat(guiDims[1], guiDims[0], cv.CV_8UC1)
+    cv.Set(dummyInkImage, 128)
+    debugInkSurface.setImage(resizeImage(dummyInkImage, scale=DEBUGDIFF_SCALE))
     debugInkWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    debugInkWindow.set_title("Transformed Board View")
     debugInkWindow.add(debugInkSurface)
-    debugInkWindow.connect("destroy", lambda _: debugInkWindow.destroy())
+    debugInkWindow.connect("destroy", gtk.main_quit)
     debugInkWindow.show_all()
 
     sketchSurface.grab_focus()

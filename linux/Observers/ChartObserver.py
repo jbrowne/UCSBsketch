@@ -57,6 +57,7 @@ class ChartAreaCollector(ObserverBase.Collector):
             else:
                 logger.debug("Vertical Axis found")
                 return ChartAreaAnnotation(None, anno)
+
     def mergeCollections(self, from_anno, to_anno):
         horizontalArrowList = [anno.horizontalArrow for anno in
                                             (from_anno, to_anno)
