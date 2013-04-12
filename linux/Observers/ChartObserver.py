@@ -184,7 +184,6 @@ class ChartVisualizer(ObserverBase.Visualizer):
                     xVal = (x * (xValRange[1] - xValRange[0]) / float(width)) - xValRange[0]
                     try:
                         y = max(-height, min(height,func(xVal)))
-                        print "{} -> {}".format(func(xVal), y)
                         scale = float(max([y, scale, -y]))
                     except:
                         y = None
