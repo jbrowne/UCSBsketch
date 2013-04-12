@@ -6,7 +6,7 @@ from Utils import Logger
 import cv
 import gtk
     
-log = Logger.getLogger("ImageArea", Logger.DEBUG)
+log = Logger.getLogger("ImageArea", Logger.WARN)
     
 class ImageArea (gtk.EventBox):
     def __init__(self):

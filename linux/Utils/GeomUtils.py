@@ -105,7 +105,7 @@ import sys
 import time
 
 
-logger = Logger.getLogger('GeomUtils', Logger.DEBUG )
+logger = Logger.getLogger('GeomUtils', Logger.WARN )
 
 
 #--------------------------------------------------------------

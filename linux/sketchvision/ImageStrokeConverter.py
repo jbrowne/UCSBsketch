@@ -37,7 +37,7 @@ import time
 
     
 
-log = Logger.getLogger("ISC", Logger.DEBUG)
+log = Logger.getLogger("ISC", Logger.WARN)
 
 #Random, but consistent
 random.seed("sketchvision")

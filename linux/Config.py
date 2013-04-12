@@ -4,8 +4,10 @@ from Observers import DiGraphObserver
 from Observers import LineObserver
 from Observers import TextObserver
 from Observers import TuringMachineObserver
+from Observers import DebugObserver
 from Observers.ChartObserver import ChartAreaCollector
 from Observers.ChartObserver import ChartVisualizer
+from Observers.ChartObserver import ChartAreaAnnotation
 from Observers.EquationObserver import EquationCollector
 from Observers.EquationObserver import EquationMarker
 from Observers.EquationObserver import EquationVisualizer
@@ -71,8 +73,9 @@ def initializeBoard(board):
         """
 
 
+        #d = DebugObserver.DebugObserver(board)
+        #d.trackAnnotation(ChartAreaAnnotation)
         """
-        d = DebugObserver.DebugObserver(board)
         d.trackAnnotation(ArrowObserver.ArrowHeadAnnotation)
         d.trackAnnotation(DiGraphObserver.DiGraphNodeAnnotation)
         d.trackAnnotation(TestAnimObserver.TestAnnotation)

@@ -21,7 +21,7 @@ from SketchFramework.Annotation import Annotation, AnnotatableObject
 
 
 
-logger = Logger.getLogger('ChartObserver', Logger.DEBUG)
+logger = Logger.getLogger('ChartObserver', Logger.WARN)
 
 #-------------------------------------
 class ChartAreaAnnotation(Annotation):
@@ -36,6 +36,35 @@ class ChartAreaAnnotation(Annotation):
         return "CA: H {}, V {}".format(self.horizontalArrow, self.verticalArrow)
 
 #-------------------------------------
+class ChartEquationSplitter(BoardObserver):
+    def __init__(self, board):
+        BoardObserver.__init__(self, board)
+        self.getBoard().AddBoardObserver(self, [ChartAreaAnnotation, EquationAnnotation])
+        self.getBoard().RegisterForAnnotation(ChartAreaAnnotation, self)
+        self.getBoard().RegisterForAnnotation(EquationAnnotation, self)
+
+    def onAnnotationUpdated(self, anno):
+
+        chartAnnotations = []
+        equationAnnotations = []
+        if type(anno) == ChartAreaAnnotation:
+            chartAnnotations = [anno]
+            for stk in anno.Strokes:
+                equationAnnotations.extend(stk.findAnnotations(EquationAnnotation))
+        elif type(anno) == EquationAnnotation:
+            equationAnnotations = [anno]
+            for stk in anno.Strokes:
+                chartAnnotations.extend(stk.findAnnotations(ChartAreaAnnotation))
+        for chartAnno in chartAnnotations:
+            if None in (chartAnno.horizontalArrow, chartAnno.verticalArrow):
+                continue
+            for eqAnno in equationAnnotations:
+                newStks = eqAnno.Strokes
+                for stk in chartAnno.Strokes:
+                    if stk in newStks:
+                        newStks.remove(stk)
+                logger.debug("Splitting chart annotation from '{}'".format(eqAnno.latex))
+                self.getBoard().UpdateAnnotation(eqAnno, new_strokes = newStks)
 
 class ChartAreaCollector(ObserverBase.Collector):
 
@@ -44,6 +73,7 @@ class ChartAreaCollector(ObserverBase.Collector):
         get the proper notifications"""
         ObserverBase.Collector.__init__(self, board, \
             [ArrowObserver.ArrowAnnotation], ChartAreaAnnotation)
+        ChartEquationSplitter(board)
 
     def collectionFromItem(self, strokes, anno):
         vertDiff = math.fabs(anno.tip.Y - anno.tail.Y)
@@ -69,7 +99,6 @@ class ChartAreaCollector(ObserverBase.Collector):
             logger.debug("Not merging charts")
             return False
         else:
-            logger.debug("Merging charts")
             horiz = horizontalArrowList[0]
             vert = verticalArrowList[0]
             h_len = pointDist(horiz.tail, horiz.tip)
@@ -80,7 +109,7 @@ class ChartAreaCollector(ObserverBase.Collector):
                 return False
             to_anno.verticalArrow = vert
             to_anno.horizontalArrow = horiz
-            logger.debug(to_anno)
+            logger.debug("Merging charts")
             return True
 
 #-------------------------------------
@@ -114,11 +143,14 @@ def mapChartsToEquations(chartsMap, equations):
         chosenChart = None
         chosenDist = 1000
         for chart_anno, chart_point in chartsBB.items():
+            if chart_anno.horizontalArrow is None or chart_anno.verticalArrow is None:
+                continue
             thisDist = pointDist(chart_point, eq_point)
             if chosenChart is None or thisDist < chosenDist:
                 chosenChart = chart_anno
                 chosenDist = thisDist
-        chartsMap[chosenChart].append(eq_anno)
+        if chosenChart is not None:
+            chartsMap[chosenChart].append(eq_anno)
 
 class ChartVisualizer(ObserverBase.Visualizer):
     "Watches for DiGraph annotations, draws them"
@@ -184,7 +216,7 @@ class ChartVisualizer(ObserverBase.Visualizer):
                 for x in range(width):
                     xVal = (x * (xValRange[1] - xValRange[0]) / float(width)) - xValRange[0]
                     try:
-                        y = max(-height, min(height,func(xVal)))
+                        y = func(xVal)
                         scale = float(max([y, scale, -y]))
                     except:
                         y = None

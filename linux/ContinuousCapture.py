@@ -53,7 +53,7 @@ DEBUGDIFF_SCALE = 0.55
 LIVECAP_SCALE = 0.25
 BLOBFILTER_SCALE = 0.3
 
-bwpLog = Logger.getLogger("BWP", Logger.DEBUG)
+bwpLog = Logger.getLogger("BWP", Logger.WARN)
 class BoardWatchProcess(multiprocessing.Process):
     """This class watches a whiteboard, and bundles up
     changes of the board's contents as discreet "diff" events"""
@@ -140,8 +140,8 @@ class BoardWatchProcess(multiprocessing.Process):
                 newErase = warpFrame(newErase, self.warpCorners,
                                      self.targetCorners)
                 newErase = resizeImage(newErase, dims=GTKGUISIZE)
-                saveimg(newInk, name="NewInk")
-                saveimg(newErase, name="NewErase")
+                #saveimg(newInk, name="NewInk")
+                #saveimg(newErase, name="NewErase")
 
                 # DEBUG
                 # Generate and display the context difference image
@@ -191,7 +191,7 @@ class BoardWatchProcess(multiprocessing.Process):
         self.keepGoing.clear()
 
 
-capLog = Logger.getLogger("Capture", Logger.DEBUG)
+capLog = Logger.getLogger("Capture", Logger.WARN)
 class CaptureProcess(Process):
     """A process that fills a queue with images as captured from
     a camera feed"""

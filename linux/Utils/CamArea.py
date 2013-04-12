@@ -25,7 +25,7 @@ import threading
 
 pygtk.require('2.0')
 
-log = Logger.getLogger("CamArea", Logger.DEBUG)
+log = Logger.getLogger("CamArea", Logger.WARN)
     
 MAXCAPSIZE = (2592, 1944)
 HD1080 = (1920, 1080)

@@ -104,9 +104,10 @@ class EquationMarker(BoardObserver):
         "When a stroke is removed, remove equation annotation if found"
         for anno in stroke.findAnnotations(EquationAnnotation, True):
             logger.debug("Removing stroke from %s" % (anno.latex))
-            annoStrokes = list(anno.Strokes)
-            annoStrokes.remove(stroke)
-            self.getBoard().UpdateAnnotation(anno, annoStrokes)
+            if stroke in anno.Strokes:
+                annoStrokes = list(anno.Strokes)
+                annoStrokes.remove(stroke)
+                self.getBoard().UpdateAnnotation(anno, annoStrokes)
             self.deferredAnnoQueue.put(anno)
 
 
@@ -199,7 +200,7 @@ def pixbufFromLatex(latex):
 
 #-------------------------------------
 
-visLogger = Logger.getLogger("EquationVisualizer", Logger.DEBUG)
+visLogger = Logger.getLogger("EquationVisualizer", Logger.WARN)
 class EquationVisualizer(ObserverBase.Visualizer):
     "Watches for DiGraph annotations, draws them"
     def __init__(self, board):

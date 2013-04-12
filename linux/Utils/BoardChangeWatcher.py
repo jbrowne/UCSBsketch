@@ -227,11 +227,11 @@ class BoardChangeWatcher(object):
         else:
             logger.warn("Watching with no board area set!")
 
-        if DEBUG:
-            saveimg(darkerDiff, name="Darker")
-            saveimg(lighterDiff, name="Lighter")
-            saveimg(lightSpotMask_Prev, "LightSpotPrev")
-            saveimg(lightSpotMask_Current, "LightSpotCurrent")
+        saveimg(darkerDiff, name="Darker")
+        saveimg(lighterDiff, name="Lighter")
+        saveimg(lightSpotMask_Prev, "LightSpotPrev")
+        saveimg(lightSpotMask_Current, "LightSpotCurrent")
+#       if DEBUG:
 #            showResized("Darker", darkerDiff, 0.25)
 #            showResized("Lighter", lighterDiff, 0.25)
 #            showResized("Previous Projection", lightSpotMask_Prev, 0.25)

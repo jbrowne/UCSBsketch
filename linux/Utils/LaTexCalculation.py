@@ -83,9 +83,7 @@ def tokenize(eqn):
             tokens.append("tan")
             i = j
     if i != len(eqn):
-        print i, len(eqn)
-        print "Lexer failed to tokenize at {}.\nTokens so far:{}".format(eqn[i:], tokens)
-        #return []
+        raise Exception("Lexer failed to tokenize at '{}'.\nTokens so far:{}".format(eqn[i:], tokens))
     return tokens
 
 
