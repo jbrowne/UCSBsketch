@@ -20,7 +20,7 @@ import threading
 import time
 
 
-logger = Logger.getLogger('EquationObserver', Logger.DEBUG)
+logger = Logger.getLogger('EquationObserver', Logger.WARN)
 
 #-------------------------------------
 class EquationAnnotation(Annotation):
@@ -221,7 +221,8 @@ class EquationVisualizer(ObserverBase.Visualizer):
             bb_from = (tl, br)
             gui.drawBox(tl, br, color="#FFFFFF")
 
-        visLogger.debug("Drawing Anno: {}".format(a.latex))
+        if a.latex != "":
+            visLogger.debug("Drawing Anno: {}".format(a.latex))
         if a.latex and len(a.latex) > 0:
             try:
                 if hasattr(gui, 'drawBitmap'):
