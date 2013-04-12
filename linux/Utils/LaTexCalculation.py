@@ -73,9 +73,19 @@ def tokenize(eqn):
         elif token == "\sqrt":
             tokens.append("sqrt")
             i = j
+        elif token == "\cos":
+            tokens.append("cos")
+            i = j
+        elif token == "\sin":
+            tokens.append("sin")
+            i = j
+        elif token == r"\tan":
+            tokens.append("tan")
+            i = j
     if i != len(eqn):
-        print "Lexer failed to tokenize at {}".format(eqn[i:])
-        return []
+        print i, len(eqn)
+        print "Lexer failed to tokenize at {}.\nTokens so far:{}".format(eqn[i:], tokens)
+        #return []
     return tokens
 
 
@@ -107,6 +117,24 @@ def solve_basic(tokens):
             opIdx = tokenList.index('div')
             tokenList.pop(opIdx)
             tokenList.insert(opIdx+1, '/')
+        while 'cos' in tokenList:
+            opIdx = tokenList.index('cos')
+            tokenList.pop(opIdx)
+            arg = tokenList.pop(opIdx)
+            assert callable(arg)
+            tokenList.insert(opIdx, lambda x: math.cos(arg(x)))
+        while 'tan' in tokenList:
+            opIdx = tokenList.index('tan')
+            tokenList.pop(opIdx)
+            arg = tokenList.pop(opIdx)
+            assert callable(arg)
+            tokenList.insert(opIdx, lambda x: math.tan(arg(x)))
+        while 'sin' in tokenList:
+            opIdx = tokenList.index('sin')
+            tokenList.pop(opIdx)
+            arg = tokenList.pop(opIdx)
+            assert callable(arg)
+            tokenList.insert(opIdx, lambda x: math.sin(arg(x)))
         prev = None
         tokensCopy = []
         for tk in tokenList:

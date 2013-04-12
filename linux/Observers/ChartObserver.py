@@ -64,8 +64,6 @@ class ChartAreaCollector(ObserverBase.Collector):
         verticalArrowList = [anno.verticalArrow for anno in
                                             (from_anno, to_anno)
                                 if anno.verticalArrow is not None]
-        print horizontalArrowList
-        print verticalArrowList
         if len(verticalArrowList) != 1 or len(horizontalArrowList) != 1:
             logger.debug("Not merging charts")
             return False
@@ -121,10 +119,12 @@ class ChartVisualizer(ObserverBase.Visualizer):
     def drawAnno(self, a):
         if a.horizontalArrow is None or a.verticalArrow is None:
             return
+        xValRange = (0,10)
         x0, y0 = None, None  # offset coordinates
-        slopeFn = lambda x: 0
+        rise = a.horizontalArrow.tip.Y - a.horizontalArrow.tail.Y 
         height = int(a.verticalArrow.tip.Y - a.verticalArrow.tail.Y)
         width = int(a.horizontalArrow.tip.X - a.horizontalArrow.tail.X)
+        slopeFn = (lambda x: rise * (x / float(width)))
         for arrow in [a.horizontalArrow, a.verticalArrow]:
             x1 = arrow.tail.X
             y1 = arrow.tail.Y
@@ -149,9 +149,11 @@ class ChartVisualizer(ObserverBase.Visualizer):
                 func = solveLaTex(eqn.latex)
                 points = []
                 for x in range(width):
+                    xVal = (x * (xValRange[1] - xValRange[0]) / float(width)) - xValRange[0]
                     try:
-                        y = func(x)
-                        scale = float(max(y, scale))
+                        y = max(-height, min(height,func(xVal)))
+                        print "{} -> {}".format(func(xVal), y)
+                        scale = float(max([y, scale, -y]))
                     except:
                         y = None
                     points.append((x, y,))
@@ -174,7 +176,7 @@ class ChartVisualizer(ObserverBase.Visualizer):
             for x, y in points:
                 if y is not None:
                     cx = x0 + x
-                    cy = y0 + (y / drawScale * height)
+                    cy = y0 + (y / drawScale * height) + slopeFn(x)
                     if px is not None and py is not None:
                         if cy < y0 + height and py < y0 + height \
                             and cx < x0 + width and px < x0 + width:
