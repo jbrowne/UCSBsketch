@@ -4,6 +4,7 @@ from Queue import Full as FullException, Empty as EmptyException
 from SketchFramework.Point import Point
 from SketchFramework.Stroke import Stroke
 from Utils import ForegroundFilter as ff
+from Utils import Logger
 from Utils.BoardChangeWatcher import BoardChangeWatcher
 from Utils.ForegroundFilter import ForegroundFilter
 from Utils.ForegroundFilter import max_allChannel
@@ -23,7 +24,7 @@ from multiprocessing import Event
 from multiprocessing import Process
 from multiprocessing import Queue
 from sketchvision import ImageStrokeConverter as ISC
-from threading import Lock
+from threading import Lock, Thread
 import gobject
 import gtk
 import math
@@ -47,10 +48,17 @@ HD720 = (1280, 720)
 SCREENSIZE = (1600, 900)
 GTKGUISIZE = (1024, 650)
 
+DEBUGBG_SCALE = 0.35
+DEBUGDIFF_SCALE = 0.65
+LIVECAP_SCALE = 0.3
+BLOBFILTER_SCALE = 0.3
+
+bwpLog = Logger.getLogger("BWP", Logger.DEBUG)
 class BoardWatchProcess(multiprocessing.Process):
     """This class watches a whiteboard, and bundles up
     changes of the board's contents as discreet "diff" events"""
-    def __init__(self, imageQueue, dimensions, warpCorners, sketchGui, targetCorners=None):
+    def __init__(self, imageQueue, dimensions, warpCorners,
+                 sketchGui, targetCorners=None):
         multiprocessing.Process.__init__(self)
         self.daemon = True
         self.imageQueue = imageQueue
@@ -61,19 +69,23 @@ class BoardWatchProcess(multiprocessing.Process):
         self.keepGoing = Event()
         self.keepGoing.set()
         if targetCorners is None:
-            self.targetCorners = [(0, 0), (dimensions[0], 0), (dimensions[0], dimensions[1]), (0, dimensions[1])]
+            self.targetCorners = [(0, 0),
+                                  (dimensions[0], 0),
+                                  (dimensions[0], dimensions[1]),
+                                  (0, dimensions[1])]
         else:
             self.targetCorners = targetCorners
-        print "Board Watcher Calibrated"
+        bwpLog.debug("Board Watcher Calibrated")
 
     def run(self):
         """Initialize the basic board model first, then continually
         update the image and add new ink to the board"""
-        global debugSurface
-        print "Board Watcher Started: pid %s" % (self.pid,)
+        global debugBgSurface, debugInkSurface, debugFilterSurface
+        bwpLog.debug("Board Watcher Started: pid %s" % (self.pid,))
         try:
             import pydevd
-            pydevd.settrace(stdoutToServer=True, stderrToServer=True, suspend=False)
+            pydevd.settrace(stdoutToServer=True, stderrToServer=True,
+                            suspend=False)
         except:
             pass
         rawImage = None
@@ -83,7 +95,7 @@ class BoardWatchProcess(multiprocessing.Process):
             except EmptyException:
                 pass
         if not self.keepGoing.is_set():
-            print "Board watcher stopping"
+            bwpLog.debug("Board watcher stopping")
             return
 
         saveimg(rawImage, name="Initial_Board_Image")
@@ -92,38 +104,98 @@ class BoardWatchProcess(multiprocessing.Process):
         boardWidth = self.board.getDimensions()[0]
         warpImage = warpFrame(rawImage, self.warpCorners, self.targetCorners)
         warpImage = resizeImage(warpImage, dims=GTKGUISIZE)
-        strokeList = ISC.cvimgToStrokes(flipMat(warpImage), targetWidth=boardWidth)['strokes']
+        # DEBUG
+        bgImage = resizeImage(self.boardWatcher._fgFilter.getBackgroundImage(), scale=DEBUGBG_SCALE)
+        debugBgSurface.setImage(bgImage)
+        debugInkSurface.setImage(resizeImage(warpImage, scale=DEBUGDIFF_SCALE))
+        # /DEBUG
+
+        strokeList = ISC.cvimgToStrokes(flipMat(warpImage),
+                                targetWidth=boardWidth)['strokes']
 
         for stk in strokeList:
             self.board.addStroke(stk)
+        framesSinceAccept = 0
         while self.keepGoing.is_set():
-            rawImage = deserializeImage(self.imageQueue.get(block=True))
+            framesSinceAccept += 1
+            try:
+                rawImage = deserializeImage(self.imageQueue.get(block=True, timeout=1))
+            except EmptyException:
+                continue
             self.boardWatcher.updateBoardImage(rawImage)
+            # DEBUG
+            bgImage = self.boardWatcher._fgFilter.getBackgroundImage()
+            debugBgSurface.setImage(resizeImage(bgImage, scale=DEBUGBG_SCALE))
+            bgMask = self.boardWatcher._fgFilter.latestMask
+            debugFilterSurface.setImage(resizeImage(bgMask, scale=DEBUGBG_SCALE))
+            # /DEBUG
             if self.boardWatcher.isCaptureReady:
                 saveimg(rawImage, name="Raw Image")
-                saveimg(self.boardWatcher._fgFilter.getBackgroundImage(), name="BG_Image")
-                (newInk, newErase) = self.boardWatcher.captureBoardDifferences()
-                newInk = warpFrame(newInk, self.warpCorners, self.targetCorners)
+                saveimg(self.boardWatcher._fgFilter.getBackgroundImage(),
+                        name="BG_Image")
+                newInk, newErase = self.boardWatcher.captureBoardDifferences()
+                newInk = warpFrame(newInk, self.warpCorners,
+                                   self.targetCorners)
                 newInk = resizeImage(newInk, dims=GTKGUISIZE)
-                newErase = warpFrame(newErase, self.warpCorners, self.targetCorners)
+                newErase = warpFrame(newErase, self.warpCorners,
+                                     self.targetCorners)
                 newErase = resizeImage(newErase, dims=GTKGUISIZE)
                 saveimg(newInk, name="NewInk")
                 saveimg(newErase, name="NewErase")
-                cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
+
+                # DEBUG
+                # Generate and display the context difference image
+                warpBgImage = warpFrame(bgImage, self.warpCorners, self.targetCorners)
+                warpBgImage = resizeImage(warpBgImage, dims=GTKGUISIZE)
+
+                cv.Threshold(newInk, newInk, 20, 100, cv.CV_THRESH_BINARY)
+                cv.Threshold(newErase, newErase, 20, 128, cv.CV_THRESH_BINARY)
+                debugDiffImage = cv.CloneMat(warpBgImage)
+                redChannel = cv.CreateMat(warpBgImage.rows, warpBgImage.cols, cv.CV_8UC1)
+                greenChannel = cv.CreateMat(warpBgImage.rows, warpBgImage.cols, cv.CV_8UC1)
+                blueChannel = cv.CreateMat(warpBgImage.rows, warpBgImage.cols, cv.CV_8UC1)
+                cv.Split(debugDiffImage, blueChannel, greenChannel, redChannel, None)
+                cv.Add(newInk, blueChannel, blueChannel)
+                cv.Add(newErase, redChannel, redChannel)
+
+                cv.Sub(greenChannel, newInk, greenChannel)
+                cv.Sub(redChannel, newInk, redChannel)
+
+                cv.Sub(greenChannel, newErase, greenChannel)
+                cv.Sub(blueChannel, newErase, blueChannel)
+
+                cv.Merge(blueChannel, greenChannel, redChannel, None, debugDiffImage)
+
+                debugInkSurface.setImage(resizeImage(debugDiffImage, scale=DEBUGDIFF_SCALE))
+                # /DEBUG
 
                 acceptedImage = self.boardWatcher.acceptCurrentImage()
                 saveimg(acceptedImage, name="AcceptedImage")
-                strokeList = ISC.cvimgToStrokes(flipMat(newInk), targetWidth=boardWidth)['strokes']
+                framesSinceAccept = 0
+
+                cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
+                strokeList = ISC.cvimgToStrokes(flipMat(newInk),
+                                        targetWidth=boardWidth)['strokes']
                 for stk in strokeList:
                     self.board.addStroke(stk)
-        print "Board watcher stopping"
+        # DEBUG
+        if framesSinceAccept == 9 :
+                warpBgImage = warpFrame(bgImage, self.warpCorners, self.targetCorners)
+                warpBgImage = resizeImage(warpBgImage, dims=GTKGUISIZE)
+                debugInkSurface.setImage(resizeImage(warpBgImage, scale=DEBUGDIFF_SCALE))
+        # /DEBUG
+
+        bwpLog.debug("Board watcher stopping")
 
     def stop(self):
         self.keepGoing.clear()
 
+
+capLog = Logger.getLogger("Capture", Logger.DEBUG)
 class CaptureProcess(Process):
-    """A process that fills a queue with images as captured from 
+    """A process that fills a queue with images as captured from
     a camera feed"""
+
     def __init__(self, capture, imageQueue):
         Process.__init__(self, name="Capture")
         self.imageQueue = imageQueue
@@ -133,17 +205,19 @@ class CaptureProcess(Process):
         self.daemon = True
 
     def run(self):
-        print "CaptureProcess pid: %s" % (self.pid,)
+        capLog.debug("CaptureProcess pid: {}".format(self.pid))
         while self.keepGoing.is_set():
             image = captureImage(self.capture)
 #            sys.stdout.write(".")
             try:
-                self.imageQueue.put(serializeImage(image), block=True, timeout=0.25)
+                self.imageQueue.put(serializeImage(image),
+                                    block=True, timeout=0.25)
             except FullException:
                 try:
                     _ = self.imageQueue.get_nowait()
                 except:
                     pass  # Try to clear the queue, but don't worry if someone snatches it first
+
     def stop(self):
         self.keepGoing.clear()
 
@@ -151,6 +225,7 @@ class CaptureProcess(Process):
 class CalibrationArea(ImageArea):
     CHESSBOARDCORNERS = None
     RAWBOARDCORNERS = None
+
     def __init__(self, capture, dimensions, sketchSurface):
         """Constructor: capture is initialized, with dimensions (w, h), and 
         sketchSurface is ready to have strokes added to it"""
@@ -159,14 +234,18 @@ class CalibrationArea(ImageArea):
                          (11 * dims[0] / 16.0, 5 * dims[1] / 16.0),
                          (11 * dims[0] / 16.0, 11 * dims[1] / 16.0),
                          (5 * dims[0] / 16.0, 11 * dims[1] / 16.0), ]
-        CalibrationArea.RAWBOARDCORNERS = [ (0, 0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1])]
+        CalibrationArea.RAWBOARDCORNERS = [(0, 0),
+                                           (dims[0], 0),
+                                           (dims[0], dims[1]),
+                                           (0, dims[1])]
 
         ImageArea.__init__(self)
         self.lock = Lock()
         # Associate the video capture and the sketching surface
 
         self.dimensions = dimensions
-        self.rawImage = cv.CreateMatHeader(self.dimensions[1], self.dimensions[0], cv.CV_8UC3)
+        self.rawImage = cv.CreateMatHeader(self.dimensions[1],
+                                           self.dimensions[0], cv.CV_8UC3)
         self.sketchSurface = sketchSurface
 
         # Capture logic
@@ -178,10 +257,10 @@ class CalibrationArea(ImageArea):
         # GUI configuration stuff
         self.registeredCallbacks = {}
         self.keepGoing = True
-        self.dScale = 0.4
+        self.dScale = LIVECAP_SCALE
         self.warpCorners = []
         gobject.idle_add(self.idleUpdate)
-        self.set_property("can-focus", True)  # So we can capture keyboard events
+        self.set_property("can-focus", True)  # So we can capture keyboard
         self.connect("key_press_event", self.onKeyPress)
         self.connect("button_release_event", self.onMouseUp)
         self.set_events(gtk.gdk.BUTTON_RELEASE_MASK
@@ -204,27 +283,31 @@ class CalibrationArea(ImageArea):
             if len(self.warpCorners) == 4:
                 print "Using pre-defined calibration"
                 capProc = BoardWatchProcess(self.imageQueue, self.dimensions,
-                                            self.warpCorners, self.sketchSurface,
-                                            targetCorners=CalibrationArea.RAWBOARDCORNERS)
-                self.sketchSurface.registerKeyCallback('v', lambda: capProc.start())
-                self.disable()
-                self.get_toplevel().destroy()
+                                self.warpCorners, self.sketchSurface,
+                                targetCorners=CalibrationArea.RAWBOARDCORNERS)
+                self.sketchSurface.registerKeyCallback('v',
+                                                       lambda: capProc.start())
+#                self.disable()
+#                self.get_toplevel().destroy()
             else:
                 print "Searching for Chessboard..."
                 warpCorners = findCalibrationChessboard(self.rawImage)
                 if len(warpCorners) == 4:
                     print "Warp Corners: %s" % (warpCorners)
                     self.warpCorners = warpCorners
-                    capProc = BoardWatchProcess(self.imageQueue, self.dimensions,
-                                                warpCorners, self.sketchSurface,
-                                                targetCorners=CalibrationArea.CHESSBOARDCORNERS)
-                    self.sketchSurface.registerKeyCallback('v', lambda: capProc.start())
-                    self.disable()
-                    self.get_toplevel().destroy()
+                    capProc = BoardWatchProcess(self.imageQueue,
+                                self.dimensions,
+                                warpCorners, self.sketchSurface,
+                                targetCorners=CalibrationArea.CHESSBOARDCORNERS)
+                    self.sketchSurface.registerKeyCallback('v',
+                                                lambda: capProc.start())
+#                    self.disable()
+#                    self.get_toplevel().destroy()
                 else:
                     print "No chessboard found!"
         for callback in self.registeredCallbacks.get(key, []):
             callback(key)
+
 
     def onMouseUp(self, widget, e):
         """Respond to the mouse being released"""
@@ -245,15 +328,14 @@ class CalibrationArea(ImageArea):
         try:
             serializedImage = self.imageQueue.get_nowait()
             self.rawImage = deserializeImage(serializedImage)
-
-            if False and len(self.warpCorners) == 4:
-                # dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.CHESSBOARDCORNERS)
-                dispImage = warpFrame(self.rawImage, self.warpCorners, CalibrationArea.RAWBOARDCORNERS)
-            else:
-                dispImage = self.rawImage
-                for x, y in self.warpCorners:
-                    cv.Circle(dispImage, (int(x), int(y)), 5, (200, 0, 200), thickness= -1)
-            self.setCvMat(resizeImage(dispImage, self.dScale))
+            dispImage = self.rawImage
+            """
+            for x, y in self.warpCorners:
+                cv.Circle(dispImage, (int(x), int(y)), 5,
+                          (200, 0, 200), thickness= -1)
+            """
+            smallImage = resizeImage(dispImage, self.dScale)
+            self.setCvMat(smallImage)
         except EmptyException:
             pass
         return self.keepGoing
@@ -262,8 +344,6 @@ class CalibrationArea(ImageArea):
         print "Destroy Called"
         self.captureProc.terminate()
         return ImageArea.destroy(self, *args, **kwargs)
-
-
 
 
 def fillWithChessBoard(box, thisLvl, ptList):
@@ -283,7 +363,7 @@ def fillWithChessBoard(box, thisLvl, ptList):
         ptList.append(topLeftBox)
         ptList.append(botRightBox)
     else:
-        fillWithChessBoard(topLeftBox , thisLvl - 1, ptList)
+        fillWithChessBoard(topLeftBox, thisLvl - 1, ptList)
         fillWithChessBoard(topRightBox, thisLvl - 1, ptList)
         fillWithChessBoard(botLeftBox, thisLvl - 1, ptList)
         fillWithChessBoard(botRightBox, thisLvl - 1, ptList)
@@ -311,7 +391,6 @@ def displayCalibrationPattern(gui):
     gui.doPaint()
 
 
-
 def trackChanges(image, history):
     if len(history) > 5:
         history.pop(0)
@@ -329,7 +408,8 @@ def trackChanges(image, history):
             cv.AbsDiff(prev, frame, thisDiff)
             cv.Max(thisDiff, cumulativeDiff, cumulativeDiff)
     cv.Smooth(cumulativeDiff, cumulativeDiff, smoothtype=cv.CV_MEDIAN)
-    percentDiff = cv.CountNonZero(cumulativeDiff) / float(max(cv.CountNonZero(image), 1))
+    percentDiff = (cv.CountNonZero(cumulativeDiff)
+                   / float(max(cv.CountNonZero(image), 1)))
 #    print "Percent Diff : %03f)" % (percentDiff)
 #    showResized("HistoryDiff", cumulativeDiff, 0.4)
     return percentDiff
@@ -337,13 +417,13 @@ def trackChanges(image, history):
 
 def serializeImage(image):
     """Returns a serialized version of an image to put in a Queue"""
-    return (cv.GetSize(image), image.tostring())
+    return (cv.GetSize(image), image.type, image.tostring())
 
 
 def deserializeImage(serializedImage):
     """Turn a serialized image structure into a cvMat"""
-    (imageSize, imageData) = serializedImage
-    rawImage = cv.CreateMatHeader(imageSize[1], imageSize[0], cv.CV_8UC3)
+    (imageSize, imageType, imageData) = serializedImage
+    rawImage = cv.CreateMatHeader(imageSize[1], imageSize[0], imageType)
     cv.SetData(rawImage, imageData, cv.CV_AUTOSTEP)
     return rawImage
 
@@ -351,47 +431,97 @@ def deserializeImage(serializedImage):
 class DebugWindow(ImageArea):
     def __init__(self):
         ImageArea.__init__(self)
-        self.imageQueue = Queue()
-        gobject.idle_add(self._updateImage)
+        self.imageQueue = Queue(1)
+        gobject.timeout_add(200, self._updateImage)
+        self._lock = Lock()
+        self._thread = None
 
     def setImage(self, image):
-        self.imageQueue.put(serializeImage(image))
+        try:
+            if self.imageQueue.empty():
+                self.imageQueue.put(serializeImage(image))
+        except FullException:
+            pass
+        except Exception as e:
+            print "Cannot display image: {}".format(e)
 
     def _updateImage(self):
-        if not self.imageQueue.empty():
-            img = deserializeImage(self.imageQueue.get())
-            self.setCvMat(img)
+        def getAndSetImage(surface, queue):
+            try:
+                img = deserializeImage(queue.get(True, 3))
+                with surface._lock:
+                    surface.setCvMat(img)
+                time.sleep(0.3)
+            except EmptyException as e:
+                pass
+            except Exception as e:
+                print "Error getting image! {}".format(e)
+
+        with self._lock:
+            if self._thread is None or not self._thread.is_alive():
+                self._thread = Thread(target=getAndSetImage,
+                                                args=(self, self.imageQueue))
+                self._thread.daemon = True
+                self._thread.start()
         return True
 
+
 def main(args):
-    global debugSurface
+    global debugBgSurface, debugInkSurface, debugFilterSurface
     if len(args) > 1:
         camNum = int(args[1])
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
-    capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE00)
-    changeExposure(camNum, value=100)
+    capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE01)
+    changeExposure(camNum, value=300)
 
     sketchSurface = GTKGui(dims=GTKGUISIZE)
     sketchWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    sketchWindow.set_title("Sketch Surface")
     sketchWindow.add(sketchSurface)
     sketchWindow.connect("destroy", gtk.main_quit)
     sketchWindow.show_all()
-    sketchSurface.registerKeyCallback('C', lambda: displayCalibrationPattern(sketchSurface))
+    sketchSurface.registerKeyCallback('C',
+                        lambda: displayCalibrationPattern(sketchSurface))
 
     calibArea = CalibrationArea(capture, dims, sketchSurface)
-    calibArea.registerKeyCallback('+', lambda x: changeExposure(camNum, 100))
-    calibArea.registerKeyCallback('-', lambda x: changeExposure(camNum, -100))
+    calibArea.registerKeyCallback('+', lambda _: changeExposure(camNum, 100))
+    calibArea.registerKeyCallback('-', lambda _: changeExposure(camNum, -100))
     calibWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    calibWindow.set_title("Live View")
     calibWindow.add(calibArea)
-    calibWindow.connect("destroy", lambda x: calibWindow.destroy())
+    calibWindow.connect("destroy", lambda _: calibWindow.destroy())
     calibWindow.show_all()
 
-    debugSurface = DebugWindow()
-    debugWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
-    debugWindow.add(debugSurface)
-    # debugWindow.show_all()
+    debugFilterSurface = DebugWindow()
+    debugFilterSurface.setImage(
+        resizeImage(cv.CreateMat(dims[1], dims[0], cv.CV_8UC1), scale=DEBUGBG_SCALE))
+    debugFilterWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    debugFilterWindow.set_title("Foreground Filter")
+    debugFilterWindow.add(debugFilterSurface)
+    debugFilterWindow.connect("destroy", gtk.main_quit)
+    debugFilterWindow.show_all()
+
+    debugBgSurface = DebugWindow()
+    debugBgSurface.setImage(
+        resizeImage(cv.CreateMat(dims[1], dims[0], cv.CV_8UC1), scale=DEBUGBG_SCALE))
+    debugBgWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    debugBgWindow.set_title("Filtered Board View")
+    debugBgWindow.add(debugBgSurface)
+    debugBgWindow.connect("destroy", gtk.main_quit)
+    debugBgWindow.show_all()
+
+    debugInkSurface = DebugWindow()
+    guiDims = sketchSurface.getDimensions()
+    dummyInkImage = cv.CreateMat(guiDims[1], guiDims[0], cv.CV_8UC1)
+    cv.Set(dummyInkImage, 128)
+    debugInkSurface.setImage(resizeImage(dummyInkImage, scale=DEBUGDIFF_SCALE))
+    debugInkWindow = gtk.Window(type=gtk.WINDOW_TOPLEVEL)
+    debugInkWindow.set_title("Transformed Board View")
+    debugInkWindow.add(debugInkSurface)
+    debugInkWindow.connect("destroy", gtk.main_quit)
+    debugInkWindow.show_all()
 
     sketchSurface.grab_focus()
     gtk.main()

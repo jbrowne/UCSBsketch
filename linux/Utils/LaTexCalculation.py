@@ -91,10 +91,10 @@ def tokenize(eqn):
 
 def solve_trivial(tokens):
     for i, tk in enumerate(tokens):
-        if tk == 'x':
-            tokens[i] = (lambda x: x)
-        elif type(tk) == int:
+        if type(tk) == int:
             tokens[i] = (lambda x, num=tk: num)
+        elif tk.lower() == 'x':
+            tokens[i] = (lambda x: x)
 
 def solve_basic(tokens):
     assert('(' not in tokens)

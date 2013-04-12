@@ -44,6 +44,7 @@ def warpFrame(frame, corners, targetCorners):
     match the targetCorners
     """
     outImg = cv.CreateMat(frame.rows, frame.cols, frame.type)
+    cv.Set(outImg, [0]*outImg.channels)
     if len(corners) == 4:
         # w,h = outImg.cols, outImg.rows #frame.cols, frame.rows
         warpMat = cv.CreateMat(3, 3, cv.CV_32FC1)  # Perspective warp matrix
@@ -52,7 +53,7 @@ def warpFrame(frame, corners, targetCorners):
             warpMat)
         # outImg = cv.CloneMat(frame)
         cv.WarpPerspective(frame, outImg, warpMat,
-            (cv.CV_INTER_CUBIC), 255)
+            (cv.CV_INTER_CUBIC), fillval=(0,0,0))
         return outImg
     else:
         return frame
@@ -106,6 +107,7 @@ def initializeCapture(cam=0, dims=(1280, 1024,), disableAutoExposure=True, disab
     cv.SetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH, w)
     reth = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_HEIGHT))
     retw = int(cv.GetCaptureProperty(capture, cv.CV_CAP_PROP_FRAME_WIDTH))
+    log.debug("Setting Capture to {}x{}".format(retw, reth))
     if disableAutoExposure:
         setAutoExposure(cam, False)
         changeExposure(cam, value=500)
@@ -181,6 +183,7 @@ def findCalibrationChessboard(image):
         saveimg(inImg, name="Chessboard_Search_{}".format(idx))
         cornersQueue.put(corners)
 
+    numProcs = 0
     for i in range(0, 12, 3):
         img = cv.CloneMat(grayImg)
         cv.Erode(img, img, iterations=i)
@@ -189,12 +192,13 @@ def findCalibrationChessboard(image):
         p = multiprocessing.Process(target=lambda: getCorners(i, img, cornerListQueue))
         p.daemon = True
         p.start()
+        numProcs += 1
 
     corners = []
-    while len(corners) != 49 and i > 0:
+    while len(corners) != 49 and numProcs > 0:
         corners = cornerListQueue.get(True)
         print "Got Result {}".format(i)
-        i -= 1
+        numProcs -= 1
     if len(corners) == 49:
         # Debug Image
         debugImg = cv.CreateMat(grayImg.rows, grayImg.cols, cv.CV_8UC3)
@@ -239,9 +243,10 @@ def saveimg(cv_img, name="", outdir="./temp/", filename=None):
 
     outdir = os.path.abspath(outdir) + "/"
     if filename is None:
-        outfname = outdir + FNAMEITER.next() + name + ".jpg"
+        outfname = FNAMEITER.next() + name + ".jpg"
     else:
         outfname = filename
+    outfname = os.path.join(outdir, outfname)
     if name != "":
         cv_img = cv.CloneMat(cv_img)
         cv.PutText(cv_img, name, (20, cv_img.rows - 20),

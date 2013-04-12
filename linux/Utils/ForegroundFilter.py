@@ -27,9 +27,12 @@ class ForegroundFilter(object):
     def __init__(self):
         # Complete model of board contents
         self._bgImage = None
+        self.latestMask = None
 
     def setBackground(self, image):
         self._bgImage = cv.CloneMat(image)
+        self.latestMask = cv.CloneMat(image)
+        cv.Set(self.latestMask, 0)
 
     def updateBackground(self, newImage):
         """Given a new image (possibly containing occluding objects)
@@ -38,7 +41,7 @@ class ForegroundFilter(object):
             self.setBackground(newImage)
             return
 
-        self._bgImage = processImage(self._bgImage, newImage)
+        self._bgImage, self.latestMask = processImage(self._bgImage, newImage)
         return self._bgImage
 
     def filterForeground(self, newImage):
@@ -58,6 +61,7 @@ class ForegroundFilter(object):
 def processImage(bgImage, newImage):
     """Within a single frame, try to filter out non-ink occlusions,
     given an image of roughly the background"""
+    debugMask = None
     erodeIterations = max(bgImage.cols / 256, bgImage.rows / 256, 1)
     smoothKernel = max(bgImage.cols / 50, bgImage.rows / 50, 1)
     if smoothKernel % 2 == 0:
@@ -72,7 +76,7 @@ def processImage(bgImage, newImage):
     # How different does a pixel have to be to be considered part
     #    of a blob?
     largeBlobThresh = 20
-    largeBlobSmear = 40 # How wide of holes to close up between blobs
+    largeBlobSmear = 40  # How wide of holes to close up between blobs
 
     obviousBackgroundMask = cv.CreateMat(newImage.rows,
                                          newImage.cols, cv.CV_8UC1)
@@ -140,12 +144,35 @@ def processImage(bgImage, newImage):
         cv.AddWeighted(largeBlobMask, 1.0, inkDifferences, -0.5, 0.0, tempMat)
         showResized("Blob coverage", tempMat, 0.2)
         showResized("ObviousBackground", obviousBackgroundMask, 0.2)
+
+    debugMask = cv.CreateMat(newImage.rows, newImage.cols, cv.CV_8UC3)
+
+    redChannel = cv.CreateMat(newImage.rows, newImage.cols, cv.CV_8UC1)
+    cv.Set(redChannel, 255)
+    greenChannel = cv.CloneMat(redChannel)
+    blueChannel = cv.CloneMat(redChannel)
+
+
+    cv.AddWeighted(blueChannel, 1.0, obviousBackgroundMask, 1.0, -255 + 128, blueChannel)
+    cv.AddWeighted(greenChannel, 1.0, obviousBackgroundMask, 1.0, -255, greenChannel)
+    cv.AddWeighted(redChannel, 1.0, obviousBackgroundMask, 1.0, -255 + 100, redChannel)
+
+    cv.AddWeighted(blueChannel, 1.0, largeBlobMask, -1.0, 0.0, blueChannel)
+    cv.AddWeighted(greenChannel, 1.0, largeBlobMask, -1.0, 0.0, greenChannel)
+
+    cv.AddWeighted(redChannel, 1.0, finalInkMask, -1.0, 0.0, redChannel)
+
+    cv.Merge(blueChannel, greenChannel, redChannel, None, debugMask)
+
+    if DEBUG:
+        showResized("Debug Mask", debugMask, 0.4)
     # /Debug
+
 
     # Actually integrate the changes
     cv.Copy(newImage, retImage, finalInkMask)
 
-    return retImage
+    return retImage, debugMask
 
 
 def main(args):

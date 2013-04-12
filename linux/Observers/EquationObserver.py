@@ -233,4 +233,4 @@ class EquationVisualizer(ObserverBase.Visualizer):
                 else:
                     gui.drawText(bbox[1].X, bbox[1].Y, a.latex)
             except Exception as e:
-                print "Cannot draw equation {}: {}".format(a.latex, e)
+                visLogger.warn("Cannot draw equation {}: {}".format(a.latex, e))
