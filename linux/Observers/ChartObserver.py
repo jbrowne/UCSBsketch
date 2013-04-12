@@ -93,28 +93,60 @@ class DummyEqnVisualizer(EquationVisualizer):
         self._cachedPixbuf = {}  # 'latexString' : pixbuf
 
 
+def mapChartsToEquations(chartsMap, equations):
+    """Take in a chartMap and list of equations, and fill in the
+    chartMap such that each chart maps to a list of its closest equations"""
+    if len(chartsMap) == 0:
+        return
+    chartsBB = {}
+    for chart_anno in chartsMap.keys():
+        ch_bb = strokelistBoundingBox(chart_anno.Strokes)
+        ch_point = Point( (ch_bb[0].X + ch_bb[1].X)/2.0, 
+                          (ch_bb[0].Y + ch_bb[1].Y)/2.0)
+        chartsBB[chart_anno] = ch_point
+        chartsMap[chart_anno] = []
+
+    for eq_anno in equations:
+        eq_bb = strokelistBoundingBox(eq_anno.Strokes)
+        eq_point = Point( (eq_bb[0].X + eq_bb[1].X)/2.0, 
+                          (eq_bb[0].Y + eq_bb[1].Y)/2.0)
+        chosenChart = None
+        chosenDist = 1000
+        for chart_anno, chart_point in chartsBB.items():
+            thisDist = pointDist(chart_point, eq_point)
+            if chosenChart is None or thisDist < chosenDist:
+                chosenChart = chart_anno
+                chosenDist = thisDist
+        chartsMap[chosenChart].append(eq_anno)
+
 class ChartVisualizer(ObserverBase.Visualizer):
     "Watches for DiGraph annotations, draws them"
-    COLORS = ["#ff00a0", "#00FF00", "#0000FF"] #["#a000a0", "#00a0a0", "#a00000", "#00a000",
-              #"#0000a0"]
+    COLORS = ["#ff0000", "#00FF00", "#0000FF","#ff00a0", "#a0FF00", "#a000FF"] 
     def __init__(self, board):
         ObserverBase.Visualizer.__init__(self, board, ChartAreaAnnotation)
         self.equationVisualizer = DummyEqnVisualizer(board)
         self.getBoard().RegisterForAnnotation(EquationAnnotation, self)
         self.equations = set([])
+        self.charts = {}
 
     def onAnnotationAdded(self, strokes, annotation):
         if type(annotation) == EquationAnnotation:
             self.equations.add(annotation)
         else:
+            if type(annotation) == ChartAreaAnnotation:
+                self.charts[annotation] = []
             ObserverBase.Visualizer.onAnnotationAdded(self, strokes, annotation)
+        mapChartsToEquations(self.charts, self.equations)
 
     def onAnnotationRemoved(self, annotation):
         if type(annotation) == EquationAnnotation \
             and annotation in self.equations:
             self.equations.remove(annotation)
         else:
+            if type(annotation) == ChartAreaAnnotation and annotation in self.charts:
+                del(self.charts[annotation])
             ObserverBase.Visualizer.onAnnotationRemoved(self, annotation)
+        mapChartsToEquations(self.charts, self.equations)
 
     def drawAnno(self, a):
         if a.horizontalArrow is None or a.verticalArrow is None:
@@ -137,7 +169,7 @@ class ChartVisualizer(ObserverBase.Visualizer):
 
         scales = []
         allGraphs = []
-        for i, eqn in enumerate(self.equations):
+        for i, eqn in enumerate(self.charts[a]):
             try:
                 scale = 1
                 eqnAnnos = self.getBoard().FindAnnotations(
@@ -161,8 +193,8 @@ class ChartVisualizer(ObserverBase.Visualizer):
                 self.equationVisualizer.drawAnno(eqn)
                 bbox = strokelistBoundingBox(eqn.Strokes)
                 color = ChartVisualizer.COLORS[i % len(ChartVisualizer.COLORS)]
-                self.getGUI().drawLine(bbox[0].X, bbox[1].Y - 3,
-                                       bbox[1].X, bbox[1].Y - 3,
+                self.getGUI().drawLine(bbox[0].X, bbox[1].Y - 5,
+                                       bbox[1].X, bbox[1].Y - 5,
                                        color=color)
                 scales.append(scale)
             except Exception as e:
