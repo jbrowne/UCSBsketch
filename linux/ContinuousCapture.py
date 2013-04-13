@@ -46,11 +46,11 @@ PROJECTORSIZE = (1024, 768)
 HD1080 = (1920, 1080)
 HD720 = (1280, 720)
 SCREENSIZE = (1600, 900)
-GTKGUISIZE = (1024, 650)
+GTKGUISIZE = (1020, 650)
 
-DEBUGBG_SCALE = 0.30
-DEBUGDIFF_SCALE = 0.55
-LIVECAP_SCALE = 0.25
+DEBUGBG_SCALE = 0.27
+DEBUGDIFF_SCALE = 0.65
+LIVECAP_SCALE = 0.27
 BLOBFILTER_SCALE = 0.3
 
 bwpLog = Logger.getLogger("BWP", Logger.WARN)
@@ -143,12 +143,19 @@ class BoardWatchProcess(multiprocessing.Process):
                 #saveimg(newInk, name="NewInk")
                 #saveimg(newErase, name="NewErase")
 
+                acceptedImage = self.boardWatcher.acceptCurrentImage()
+                saveimg(acceptedImage, name="AcceptedImage")
+                framesSinceAccept = 0
+
+                cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
+                strokeList = ISC.cvimgToStrokes(flipMat(newInk),
+                                        targetWidth=boardWidth)['strokes']
                 # DEBUG
                 # Generate and display the context difference image
                 warpBgImage = warpFrame(bgImage, self.warpCorners, self.targetCorners)
                 warpBgImage = resizeImage(warpBgImage, dims=GTKGUISIZE)
 
-                cv.Threshold(newInk, newInk, 20, 100, cv.CV_THRESH_BINARY)
+                cv.Threshold(newInk, newInk, 255-20, 100, cv.CV_THRESH_BINARY_INV)
                 cv.Threshold(newErase, newErase, 20, 128, cv.CV_THRESH_BINARY)
                 debugDiffImage = cv.CloneMat(warpBgImage)
                 redChannel = cv.CreateMat(warpBgImage.rows, warpBgImage.cols, cv.CV_8UC1)
@@ -169,13 +176,6 @@ class BoardWatchProcess(multiprocessing.Process):
                 debugInkSurface.setImage(resizeImage(debugDiffImage, scale=DEBUGDIFF_SCALE))
                 # /DEBUG
 
-                acceptedImage = self.boardWatcher.acceptCurrentImage()
-                saveimg(acceptedImage, name="AcceptedImage")
-                framesSinceAccept = 0
-
-                cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
-                strokeList = ISC.cvimgToStrokes(flipMat(newInk),
-                                        targetWidth=boardWidth)['strokes']
                 for stk in strokeList:
                     self.board.addStroke(stk)
         # DEBUG

@@ -81,7 +81,7 @@ class BoardChangeWatcher(object):
         precentDiffThresh = 0.1
         # Lower limit of how many pixels must be different to count
         #   as a change
-        totalPixelDiffThresh = 20
+        totalPixelDiffThresh = 50
         diffMaskThresh = 20
         windowLen = 2
         if self._lastCaptureImage is None:
@@ -144,7 +144,7 @@ class BoardChangeWatcher(object):
                     self.isCaptureReady = True
             else:
                 # Only set unready if the difference is large
-                logger.debug("Difference found, but capture is not ready")
+                logger.debug("Difference found {}, but capture is not ready".format(totalCurrentDiff))
                 self.isCaptureReady = False
         else:
             self.isCaptureReady = False

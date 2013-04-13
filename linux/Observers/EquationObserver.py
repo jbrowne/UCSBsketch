@@ -104,8 +104,8 @@ class EquationMarker(BoardObserver):
         "When a stroke is removed, remove equation annotation if found"
         for anno in stroke.findAnnotations(EquationAnnotation, True):
             logger.debug("Removing stroke from %s" % (anno.latex))
+            annoStrokes = list(anno.Strokes)
             if stroke in anno.Strokes:
-                annoStrokes = list(anno.Strokes)
                 annoStrokes.remove(stroke)
                 self.getBoard().UpdateAnnotation(anno, annoStrokes)
             self.deferredAnnoQueue.put(anno)

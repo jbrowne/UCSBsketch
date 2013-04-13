@@ -154,7 +154,7 @@ def mapChartsToEquations(chartsMap, equations):
 
 class ChartVisualizer(ObserverBase.Visualizer):
     "Watches for DiGraph annotations, draws them"
-    COLORS = ["#ff0000", "#00FF00", "#0000FF","#ff00a0", "#a0FF00", "#a000FF"] 
+    COLORS = ["#ff0000", "#00a000", "#0000FF","#ff00a0", "#a0a000", "#a000FF"] 
     def __init__(self, board):
         ObserverBase.Visualizer.__init__(self, board, ChartAreaAnnotation)
         self.equationVisualizer = DummyEqnVisualizer(board)
@@ -240,9 +240,11 @@ class ChartVisualizer(ObserverBase.Visualizer):
             for x, y in points:
                 if y is not None:
                     cx = x0 + x
-                    cy = y0 + (y / drawScale * height) + slopeFn(x)
+                    y = (y / drawScale * height) + slopeFn(x)
+                    cy = max(min(y0+height, y0 + y), y0-height)
                     if px is not None and py is not None:
                         if cy < y0 + height and py < y0 + height \
+                            and cy > y0 - height and py > y0 - height \
                             and cx < x0 + width and px < x0 + width:
                             self.getGUI().drawLine(px, py, cx, cy, color=color)
                     px = cx

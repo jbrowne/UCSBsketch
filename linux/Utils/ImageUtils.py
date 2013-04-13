@@ -9,7 +9,7 @@ import os
 import threading
 import time
 
-log = Logger.getLogger("ImUtil", Logger.WARN)
+log = Logger.getLogger("ImUtil", Logger.DEBUG)
 ######################################
 # Image Manipulation
 ######################################
