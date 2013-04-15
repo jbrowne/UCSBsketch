@@ -482,6 +482,7 @@ def main(args):
     sketchWindow.add(sketchSurface)
     sketchWindow.connect("destroy", gtk.main_quit)
     sketchWindow.show_all()
+    sketchWindow.move(1600, 90)
     sketchSurface.registerKeyCallback('C',
                         lambda: displayCalibrationPattern(sketchSurface))
 
@@ -493,6 +494,7 @@ def main(args):
     calibWindow.add(calibArea)
     calibWindow.connect("destroy", lambda _: calibWindow.destroy())
     calibWindow.show_all()
+    calibWindow.move(670,0)
 
     debugFilterSurface = DebugWindow()
     debugFilterSurface.setImage(
@@ -502,6 +504,8 @@ def main(args):
     debugFilterWindow.add(debugFilterSurface)
     debugFilterWindow.connect("destroy", gtk.main_quit)
     debugFilterWindow.show_all()
+    debugFilterWindow.move(0,0)
+    #debugFilterWindow.move(1600,90)
 
     debugBgSurface = DebugWindow()
     debugBgSurface.setImage(
@@ -510,7 +514,7 @@ def main(args):
     debugBgWindow.set_title("Filtered Board View")
     debugBgWindow.add(debugBgSurface)
     debugBgWindow.connect("destroy", gtk.main_quit)
-    debugBgWindow.show_all()
+    #debugBgWindow.show_all()
 
     debugInkSurface = DebugWindow()
     guiDims = sketchSurface.getDimensions()
@@ -522,6 +526,7 @@ def main(args):
     debugInkWindow.add(debugInkSurface)
     debugInkWindow.connect("destroy", gtk.main_quit)
     debugInkWindow.show_all()
+    debugInkWindow.move(0, 460)
 
     sketchSurface.grab_focus()
     gtk.main()
