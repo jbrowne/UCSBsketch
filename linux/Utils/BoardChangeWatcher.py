@@ -168,6 +168,7 @@ class BoardChangeWatcher(object):
         Should check isCaptureReady field before using the results"""
         global DEBUG
         differenceThresh = 10
+        darkerDiffThreshold = 30 #How dark is the lightest difference
         curBackground = self._fgFilter.getBackgroundImage()
 
         darkerDiff = cv.CreateMat(self._lastCaptureImage.rows,
@@ -227,6 +228,14 @@ class BoardChangeWatcher(object):
         else:
             logger.warn("Watching with no board area set!")
 
+        #Filter out differences that aren't strong enough (e.g. visual echo)
+        saveimg(darkerDiff, name="Darker_NoThresh")
+        saveimg(lighterDiff, name="Lighter_NoThresh")
+        cv.Threshold(darkerDiff, darkerDiff, darkerDiffThreshold, 255,
+                     cv.CV_THRESH_TOZERO)
+        cv.Threshold(lighterDiff, lighterDiff, darkerDiffThreshold, 255,
+                     cv.CV_THRESH_TOZERO)
+        #Save debug images
         saveimg(darkerDiff, name="Darker")
         saveimg(lighterDiff, name="Lighter")
         saveimg(lightSpotMask_Prev, "LightSpotPrev")

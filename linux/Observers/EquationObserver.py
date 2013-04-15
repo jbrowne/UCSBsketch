@@ -84,6 +84,7 @@ class DeferredEquationRecognizer(threading.Thread):
 
 class EquationMarker(BoardObserver):
     """Used to tag a individual strokes as equations"""
+        
     def __init__(self, board, deferredAnnoQueue):
         BoardObserver.__init__(self, board)
         self.getBoard().AddBoardObserver(self, [EquationAnnotation])
