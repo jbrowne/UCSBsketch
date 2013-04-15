@@ -39,6 +39,7 @@ def tokenize(eqn):
     """Take in a string of latex and return a list of tokens"""
     tokens = []
     i = j = 0
+    eqn = eqn.strip()
     while j <= len(eqn):
         j+= 1
         token = eqn[i:j].strip()
