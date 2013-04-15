@@ -34,6 +34,7 @@ import os
 import random
 import sys
 import time
+from Utils.GeomUtils import getStrokesIntersection
 # 4:3 Capture sizes
 CAPSIZE00 = (2592, 1944)
 CAPSIZE01 = (2048, 1536)
@@ -63,6 +64,7 @@ class BoardWatchProcess(multiprocessing.Process):
         self.daemon = True
         self.imageQueue = imageQueue
         self.board = sketchGui
+        self.allStrokes = set([])
         self.boardWatcher = BoardChangeWatcher()
         self.boardWatcher.setBoardCorners(warpCorners, targetCorners)
         self.warpCorners = warpCorners
@@ -115,6 +117,7 @@ class BoardWatchProcess(multiprocessing.Process):
 
         for stk in strokeList:
             self.board.addStroke(stk)
+            self.allStrokes.add(stk)
         framesSinceAccept = 0
         while self.keepGoing.is_set():
             framesSinceAccept += 1
@@ -150,13 +153,17 @@ class BoardWatchProcess(multiprocessing.Process):
                 cv.AddWeighted(newInk, -1, newInk, 0, 255, newInk)
                 strokeList = ISC.cvimgToStrokes(flipMat(newInk),
                                         targetWidth=boardWidth)['strokes']
+                cv.AddWeighted(newErase, -1, newErase, 0, 255, newErase)
+                scribbleEraseStrokes = ISC.cvimgToStrokes(flipMat(newErase),
+                                        targetWidth=boardWidth)['strokes']
+
                 # DEBUG
                 # Generate and display the context difference image
                 warpBgImage = warpFrame(bgImage, self.warpCorners, self.targetCorners)
                 warpBgImage = resizeImage(warpBgImage, dims=GTKGUISIZE)
 
-                cv.Threshold(newInk, newInk, 255-20, 100, cv.CV_THRESH_BINARY_INV)
-                cv.Threshold(newErase, newErase, 20, 128, cv.CV_THRESH_BINARY)
+                cv.Threshold(newInk, newInk, 255 - 20, 100, cv.CV_THRESH_BINARY_INV)
+                cv.Threshold(newErase, newErase, 255 - 20, 128, cv.CV_THRESH_BINARY_INV)
                 debugDiffImage = cv.CloneMat(warpBgImage)
                 redChannel = cv.CreateMat(warpBgImage.rows, warpBgImage.cols, cv.CV_8UC1)
                 greenChannel = cv.CreateMat(warpBgImage.rows, warpBgImage.cols, cv.CV_8UC1)
@@ -176,8 +183,20 @@ class BoardWatchProcess(multiprocessing.Process):
                 debugInkSurface.setImage(resizeImage(debugDiffImage, scale=DEBUGDIFF_SCALE))
                 # /DEBUG
 
+                remStrokes = set([])
+                for eraseStk in scribbleEraseStrokes:
+                    for stk in list(self.allStrokes):
+                        if stk not in remStrokes and \
+                            len(getStrokesIntersection(eraseStk, stk)) > 0:
+                            remStrokes.add(stk)
+                bwpLog.debug("Found {} strokes to remove".format(len(remStrokes)))
+                for stk in remStrokes:
+                    self.allStrokes.remove(stk)
+                    self.board.eraseStroke(stk)
+
                 for stk in strokeList:
                     self.board.addStroke(stk)
+                    self.allStrokes.add(stk)
         # DEBUG
         if framesSinceAccept == 9 :
                 warpBgImage = warpFrame(bgImage, self.warpCorners, self.targetCorners)

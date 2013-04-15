@@ -427,9 +427,17 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
     def processQueuedStrokes(self):
         if not self.strokeQueue.empty():
             log.debug("Adding queued stroke")
-            stroke = self.strokeQueue.get()
-            self.strokeList.append(stroke)
-            self.boardProcThread.addStroke(stroke, callback = self.boardChanged)
+            op, stroke = self.strokeQueue.get()
+            if op == "add":
+                self.strokeList.append(stroke)
+                self.boardProcThread.addStroke(stroke, callback=self.boardChanged)
+            elif op == "remove":
+                stksById = [s for s in self.strokeList if s.ident == stroke]
+                if len(stksById) == 1:
+                    stk = stksById[0]
+                    self.boardProcThread.removeStroke(stk, callback=self.boardChanged)
+                else:
+                    raise Exception("Stroke id {} not found in {}".format(stroke, self.strokeList))
         return True
 
     def processOps(self):
@@ -458,49 +466,53 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
             curPt = self.b2c(Point(e.x, e.y))
             self.currentPoints.append(curPt)
             liveContext = self._getContext()
-            self._drawLine(p.X, p.Y, curPt.X, curPt.Y, 
-                            2, "#ffffff", _context= liveContext)
+            self._drawLine(p.X, p.Y, curPt.X, curPt.Y,
+                            2, "#ffffff", _context=liveContext)
             return True
         elif self.isMouseDown3:
             p = self.currentPoints[-1]
             curPt = self.b2c(Point(e.x, e.y))
             self.currentPoints.append(curPt)
             liveContext = self._getContext()
-            self._drawLine(p.X, p.Y, curPt.X, curPt.Y, 
-                            2, "#c00c0c", _context = liveContext)
+            self._drawLine(p.X, p.Y, curPt.X, curPt.Y,
+                            2, "#c00c0c", _context=liveContext)
             return True
-    
+
     def onMouseUp(self, widget, e):
         """Respond to the mouse being released"""
         if e.button == 1:
             self.isMouseDown1 = False
             curPt = self.b2c(Point(e.x, e.y))
             self.currentPoints.append(curPt)
-            stroke = Stroke( self.currentPoints)
+            stroke = Stroke(self.currentPoints)
             self.currentPoints = []
             self.addStroke(stroke)
-            #self.opQueue.put(partial(GTKGui.addStroke, self, stroke))
-            #self.draw()
+            # self.opQueue.put(partial(GTKGui.addStroke, self, stroke))
+            # self.draw()
             return True
         elif e.button == 3:
             self.isMouseDown3 = False
             curPt = self.b2c(Point(e.x, e.y))
             self.currentPoints.append(curPt)
-            stroke = Stroke( self.currentPoints)
+            stroke = Stroke(self.currentPoints)
             self.currentPoints = []
             shouldRedraw = True
+            remStrokes = set([])
             for stk in list(self.strokeList):
-                if len(getStrokesIntersection(stroke, stk) ) > 0:
-                    self.eraseStroke(stk)
+                if len(getStrokesIntersection(stroke, stk)) > 0:
+                    remStrokes.add(stk)
                     shouldRedraw = False
+            log.debug("Found {} strokes to erase.".format(len(remStrokes)))
+            for stk in remStrokes:
+                self.eraseStroke(stk)
             if shouldRedraw:
-                #pass
+                # pass
                 self.draw()
             return True
 
     def addStroke(self, stroke):
         """Add as stroke to the board and our local bookkeeping"""
-        self.strokeQueue.put(stroke)
+        self.strokeQueue.put(("add", stroke))
 #        self.boardProcThread.addStroke(stroke, callback = self.boardChanged)
 
     def scribbleErase(self, stroke):
@@ -512,14 +524,14 @@ class GTKGui (_SketchGUI, gtk.DrawingArea):
                 strokesToErase.add(stk)
         log.debug("Found {} strokes out of {} to erase".format(len(strokesToErase), len(self.strokeList)))
         for stk in strokesToErase:
-            self.strokeQueue.put( (GTKGui.REMOVEOP, stk,) )
+            self.strokeQueue.put(("remove", stk,))
         return len(strokesToErase)
 
     def eraseStroke(self, stroke):
         """Remove a stroke from the board and our local lists"""
-        self.strokeList.remove(stroke)
-        self.boardProcThread.removeStroke(stroke, callback = self.boardChanged)
-        
+        log.debug("Removing stroke {}".format(stroke))
+        self.strokeQueue.put(("remove", stroke.ident))
+
 
     def onExpose(self, widget, e):
         """Respond to the window being uncovered"""
