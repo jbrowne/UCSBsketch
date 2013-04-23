@@ -2,7 +2,7 @@ from Utils import Logger
 from multiprocessing.queues import Queue
 import Image
 import commands
-import cv
+from cv2 import cv
 import multiprocessing
 import numpy
 import os
@@ -247,11 +247,11 @@ def saveimg(cv_img, name="", outdir="./temp/", filename=None):
     else:
         outfname = filename
     outfname = os.path.join(outdir, outfname)
-    if name != "":
-        cv_img = cv.CloneMat(cv_img)
-        cv.PutText(cv_img, name, (20, cv_img.rows - 20),
-                   cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, thickness=3), 0)
-        cv.PutText(cv_img, name, (20, cv_img.rows - 20),
-                   cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1), [255]*cv_img.channels)
+#    if name != "":
+#        cv_img = cv.CloneMat(cv_img)
+#        cv.PutText(cv_img, name, (20, cv_img.rows - 20),
+#                   cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1, thickness=3), 0)
+#        cv.PutText(cv_img, name, (20, cv_img.rows - 20),
+#                   cv.InitFont(cv.CV_FONT_HERSHEY_PLAIN, 1, 1), [255]*cv_img.channels)
     log.debug("Saving %s" % (outfname))
     cv.SaveImage(outfname, cv_img)

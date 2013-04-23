@@ -8,9 +8,10 @@ from Utils.ImageUtils import changeExposure
 from Utils.ImageUtils import getFillPoints
 from Utils.ImageUtils import initializeCapture
 from Utils.ImageUtils import max_allChannel
+from Utils.ImageUtils import saveimg
 from Utils.ImageUtils import showResized
 from Utils.ImageUtils import warpFrame
-import cv
+from cv2 import cv
 
 CAPSIZE00 = (2592, 1944)
 CAPSIZE01 = (2048, 1536)
@@ -67,6 +68,9 @@ def processImage(bgImage, newImage):
     if smoothKernel % 2 == 0:
         smoothKernel += 1
 
+    saveimg(newImage, name="Raw_Image")
+
+
     # A conservative estimate of the biggest a piece of ink can be
     inkMaxSize = 10
     # How dark is definitely too dark to be part of a whiteboard?
@@ -88,17 +92,20 @@ def processImage(bgImage, newImage):
     cv.Erode(obviousBackgroundMask,
              obviousBackgroundMask, iterations=inkMaxSize)
 
+    saveimg(obviousBackgroundMask, name="Obvious_background")
     # Get the raw diff from the background
     retImage = cv.CloneMat(bgImage)
     diffImage = cv.CloneMat(bgImage)
     cv.AbsDiff(bgImage, newImage, diffImage)
     diffImage = max_allChannel(diffImage)
+    saveimg(diffImage, name="Raw_Difference_Image")
 
     # Get the diff without "small" components (e.g. writing)
     # by performing a "close" on small components
     diffImageEroded = cv.CloneMat(diffImage)
     cv.Erode(diffImageEroded, diffImageEroded, iterations=erodeIterations)
     cv.Dilate(diffImageEroded, diffImageEroded, iterations=erodeIterations)
+    saveimg(diffImageEroded, name="Difference_Without_Ink")
 
     # Get the parts that were completely erased due to the opening,
     # and correspond to thin, ink-like differences
@@ -109,6 +116,7 @@ def processImage(bgImage, newImage):
     cv.Erode(inkDifferences, inkDifferences, iterations=2)
     cv.Threshold(inkDifferences, inkDifferences, inkDifferenceThresh,
                  255, cv.CV_THRESH_BINARY)
+    saveimg(inkDifferences, name="Ink_Differences")
 
     # Figure out if the thin change is due to something big covering
     # the writing, i.e. a large region of high difference surrounding it
@@ -116,14 +124,18 @@ def processImage(bgImage, newImage):
     cv.Smooth(diffImage, smoothDiff, smoothtype=cv.CV_MEDIAN,
               param1=smoothKernel, param2=smoothKernel)
 
+    saveimg(smoothDiff, name="Large_Blob_SmoothDiff")
     # Don't count ink-differences covered by large change components
     largeBlobMask = cv.CreateMat(diffImage.rows,
                                  diffImage.cols, diffImage.type)
     cv.AbsDiff(smoothDiff, diffImageEroded, largeBlobMask)
+    saveimg(largeBlobMask, name="Large_Blob_Afterdiff")
     cv.Max(largeBlobMask, smoothDiff, largeBlobMask)
+    saveimg(largeBlobMask, name="Large_Blob_Aftermax")
     cv.Threshold(largeBlobMask, largeBlobMask, largeBlobThresh, 255, cv.CV_THRESH_BINARY)
     cv.Dilate(largeBlobMask, largeBlobMask, iterations=largeBlobSmear)
     cv.Erode(largeBlobMask, largeBlobMask, iterations=largeBlobSmear - inkMaxSize)
+    saveimg(largeBlobMask, name="Large_Blob_Threshold")
 
     # Only consider the changes that are small, and not a result of occlusion
     # Remove from the blend mask anything connected to obvious foreground
@@ -135,6 +147,11 @@ def processImage(bgImage, newImage):
         cv.FloodFill(finalInkMask, pt, 0)
 
     cv.And(obviousBackgroundMask, finalInkMask, finalInkMask)
+    saveimg(finalInkMask, name="Final_Ink_Mask")
+    debugMat = cv.CloneMat(inkDifferences)
+    cv.Sub(inkDifferences, finalInkMask, debugMat)
+    cv.Add(debugMat, largeBlobMask, debugMat)
+    saveimg(debugMat, name="Final_Invalid_Mask")
 
     # Debug the masks
     if DEBUG:
@@ -147,22 +164,22 @@ def processImage(bgImage, newImage):
 
     debugMask = cv.CreateMat(newImage.rows, newImage.cols, cv.CV_8UC3)
 
-    redChannel = cv.CreateMat(newImage.rows, newImage.cols, cv.CV_8UC1)
-    cv.Set(redChannel, 255)
-    greenChannel = cv.CloneMat(redChannel)
-    blueChannel = cv.CloneMat(redChannel)
-
-
-    cv.AddWeighted(blueChannel, 1.0, obviousBackgroundMask, 1.0, -255 + 128, blueChannel)
-    cv.AddWeighted(greenChannel, 1.0, obviousBackgroundMask, 1.0, -255, greenChannel)
-    cv.AddWeighted(redChannel, 1.0, obviousBackgroundMask, 1.0, -255 + 100, redChannel)
-
-    cv.AddWeighted(blueChannel, 1.0, largeBlobMask, -1.0, 0.0, blueChannel)
-    cv.AddWeighted(greenChannel, 1.0, largeBlobMask, -1.0, 0.0, greenChannel)
-
-    cv.AddWeighted(redChannel, 1.0, finalInkMask, -1.0, 0.0, redChannel)
-
-    cv.Merge(blueChannel, greenChannel, redChannel, None, debugMask)
+#    redChannel = cv.CreateMat(newImage.rows, newImage.cols, cv.CV_8UC1)
+#    cv.Set(redChannel, 255)
+#    greenChannel = cv.CloneMat(redChannel)
+#    blueChannel = cv.CloneMat(redChannel)
+#
+#
+#    cv.AddWeighted(blueChannel, 1.0, obviousBackgroundMask, 1.0, -255 + 128, blueChannel)
+#    cv.AddWeighted(greenChannel, 1.0, obviousBackgroundMask, 1.0, -255, greenChannel)
+#    cv.AddWeighted(redChannel, 1.0, obviousBackgroundMask, 1.0, -255 + 100, redChannel)
+#
+#    cv.AddWeighted(blueChannel, 1.0, largeBlobMask, -1.0, 0.0, blueChannel)
+#    cv.AddWeighted(greenChannel, 1.0, largeBlobMask, -1.0, 0.0, greenChannel)
+#
+#    cv.AddWeighted(redChannel, 1.0, finalInkMask, -1.0, 0.0, redChannel)
+#
+#    cv.Merge(blueChannel, greenChannel, redChannel, None, debugMask)
 
     if DEBUG:
         showResized("Debug Mask", debugMask, 0.4)
@@ -172,19 +189,20 @@ def processImage(bgImage, newImage):
     # Actually integrate the changes
     cv.Copy(newImage, retImage, finalInkMask)
 
+    saveimg(retImage, name="FilteredBackground")
     return retImage, debugMask
 
 
 def main(args):
     global DEBUG
-    DEBUG = True
+    DEBUG = False
     if len(args) > 1:
         camNum = int(args[1])
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
     capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE00)
-    changeExposure(camNum, value=300)
+    changeExposure(camNum, value=500)
     dispScale = 0.4
     warpCorners = []
     targetCorners = [(0, 0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1])]

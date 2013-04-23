@@ -11,7 +11,7 @@ from Utils.ImageUtils import max_allChannel
 from Utils.ImageUtils import saveimg
 from Utils.ImageUtils import showResized
 from Utils.ImageUtils import warpFrame
-import cv
+from cv2 import cv
 
 CAPSIZE00 = (2592, 1944)
 CAPSIZE01 = (2048, 1536)
@@ -97,6 +97,8 @@ class BoardChangeWatcher(object):
         captureDiffMask = cv.CloneMat(self._fgFilter.getBackgroundImage())
         cv.AbsDiff(captureDiffMask, self._lastCaptureImage, captureDiffMask)
         captureDiffMask = max_allChannel(captureDiffMask)
+        saveimg(self._fgFilter.getBackgroundImage(), "Current_Board_Model")
+        saveimg(captureDiffMask, "Live_Difference")
         cv.Threshold(captureDiffMask, captureDiffMask,
                      diffMaskThresh, 255, cv.CV_THRESH_BINARY)
         # Mask the information according to where the board is
@@ -131,6 +133,8 @@ class BoardChangeWatcher(object):
             cv.And(cumulativeDiff, self._boardMask, cumulativeDiff)
         else:
             logger.warn("Watching with no board area set!")
+
+        saveimg(cumulativeDiff, "Cumulative_Window_Difference")
 
         # The difference percentage is in terms of the size of
         #    the changed component from the background
@@ -183,18 +187,21 @@ class BoardChangeWatcher(object):
                      differenceThresh, 255, cv.CV_THRESH_TOZERO)
         cv.Smooth(darkerDiff, darkerDiff, smoothtype=cv.CV_MEDIAN)
 
+        saveimg(darkerDiff, name="Raw_Darker_Areas")
         # Get all the points that are lighter in the current capture,
         #    cleaned up slightly.
         cv.Sub(curBackground, self._lastCaptureImage, subtractedImage)
         cv.Threshold(max_allChannel(subtractedImage), lighterDiff,
                      differenceThresh, 255, cv.CV_THRESH_TOZERO)
         cv.Smooth(lighterDiff, lighterDiff, smoothtype=cv.CV_MEDIAN)
+        saveimg(lighterDiff, name="Raw_Lighter_Areas")
 
         # Light spots (projector augmented) in the previous image
         lightSpotMask_Prev = findLightSpots(self._lastCaptureImage)
-
+        saveimg(lightSpotMask_Prev, name="Light_Spots_Previous")
         # Light spots (projector augmented) in the current image
         lightSpotMask_Current = findLightSpots(curBackground)
+        saveimg(lightSpotMask_Current, name="Light_Spots_Current")
 
         # Filter out the spots that were projected before and are now darker
         cv.And(lightSpotMask_Prev, darkerDiff, darkerDiff)
@@ -220,6 +227,8 @@ class BoardChangeWatcher(object):
         # Dilate the differences to finish the "opening"
         cv.Dilate(darkerDiff, darkerDiff)
         cv.Dilate(lighterDiff, lighterDiff)
+        saveimg(darkerDiff, name="Darker_Diff_Edges_Filtered")
+        saveimg(lighterDiff, name="Lighter_Diff_Edges_Filtered")
 
         # Mask the information according to where the board is
         if self._boardMask is not None:
@@ -236,10 +245,8 @@ class BoardChangeWatcher(object):
         cv.Threshold(lighterDiff, lighterDiff, darkerDiffThreshold, 255,
                      cv.CV_THRESH_TOZERO)
         #Save debug images
-        saveimg(darkerDiff, name="Darker")
-        saveimg(lighterDiff, name="Lighter")
-        saveimg(lightSpotMask_Prev, "LightSpotPrev")
-        saveimg(lightSpotMask_Current, "LightSpotCurrent")
+        saveimg(darkerDiff, name="Darker_Final")
+        saveimg(lighterDiff, name="Lighter_Final")
 #       if DEBUG:
 #            showResized("Darker", darkerDiff, 0.25)
 #            showResized("Lighter", lighterDiff, 0.25)
@@ -277,17 +284,17 @@ def findLightSpots(image):
 
 def main(args):
     global DEBUG
-    DEBUG = True
+    DEBUG = False
     if len(args) > 1:
         camNum = int(args[1])
         print "Using cam %s" % (camNum,)
     else:
         camNum = 0
     capture, dims = initializeCapture(cam=camNum, dims=CAPSIZE01)
-    changeExposure(camNum, value=500)
+    changeExposure(camNum, value=400)
 
     dispScale = 0.5
-    warpCorners = []
+    warpCorners = [(392, 474), (1672, 190), (1814, 1462), (146, 1406)]
     targetCorners = [(0, 0), (dims[0], 0), (dims[0], dims[1]), (0, dims[1])]
 
     def onMouseClick(event, x, y, flags, param):
@@ -309,8 +316,8 @@ def main(args):
             if len(warpCorners) == 4 and bcWatcher._boardMask is None:
                 bcWatcher.setBoardCorners(warpCorners)
             bcWatcher.updateBoardImage(image)
-            showResized("FGFilter",
-                        bcWatcher._fgFilter.getBackgroundImage(), 0.2)
+#            showResized("FGFilter",
+#                        bcWatcher._fgFilter.getBackgroundImage(), 0.2)
 
             if bcWatcher.isCaptureReady:
                 (darker, lighter) = bcWatcher.captureBoardDifferences()
@@ -318,8 +325,8 @@ def main(args):
                 saveimg(lighter, "DebugNewErase")
                 saveimg(bcWatcher._fgFilter.getBackgroundImage(),
                         "DebugBG")
-                showResized("Darker", darker, 0.3)
-                showResized("Lighter", lighter, 0.3)
+#                showResized("Darker", darker, 0.3)
+#                showResized("Lighter", lighter, 0.3)
                 dispImage = bcWatcher.acceptCurrentImage()
 
             for corner in warpCorners:

@@ -25,7 +25,7 @@ from Utils.GeomUtils import getLinesIntersection
 from Utils.ImageUtils import saveimg
 import Image
 import StringIO
-import cv
+from cv2 import cv
 import datetime
 import math
 import os

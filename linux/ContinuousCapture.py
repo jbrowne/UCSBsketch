@@ -132,20 +132,21 @@ class BoardWatchProcess(multiprocessing.Process):
             bgMask = self.boardWatcher._fgFilter.latestMask
             debugFilterSurface.setImage(resizeImage(bgMask, scale=DEBUGBG_SCALE))
             # /DEBUG
-            if self.boardWatcher.isCaptureReady:
-                saveimg(rawImage, name="Raw Image")
-                saveimg(self.boardWatcher._fgFilter.getBackgroundImage(),
-                        name="BG_Image")
-                newInk, newErase = self.boardWatcher.captureBoardDifferences()
-                newInk = warpFrame(newInk, self.warpCorners,
-                                   self.targetCorners)
-                newInk = resizeImage(newInk, dims=GTKGUISIZE)
-                newErase = warpFrame(newErase, self.warpCorners,
-                                     self.targetCorners)
-                newErase = resizeImage(newErase, dims=GTKGUISIZE)
-                #saveimg(newInk, name="NewInk")
-                #saveimg(newErase, name="NewErase")
+            saveimg(rawImage, name="Raw_Image")
+            saveimg(self.boardWatcher._fgFilter.getBackgroundImage(),
+                    name="BG_Image")
+            newInk, newErase = self.boardWatcher.captureBoardDifferences()
+            newInk = warpFrame(newInk, self.warpCorners,
+                               self.targetCorners)
+            newInk = resizeImage(newInk, dims=GTKGUISIZE)
+            newErase = warpFrame(newErase, self.warpCorners,
+                                 self.targetCorners)
+            newErase = resizeImage(newErase, dims=GTKGUISIZE)
+            #saveimg(newInk, name="NewInk")
+            #saveimg(newErase, name="NewErase")
+            # /DEBUG
 
+            if self.boardWatcher.isCaptureReady:
                 acceptedImage = self.boardWatcher.acceptCurrentImage()
                 saveimg(acceptedImage, name="AcceptedImage")
                 framesSinceAccept = 0
